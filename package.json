@@ -1,7 +1,7 @@
 {
   "name": "@neurodevs/personomic",
   "version": "0.0.1",
-  "main": "build/index.js",
+  "main": "build/exports.js",
   "repository": "https://github.com/neurodevs/personomic.git",
   "scripts": {
     "build.ci": "yarn run build.tsc && yarn run build.resolve-paths && yarn run lint",

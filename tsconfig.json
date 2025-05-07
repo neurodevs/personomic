@@ -29,11 +29,7 @@
 		}
 	},
 	"include": [
-		"src/**/*.ts",
-		"src/**/*.tsx",
-		"src/.spruce/**/*",
-		"src/index.ts",
-		"src/index.tsx",
+		"src",
 	],
 	"exclude": [
 		"build",
