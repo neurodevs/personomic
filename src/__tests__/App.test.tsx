@@ -1,10 +1,10 @@
-import React from 'react'
 import AbstractSpruceTest, { test, assert } from '@sprucelabs/test-utils'
-import App  from '../ui/App'
+import React from 'react'
+import App from '../ui/App'
 
 export default class AppTest extends AbstractSpruceTest {
     private static element: React.ReactElement
-    
+
     protected static async beforeEach() {
         await super.beforeEach()
 
@@ -20,5 +20,3 @@ export default class AppTest extends AbstractSpruceTest {
         return <App />
     }
 }
-
-
