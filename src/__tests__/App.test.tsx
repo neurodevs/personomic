@@ -1,6 +1,6 @@
 import React from 'react'
 import AbstractSpruceTest, { test, assert } from '@sprucelabs/test-utils'
-import App  from '../App'
+import App  from '../ui/App'
 
 export default class AppTest extends AbstractSpruceTest {
     private static element: React.ReactElement
