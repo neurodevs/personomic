@@ -1,8 +1,23 @@
 {
   "name": "@neurodevs/personomic",
   "version": "0.0.1",
-  "main": "build/exports.js",
-  "repository": "https://github.com/neurodevs/personomic.git",
+  "description": "A platform for individualized precision neuroinformatics and biosignal experiments",
+  "keywords": [
+    "nodejs",
+    "typescript",
+    "tdd"
+  ],
+  "license": "MIT",
+  "author": "Eric Yates <hello@ericthecurious.com>",
+  "homepage": "https://github.com/neurodevs/personomic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neurodevs/personomic.git"
+  },
+  "bugs": {
+    "url": "https://github.com/neurodevs/personomic/issues"
+  },
+  "main": "build/index.js",
   "scripts": {
     "build.ci": "yarn run build.tsc && yarn run build.resolve-paths && yarn run lint",
     "build.dev": "yarn run build.tsc --sourceMap ; yarn run resolve-paths.lint",
@@ -25,6 +40,10 @@
     "watch.rebuild": "yarn run clean.all && yarn install && yarn run watch.build.dev",
     "watch.tsc": "tsc -w"
   },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
   "devDependencies": {
     "@sprucelabs/jest-json-reporter": "^8.0.599",
     "@sprucelabs/resolve-path-aliases": "^2.0.540",
@@ -42,10 +61,6 @@
     "ts-node": "^10.9.2",
     "tsc-watch": "^6.2.1",
     "typescript": "^5.8.3"
-  },
-  "description": "A platform for individualized precision neuroinformatics and biosignal experiments",
-  "skill": {
-    "namespace": "personomic"
   },
   "jest": {
     "testRunner": "jest-circus/runner",
@@ -65,8 +80,7 @@
       "^#spruce/(.*)$": "<rootDir>/build/.spruce/$1"
     }
   },
-  "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+  "skill": {
+    "namespace": "personomic"
   }
 }
