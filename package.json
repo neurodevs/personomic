@@ -45,6 +45,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@neurodevs/generate-id": "^1.0.0",
     "@sprucelabs/jest-json-reporter": "^8.0.599",
     "@sprucelabs/resolve-path-aliases": "^2.0.540",
     "@sprucelabs/test": "^9.0.79",
