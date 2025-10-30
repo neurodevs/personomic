@@ -1,38 +1,31 @@
 {
 	"compilerOptions": {
-        "jsx": "react",
-		"skipLibCheck": true,
-		"module": "commonjs",
-		"esModuleInterop": true,
-		"target": "ES2020",
-		"lib": [
-			"DOM",
-			"ES2022"
-		],
-		"declaration": true,
-		"noImplicitAny": true,
-		"allowJs": true,
-		"forceConsistentCasingInFileNames": true,
-		"noImplicitReturns": true,
-		"strict": true,
-		"noUnusedLocals": true,
-		"resolveJsonModule": true,
-		"moduleResolution": "node",
-		"sourceMap": false,
-		"outDir": "build",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"target": "ES2022",
+		"lib": ["ES2022", "DOM"],
+		"types": ["node"],
+		"jsx": "react-jsx",
 		"baseUrl": "src",
-		"experimentalDecorators": true,
-		"paths": {
-			"#spruce/*": [
-				".spruce/*"
-			]
-		}
+		"outDir": "build",
+		"sourceMap": false,
+		"strict": true,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": true,
+		"forceConsistentCasingInFileNames": true,
+		"declaration": true,
+		"skipLibCheck": true,
+		"esModuleInterop": true,
+		"moduleDetection": "force",
+		"allowJs": true,
+		"resolveJsonModule": true,
+		"experimentalDecorators": true
 	},
 	"include": [
-		"src",
-	],
-	"exclude": [
-		"build",
-		"esm"
+		"./src/*.ts",
+		"./src/**/*.ts",
+		"./src/*.tsx",
+		"./src/**/*.tsx"
 	]
 }

@@ -1,8 +1,9 @@
-import AbstractSpruceTest, { test, assert } from '@sprucelabs/test-utils'
+import AbstractModuleTest, { test, assert } from '@neurodevs/node-tdd'
 import React from 'react'
-import App from '../ui/App'
 
-export default class AppTest extends AbstractSpruceTest {
+import App from '../ui/App.js'
+
+export default class AppTest extends AbstractModuleTest {
     private static element: React.ReactElement
 
     protected static async beforeEach() {
