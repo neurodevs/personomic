@@ -1,9 +1,10 @@
-import AbstractModuleTest, { test, assert } from '@neurodevs/node-tdd'
+import { test, assert } from '@neurodevs/node-tdd'
 import React from 'react'
 
-import App from '../ui/App.js'
+import App from '../App.js'
+import AbstractPackageTest from './AbstractPackageTest.js'
 
-export default class AppTest extends AbstractModuleTest {
+export default class AppTest extends AbstractPackageTest {
     private static element: React.ReactElement
 
     protected static async beforeEach() {
