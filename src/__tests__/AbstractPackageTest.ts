@@ -1,3 +1,3 @@
-import AbstractModuleTest from "@neurodevs/node-tdd";
+import AbstractModuleTest from '@neurodevs/node-tdd'
 
 export default class AbstractPackageTest extends AbstractModuleTest {}
