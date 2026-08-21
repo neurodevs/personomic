@@ -48,7 +48,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@neurodevs/eslint-config-ndx": "2.0.0",
+    "@neurodevs/eslint-config-ndx": "2.0.1",
     "@neurodevs/generate-id": "^1.1.2",
     "@neurodevs/node-tdd": "^1.1.2",
     "@neurodevs/prettier-config-ndx": "^1.0.2",
