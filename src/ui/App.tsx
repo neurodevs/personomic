@@ -1,7 +1,7 @@
 import React from 'react'
 import { Text, View } from 'react-native'
 
-import { StreamMonitor } from '@neurodevs/react-biosensors'
+import StreamMonitor from './components/StreamMonitor'
 
 const App: React.FC = () => {
     return (

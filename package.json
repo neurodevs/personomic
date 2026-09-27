@@ -41,7 +41,6 @@
     "watch.test": "jest --watch"
   },
   "dependencies": {
-    "@neurodevs/react-biosensors": "^0.1.1",
     "expo": "~57.0.13",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",

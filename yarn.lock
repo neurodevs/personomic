@@ -1920,15 +1920,6 @@
   resolved "https://registry.yarnpkg.com/@neurodevs/prettier-config-ndx/-/prettier-config-ndx-1.0.2.tgz#3fda0e9b2c2e0802c515b7009c805cd057462339"
   integrity sha512-HIiKieIwZDuDObj8CSDBkKZs79Ts1u+KS1iA2G92Dwt2KjnbV6jdkqFwadl+OD27Jl/wKA6lw7O72zVBC+DkIg==
 
-"@neurodevs/react-biosensors@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.yarnpkg.com/@neurodevs/react-biosensors/-/react-biosensors-0.1.1.tgz#81e6779c9c1ef25b21a26f08f61afc61963eb12a"
-  integrity sha512-ucf+p1FiBHB6e9DQhJkluenatDRAzwoBlGEc/bWFenJqr6c/7sngOfwrrWpeyhDX/SmlKl+pw6vjajTHLis5qw==
-  dependencies:
-    react "^19.2.4"
-    react-dom "^19.2.4"
-    ws "^8.19.0"
-
 "@neurodevs/terminal-kit@^1.44.4":
   version "1.44.4"
   resolved "https://registry.yarnpkg.com/@neurodevs/terminal-kit/-/terminal-kit-1.44.4.tgz#22b1fb1a76cfb622bf1257db3e9ca7f677d28c38"
@@ -7705,13 +7696,6 @@ react-dom@19.2.3:
   dependencies:
     scheduler "^0.27.0"
 
-react-dom@^19.2.4:
-  version "19.3.0"
-  resolved "https://registry.yarnpkg.com/react-dom/-/react-dom-19.3.0.tgz#a0ff19161d7f4e9be5469a07278b0c06e00f9001"
-  integrity sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==
-  dependencies:
-    scheduler "^0.28.0"
-
 react-is@^16.13.1:
   version "16.13.1"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.13.1.tgz#789729a4dc36de2999dc156dd6c1d9c18cea56a4"
@@ -7803,11 +7787,6 @@ react@19.2.3:
   version "19.2.3"
   resolved "https://registry.yarnpkg.com/react/-/react-19.2.3.tgz#d83e5e8e7a258cf6b4fe28640515f99b87cd19b8"
   integrity sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==
-
-react@^19.2.4:
-  version "19.3.0"
-  resolved "https://registry.yarnpkg.com/react/-/react-19.3.0.tgz#e20aa3a14687075ce863351b5878b0608c3fbfb2"
-  integrity sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==
 
 readdirp@^5.0.0:
   version "5.1.1"
@@ -9159,7 +9138,7 @@ ws@^7, ws@^7.5.10:
   resolved "https://registry.yarnpkg.com/ws/-/ws-7.5.13.tgz#12aa507eaca76c295c278b1aebf4698ab2c1845f"
   integrity sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==
 
-ws@^8.11.0, ws@^8.12.1, ws@^8.19.0:
+ws@^8.11.0, ws@^8.12.1:
   version "8.22.0"
   resolved "https://registry.yarnpkg.com/ws/-/ws-8.22.0.tgz#40f16e1d7588ac0575041be5c49b8eb261c28e73"
   integrity sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==

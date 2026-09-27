@@ -12,5 +12,3 @@ yarn ios        # prebuild output must exist; run `npx expo prebuild` first
 yarn android
 ```
 
-`StreamMonitor` from `@neurodevs/react-biosensors` renders DOM elements, so
-for now the app only renders correctly on the web.
