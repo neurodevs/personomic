@@ -1,17 +1,19 @@
+import React from 'react'
+import { Text, View } from 'react-native'
+
 import { StreamMonitor } from '@neurodevs/react-biosensors'
-import './App.css'
 
 const App: React.FC = () => {
     return (
-        <>
-            Hello Personomic!
+        <View>
+            <Text>Hello Personomic!</Text>
             <StreamMonitor
                 streams={[
                     { name: 'EEG', wssPort: 8080 },
                     { name: 'PPG', wssPort: 8081 },
                 ]}
             />
-        </>
+        </View>
     )
 }
 

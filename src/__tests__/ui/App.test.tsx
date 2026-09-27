@@ -1,8 +1,8 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import React from 'react'
 
-import App from '../App.js'
-import AbstractPackageTest from './AbstractPackageTest.js'
+import App from '../../ui/App'
+import AbstractPackageTest from '../AbstractPackageTest'
 
 export default class AppTest extends AbstractPackageTest {
     private static element: React.ReactElement
