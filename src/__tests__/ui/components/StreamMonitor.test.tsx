@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { render, screen } from '@testing-library/react-native'
+import { act, render, screen } from '@testing-library/react-native'
 
 import FakeStreamPlot, {
     passedStreamPlotProps,
@@ -123,6 +123,36 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             },
             'Did not reopen WebSockets on rerender with new ports!'
         )
+    }
+
+    @test()
+    protected static async passesSamplesFromEachStreamToItsPlot() {
+        await this.renderWithFakePlot()
+
+        const chunks = this.streams.map(() => ({
+            samples: [Math.random(), Math.random()],
+            timestamps: [Math.random(), Math.random()],
+        }))
+
+        await act(() => {
+            FakeWebSocket.instances.forEach((socket, i) =>
+                socket.receive(chunks[i])
+            )
+        })
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.samples
+            ),
+            chunks.map((chunk) => chunk.samples),
+            'Did not pass samples from each stream to its plot!'
+        )
+    }
+
+    private static latestPlotPropsFor(name: string) {
+        return passedStreamPlotProps
+            .filter((props) => props.name === name)
+            .at(-1)
     }
 
     private static urlsFor(streams: BiosignalStream[]) {
