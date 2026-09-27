@@ -74,6 +74,19 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async closesWebSocketForEachStreamOnUnmount() {
+        const { unmount } = await this.render()
+
+        await unmount()
+
+        assert.isEqual(
+            FakeWebSocket.numCallsToClose,
+            this.streams.length,
+            'Did not close a WebSocket for each stream on unmount!'
+        )
+    }
+
     private static setFakeWebSocket() {
         setWebSocketComponent(FakeWebSocket as any)
         FakeWebSocket.resetTestDouble()
@@ -90,6 +103,6 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static async render() {
-        await render(<StreamMonitor streams={this.streams} />)
+        return await render(<StreamMonitor streams={this.streams} />)
     }
 }

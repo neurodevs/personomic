@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { View } from 'react-native'
 
 import StreamPlot from './StreamPlot'
@@ -12,10 +12,14 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 ) => {
     const { streams } = props
 
-    streams.forEach((stream) => {
-        const url = `wss://localhost:${stream.wssPort}`
-        new WebSocketComponent(url)
-    })
+    useEffect(() => {
+        const sockets = streams.map(
+            (stream) =>
+                new WebSocketComponent(`wss://localhost:${stream.wssPort}`)
+        )
+
+        return () => sockets.forEach((socket) => socket.close())
+    }, [streams])
 
     return (
         <View testID="stream-monitor">
