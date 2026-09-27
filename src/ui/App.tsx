@@ -9,8 +9,8 @@ const App: React.FC = () => {
             <Text>Hello Personomic!</Text>
             <StreamMonitor
                 streams={[
-                    { name: 'EEG', wssPort: 8080 },
-                    { name: 'PPG', wssPort: 8081 },
+                    { name: 'EEG', wssPort: 8765 },
+                    { name: 'PPG', wssPort: 8766 },
                 ]}
             />
         </View>
