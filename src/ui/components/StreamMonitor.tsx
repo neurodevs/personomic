@@ -12,6 +12,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 ) => {
     const { streams } = props
 
+    const wssPorts = streams.map((stream) => stream.wssPort).join(',')
+
     useEffect(() => {
         const sockets = streams.map(
             (stream) =>
@@ -19,7 +21,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         )
 
         return () => sockets.forEach((socket) => socket.close())
-    }, [streams])
+    }, [wssPorts])
 
     return (
         <View testID="stream-monitor">

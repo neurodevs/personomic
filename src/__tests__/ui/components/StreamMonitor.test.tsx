@@ -87,6 +87,20 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async doesNotReopenWebSocketsOnRerenderWithSameStreams() {
+        const { rerender } = await this.render()
+
+        const sameStreams = this.streams.map((stream) => ({ ...stream }))
+        await rerender(<StreamMonitor streams={sameStreams} />)
+
+        assert.isEqual(
+            FakeWebSocket.callsToConstructor.length,
+            this.streams.length,
+            'Reopened WebSockets on rerender with same streams!'
+        )
+    }
+
     private static setFakeWebSocket() {
         setWebSocketComponent(FakeWebSocket as any)
         FakeWebSocket.resetTestDouble()
