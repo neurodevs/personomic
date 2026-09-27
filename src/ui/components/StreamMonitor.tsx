@@ -5,12 +5,13 @@ import StreamPlot from './StreamPlot'
 
 export interface StreamMonitorProps {
     streams: BiosignalStream[]
+    windowSeconds?: number
 }
 
 const StreamMonitor: React.FC<StreamMonitorProps> = (
     props: StreamMonitorProps
 ) => {
-    const { streams } = props
+    const { streams, windowSeconds = 10 } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
 
@@ -27,7 +28,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
                 setDataByPort((previous) => ({
                     ...previous,
-                    [stream.wssPort]: { samples, timestamps },
+                    [stream.wssPort]: appendToWindow(
+                        previous[stream.wssPort],
+                        { samples, timestamps },
+                        windowSeconds
+                    ),
                 }))
             }
 
@@ -51,6 +56,25 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function appendToWindow(
+    previous: StreamData | undefined,
+    data: StreamData,
+    windowSeconds: number
+): StreamData {
+    const channelCount = data.samples.length / data.timestamps.length
+
+    const samples = [...(previous?.samples ?? []), ...data.samples]
+    const timestamps = [...(previous?.timestamps ?? []), ...data.timestamps]
+
+    const cutoff = timestamps[timestamps.length - 1] - windowSeconds
+    const firstKept = timestamps.findIndex((timestamp) => timestamp >= cutoff)
+
+    return {
+        samples: samples.slice(firstKept * channelCount),
+        timestamps: timestamps.slice(firstKept),
+    }
+}
 
 export interface StreamData {
     samples: number[]

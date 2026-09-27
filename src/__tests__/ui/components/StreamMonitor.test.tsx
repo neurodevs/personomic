@@ -10,6 +10,7 @@ import StreamMonitor, {
     BiosignalStream,
     setStreamPlotComponent,
     setWebSocketComponent,
+    StreamData,
 } from '../../../ui/components/StreamMonitor'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
@@ -153,6 +154,63 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             chunks.map((chunk) => chunk.timestamps),
             'Did not pass timestamps from each stream to its plot!'
         )
+    }
+
+    @test()
+    protected static async accumulatesChunksWithinWindow() {
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({ samples: [1, 2], timestamps: [0, 1] })
+        await this.sendChunk({ samples: [3, 4], timestamps: [2, 3] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4], timestamps: [0, 1, 2, 3] },
+            'Did not accumulate chunks within window!'
+        )
+    }
+
+    @test()
+    protected static async dropsSamplesOlderThanTenSecondsByDefault() {
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({
+            samples: [1, 10, 2, 20, 3, 30],
+            timestamps: [0, 1, 2],
+        })
+
+        await this.sendChunk({ samples: [4, 40], timestamps: [12] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [3, 30, 4, 40], timestamps: [2, 12] },
+            'Did not drop samples older than 10 seconds!'
+        )
+    }
+
+    @test()
+    protected static async dropsSamplesOlderThanWindowSeconds() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor streams={this.streams} windowSeconds={1} />)
+
+        await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 1, 2] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [2, 3], timestamps: [1, 2] },
+            'Did not drop samples older than windowSeconds!'
+        )
+    }
+
+    private static async sendChunk(chunk: StreamData) {
+        await act(() => {
+            FakeWebSocket.instances[0].receive(chunk)
+        })
+    }
+
+    private static get latestFirstPlotChunk() {
+        const props = this.latestPlotPropsFor(this.streams[0].name)
+        return { samples: props?.samples, timestamps: props?.timestamps }
     }
 
     private static async sendChunkToEachStream() {
