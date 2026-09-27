@@ -12,9 +12,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 ) => {
     const { streams } = props
 
-    const [samplesByPort, setSamplesByPort] = useState<
-        Record<number, number[]>
-    >({})
+    const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -25,11 +23,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             )
 
             socket.onmessage = (event) => {
-                const { samples } = JSON.parse(event.data)
+                const { samples, timestamps } = JSON.parse(event.data)
 
-                setSamplesByPort((previous) => ({
+                setDataByPort((previous) => ({
                     ...previous,
-                    [stream.wssPort]: samples,
+                    [stream.wssPort]: { samples, timestamps },
                 }))
             }
 
@@ -45,7 +43,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 <StreamPlotComponent
                     key={stream.name}
                     {...stream}
-                    samples={samplesByPort[stream.wssPort]}
+                    {...dataByPort[stream.wssPort]}
                 />
             ))}
         </View>
@@ -53,6 +51,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+export interface StreamData {
+    samples: number[]
+    timestamps: number[]
+}
 
 export interface BiosignalStream {
     name: string

@@ -4,6 +4,7 @@ import { Text, View } from 'react-native'
 export interface StreamPlotProps {
     name: string
     samples?: number[]
+    timestamps?: number[]
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {

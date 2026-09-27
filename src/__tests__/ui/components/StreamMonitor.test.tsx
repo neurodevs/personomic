@@ -129,6 +129,33 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async passesSamplesFromEachStreamToItsPlot() {
         await this.renderWithFakePlot()
 
+        const chunks = await this.sendChunkToEachStream()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.samples
+            ),
+            chunks.map((chunk) => chunk.samples),
+            'Did not pass samples from each stream to its plot!'
+        )
+    }
+
+    @test()
+    protected static async passesTimestampsFromEachStreamToItsPlot() {
+        await this.renderWithFakePlot()
+
+        const chunks = await this.sendChunkToEachStream()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.timestamps
+            ),
+            chunks.map((chunk) => chunk.timestamps),
+            'Did not pass timestamps from each stream to its plot!'
+        )
+    }
+
+    private static async sendChunkToEachStream() {
         const chunks = this.streams.map(() => ({
             samples: [Math.random(), Math.random()],
             timestamps: [Math.random(), Math.random()],
@@ -140,13 +167,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             )
         })
 
-        assert.isEqualDeep(
-            this.streams.map(
-                (stream) => this.latestPlotPropsFor(stream.name)?.samples
-            ),
-            chunks.map((chunk) => chunk.samples),
-            'Did not pass samples from each stream to its plot!'
-        )
+        return chunks
     }
 
     private static latestPlotPropsFor(name: string) {
