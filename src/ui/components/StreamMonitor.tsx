@@ -17,7 +17,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     useEffect(() => {
         const sockets = streams.map(
             (stream) =>
-                new WebSocketComponent(`wss://localhost:${stream.wssPort}`)
+                new WebSocketComponent(`ws://localhost:${stream.wssPort}`)
         )
 
         return () => sockets.forEach((socket) => socket.close())

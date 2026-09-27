@@ -126,7 +126,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static urlsFor(streams: BiosignalStream[]) {
-        return streams.map((stream) => `wss://localhost:${stream.wssPort}`)
+        return streams.map((stream) => `ws://localhost:${stream.wssPort}`)
     }
 
     private static setFakeWebSocket() {
