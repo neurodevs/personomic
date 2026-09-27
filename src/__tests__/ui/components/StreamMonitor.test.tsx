@@ -7,6 +7,7 @@ import FakeStreamPlot, {
 } from '../../../testDoubles/StreamPlot/FakeStreamPlot'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
+    BiosignalStream,
     setStreamPlotComponent,
     setWebSocketComponent,
 } from '../../../ui/components/StreamMonitor'
@@ -52,13 +53,9 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async createsWebSocketClientForEachStream() {
         await this.render()
 
-        const expectedUrls = this.streams.map(
-            (stream) => `wss://localhost:${stream.wssPort}`
-        )
-
         assert.isEqualDeep(
             FakeWebSocket.callsToConstructor,
-            expectedUrls,
+            this.urlsFor(this.streams),
             'WebSocket clients not created with expected URLs!'
         )
     }
@@ -99,6 +96,37 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.streams.length,
             'Reopened WebSockets on rerender with same streams!'
         )
+    }
+
+    @test()
+    protected static async reopensWebSocketsOnRerenderWithNewPorts() {
+        const { rerender } = await this.render()
+
+        const newStreams = this.streams.map((stream) => ({
+            ...stream,
+            wssPort: stream.wssPort + 1,
+        }))
+
+        await rerender(<StreamMonitor streams={newStreams} />)
+
+        assert.isEqualDeep(
+            {
+                numCallsToClose: FakeWebSocket.numCallsToClose,
+                callsToConstructor: FakeWebSocket.callsToConstructor,
+            },
+            {
+                numCallsToClose: this.streams.length,
+                callsToConstructor: [
+                    ...this.urlsFor(this.streams),
+                    ...this.urlsFor(newStreams),
+                ],
+            },
+            'Did not reopen WebSockets on rerender with new ports!'
+        )
+    }
+
+    private static urlsFor(streams: BiosignalStream[]) {
+        return streams.map((stream) => `wss://localhost:${stream.wssPort}`)
     }
 
     private static setFakeWebSocket() {
