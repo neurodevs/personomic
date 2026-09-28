@@ -49,6 +49,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     key={stream.name}
                     {...stream}
                     {...dataByPort[stream.wssPort]}
+                    windowSeconds={windowSeconds}
                 />
             ))}
         </View>

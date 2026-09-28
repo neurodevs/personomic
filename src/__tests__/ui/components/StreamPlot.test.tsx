@@ -42,7 +42,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async scalesPointsToFitPlot() {
+    protected static async drawsLatestSampleAtRightEdge() {
         await this.render({
             samples: [0, 5, 10],
             timestamps: [4, 5, 6],
@@ -52,8 +52,53 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.pathForChannel(0),
+            'M80,50L90,25L100,0',
+            'Did not draw latest sample at right edge!'
+        )
+    }
+
+    @test()
+    protected static async scalesTimeByWindowSeconds() {
+        await this.render({
+            samples: [0, 5, 10],
+            timestamps: [4, 5, 6],
+            width: 100,
+            height: 50,
+            windowSeconds: 2,
+        })
+
+        assert.isEqual(
+            this.pathForChannel(0),
             'M0,50L50,25L100,0',
-            'Did not scale points to fit plot!'
+            'Did not scale time by windowSeconds!'
+        )
+    }
+
+    @test()
+    protected static async translatesLineLeftAsDataArrives() {
+        const size = { width: 100, height: 50 }
+
+        const { rerender } = await this.render({
+            samples: [0, 10],
+            timestamps: [0, 1],
+            ...size,
+        })
+
+        const before = this.pathForChannel(0)
+
+        await rerender(
+            <StreamPlot
+                name={this.plotName}
+                samples={[0, 10, 0]}
+                timestamps={[0, 1, 2]}
+                {...size}
+            />
+        )
+
+        assert.isEqualDeep(
+            { before, after: this.pathForChannel(0) },
+            { before: 'M90,50L100,0', after: 'M80,50L90,0L100,50' },
+            'Did not translate line left as data arrived!'
         )
     }
 
@@ -64,6 +109,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
             timestamps: [0, 1],
             width: 100,
             height: 50,
+            windowSeconds: 1,
         })
 
         assert.isEqual(
@@ -80,6 +126,6 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     private static async render(props?: Partial<StreamPlotProps>) {
-        await render(<StreamPlot name={this.plotName} {...props} />)
+        return await render(<StreamPlot name={this.plotName} {...props} />)
     }
 }

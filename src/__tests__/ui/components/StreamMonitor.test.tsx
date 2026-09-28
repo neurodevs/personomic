@@ -202,6 +202,18 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async passesWindowSecondsToEachPlot() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor streams={this.streams} windowSeconds={3} />)
+
+        assert.isEqualDeep(
+            passedStreamPlotProps.map((props) => props.windowSeconds),
+            this.streams.map(() => 3),
+            'Did not pass windowSeconds to each plot!'
+        )
+    }
+
     private static async sendChunk(chunk: StreamData) {
         await act(() => {
             FakeWebSocket.instances[0].receive(chunk)

@@ -8,6 +8,7 @@ export interface StreamPlotProps {
     timestamps?: number[]
     width?: number
     height?: number
+    windowSeconds?: number
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -17,19 +18,19 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         timestamps = [],
         width = 300,
         height = 100,
+        windowSeconds = 10,
     } = props
 
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
-    const firstTimestamp = timestamps[0]
-    const timeSpan = timestamps[timestamps.length - 1] - firstTimestamp
+    const latestTimestamp = timestamps[timestamps.length - 1]
 
     const min = Math.min(...samples)
     const valueSpan = Math.max(...samples) - min
 
     const toX = (timestamp: number) =>
-        timeSpan > 0 ? ((timestamp - firstTimestamp) / timeSpan) * width : 0
+        width - ((latestTimestamp - timestamp) / windowSeconds) * width
 
     const toY = (value: number) =>
         valueSpan > 0
