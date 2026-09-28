@@ -50,50 +50,89 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
 
         const socketsByPort: Record<number, WebSocket> = {}
-        const retryTimerIds = new Set<unknown>()
+        const disconnected = new Set<BiosignalStream>()
+        let numFailedRetries = 0
+        let retryTimerId: unknown
 
-        const connect = (stream: BiosignalStream, numFailedRetries = 0) => {
-            const socket = new WebSocketComponent(
-                `ws://localhost:${stream.wssPort}`
+        const scheduleRetry = () => {
+            if (isClosed || retryTimerId !== undefined) {
+                return
+            }
+
+            retryTimerId = retryTimer.set(
+                retryDisconnectedTogether,
+                retryDelayMsAfter(numFailedRetries)
+            )
+        }
+
+        const retryDisconnectedTogether = async () => {
+            retryTimerId = undefined
+
+            const streamsToRetry = [...disconnected]
+            disconnected.clear()
+
+            const results = await Promise.all(
+                streamsToRetry.map((stream) => connect(stream, true))
             )
 
-            socketsByPort[stream.wssPort] = socket
-
-            socket.onopen = () => {
-                numFailedRetries = 0
+            if (!results.some((isOpen) => isOpen)) {
+                numFailedRetries++
             }
 
-            socket.onclose = () => {
-                if (isClosed) {
-                    return
-                }
-
-                const id = retryTimer.set(() => {
-                    retryTimerIds.delete(id)
-                    connect(stream, numFailedRetries + 1)
-                }, retryDelayMsAfter(numFailedRetries))
-
-                retryTimerIds.add(id)
-            }
-
-            socket.onmessage = (event) => {
-                const { samples, timestamps } = JSON.parse(event.data)
-
-                pendingByPort[stream.wssPort] ??= []
-                pendingByPort[stream.wssPort].push({ samples, timestamps })
-
-                if (!isFrameScheduled) {
-                    isFrameScheduled = true
-                    scheduleFrame(renderPending)
-                }
+            if (disconnected.size > 0) {
+                scheduleRetry()
             }
         }
 
-        streams.forEach((stream) => connect(stream))
+        const connect = (stream: BiosignalStream, isRetry = false) =>
+            new Promise<boolean>((resolve) => {
+                const socket = new WebSocketComponent(
+                    `ws://localhost:${stream.wssPort}`
+                )
+
+                socketsByPort[stream.wssPort] = socket
+                let wasOpen = false
+
+                socket.onopen = () => {
+                    wasOpen = true
+                    numFailedRetries = 0
+                    resolve(true)
+                }
+
+                socket.onclose = () => {
+                    if (isClosed) {
+                        return
+                    }
+
+                    disconnected.add(stream)
+                    resolve(false)
+
+                    if (wasOpen || !isRetry) {
+                        scheduleRetry()
+                    }
+                }
+
+                socket.onmessage = (event) => {
+                    const { samples, timestamps } = JSON.parse(event.data)
+
+                    pendingByPort[stream.wssPort] ??= []
+                    pendingByPort[stream.wssPort].push({ samples, timestamps })
+
+                    if (!isFrameScheduled) {
+                        isFrameScheduled = true
+                        scheduleFrame(renderPending)
+                    }
+                }
+            })
+
+        streams.forEach((stream) => void connect(stream))
 
         return () => {
             isClosed = true
-            retryTimerIds.forEach((id) => retryTimer.clear(id))
+            if (retryTimerId !== undefined) {
+                retryTimer.clear(retryTimerId)
+            }
+
             Object.values(socketsByPort).forEach((socket) => socket.close())
         }
     }, [wssPorts])

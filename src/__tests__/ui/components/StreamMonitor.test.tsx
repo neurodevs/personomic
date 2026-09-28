@@ -256,7 +256,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async reconnectsOneSecondAfterUnexpectedClose() {
         await this.render()
 
-        FakeWebSocket.instances[0].dropConnection()
+        await this.dropConnection(FakeWebSocket.instances[0])
         FakeRetryTimer.runPending()
 
         assert.isEqualDeep(
@@ -279,7 +279,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async retriesEverySecondTenTimesThenEveryTenSeconds() {
         await this.render()
 
-        this.failToReconnect(12)
+        await this.failToReconnect(12)
 
         assert.isEqualDeep(
             FakeRetryTimer.delaysMs,
@@ -292,10 +292,11 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async retriesEverySecondAgainAfterReconnecting() {
         await this.render()
 
-        this.failToReconnect(11)
+        await this.failToReconnect(11)
 
-        this.latestSocketForFirstStream.open()
-        this.latestSocketForFirstStream.dropConnection()
+        FakeRetryTimer.runPending()
+        this.latestSocketFor(this.streams[0]).open()
+        await this.dropConnection(this.latestSocketFor(this.streams[0]))
 
         assert.isEqual(
             FakeRetryTimer.delaysMs.at(-1),
@@ -308,7 +309,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     protected static async doesNotReconnectAfterUnmount() {
         const { unmount } = await this.render()
 
-        FakeWebSocket.instances[0].dropConnection()
+        await this.dropConnection(FakeWebSocket.instances[0])
         await unmount()
 
         assert.isEqualDeep(
@@ -341,17 +342,80 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
-    private static failToReconnect(times: number) {
-        FakeWebSocket.instances[0].dropConnection()
+    @test()
+    protected static async retriesAllDisconnectedStreamsTogether() {
+        await this.render()
+
+        await this.dropConnection(...FakeWebSocket.instances)
+        FakeRetryTimer.runPending()
+
+        assert.isEqualDeep(
+            {
+                delaysMs: FakeRetryTimer.delaysMs,
+                callsToConstructor: FakeWebSocket.callsToConstructor,
+            },
+            {
+                delaysMs: [1000],
+                callsToConstructor: [
+                    ...this.urlsFor(this.streams),
+                    ...this.urlsFor(this.streams),
+                ],
+            },
+            'Did not retry all disconnected streams together!'
+        )
+    }
+
+    @test()
+    protected static async retriesEverySecondWhenAnyStreamReconnects() {
+        await this.render()
+
+        await this.failToReconnect(11, this.streams)
+
+        FakeRetryTimer.runPending()
+        this.latestSocketFor(this.streams[0]).open()
+        await this.dropConnection(this.latestSocketFor(this.streams[1]))
+
+        const numCallsBeforeRetry = FakeWebSocket.callsToConstructor.length
+        FakeRetryTimer.runPending()
+
+        assert.isEqualDeep(
+            {
+                delayMs: FakeRetryTimer.delaysMs.at(-1),
+                retried:
+                    FakeWebSocket.callsToConstructor.slice(numCallsBeforeRetry),
+            },
+            {
+                delayMs: 1000,
+                retried: this.urlsFor([this.streams[1]]),
+            },
+            'Did not retry every second when any stream reconnected!'
+        )
+    }
+
+    private static async failToReconnect(
+        times: number,
+        streams = [this.streams[0]]
+    ) {
+        await this.dropConnection(
+            ...streams.map((stream) => this.latestSocketFor(stream))
+        )
 
         for (let i = 1; i < times; i++) {
             FakeRetryTimer.runPending()
-            this.latestSocketForFirstStream.dropConnection()
+
+            await this.dropConnection(
+                ...streams.map((stream) => this.latestSocketFor(stream))
+            )
         }
     }
 
-    private static get latestSocketForFirstStream() {
-        const url = this.urlsFor([this.streams[0]])[0]
+    private static async dropConnection(...sockets: FakeWebSocket[]) {
+        sockets.forEach((socket) => socket.dropConnection())
+        await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+
+    private static latestSocketFor(stream: BiosignalStream) {
+        const url = this.urlsFor([stream])[0]
         const index = FakeWebSocket.callsToConstructor.lastIndexOf(url)
         return FakeWebSocket.instances[index]
     }
