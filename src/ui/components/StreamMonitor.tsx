@@ -18,6 +18,37 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
     useEffect(() => {
+        let pendingByPort: Record<number, StreamData[]> = {}
+        let isFrameScheduled = false
+        let isClosed = false
+
+        const renderPending = () => {
+            isFrameScheduled = false
+
+            if (isClosed) {
+                return
+            }
+
+            const batches = pendingByPort
+            pendingByPort = {}
+
+            setDataByPort((previous) => {
+                const next = { ...previous }
+
+                for (const [port, pending] of Object.entries(batches)) {
+                    for (const data of pending) {
+                        next[Number(port)] = appendToWindow(
+                            next[Number(port)],
+                            data,
+                            windowSeconds
+                        )
+                    }
+                }
+
+                return next
+            })
+        }
+
         const sockets = streams.map((stream) => {
             const socket = new WebSocketComponent(
                 `ws://localhost:${stream.wssPort}`
@@ -26,20 +57,22 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             socket.onmessage = (event) => {
                 const { samples, timestamps } = JSON.parse(event.data)
 
-                setDataByPort((previous) => ({
-                    ...previous,
-                    [stream.wssPort]: appendToWindow(
-                        previous[stream.wssPort],
-                        { samples, timestamps },
-                        windowSeconds
-                    ),
-                }))
+                pendingByPort[stream.wssPort] ??= []
+                pendingByPort[stream.wssPort].push({ samples, timestamps })
+
+                if (!isFrameScheduled) {
+                    isFrameScheduled = true
+                    scheduleFrame(renderPending)
+                }
             }
 
             return socket
         })
 
-        return () => sockets.forEach((socket) => socket.close())
+        return () => {
+            isClosed = true
+            sockets.forEach((socket) => socket.close())
+        }
     }, [wssPorts])
 
     return (
@@ -93,6 +126,14 @@ export let WebSocketComponent = WebSocket
 
 export function setWebSocketComponent(component: typeof WebSocket) {
     WebSocketComponent = component
+}
+
+export let scheduleFrame = (callback: () => void) => {
+    requestAnimationFrame(callback)
+}
+
+export function setFrameScheduler(scheduler: typeof scheduleFrame) {
+    scheduleFrame = scheduler
 }
 
 export let StreamPlotComponent = StreamPlot

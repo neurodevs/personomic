@@ -8,6 +8,7 @@ import FakeStreamPlot, {
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
     BiosignalStream,
+    setFrameScheduler,
     setStreamPlotComponent,
     setWebSocketComponent,
     StreamData,
@@ -24,6 +25,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await super.beforeEach()
 
         this.setFakeWebSocket()
+        setFrameScheduler((callback) => callback())
     }
 
     @test()
@@ -212,6 +214,43 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.streams.map(() => 3),
             'Did not pass windowSeconds to each plot!'
         )
+    }
+
+    @test()
+    protected static async rendersMessagesOncePerFrame() {
+        const frames: (() => void)[] = []
+        setFrameScheduler((callback) => frames.push(callback))
+
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({ samples: [1], timestamps: [0] })
+        await this.sendChunk({ samples: [2], timestamps: [1] })
+        await this.sendChunk({ samples: [3], timestamps: [2] })
+
+        const rendersBeforeFrame = this.plotRendersFor(this.streams[0].name)
+
+        await act(() => frames.forEach((frame) => frame()))
+
+        assert.isEqualDeep(
+            {
+                numFrames: frames.length,
+                newRenders:
+                    this.plotRendersFor(this.streams[0].name) -
+                    rendersBeforeFrame,
+                chunk: this.latestFirstPlotChunk,
+            },
+            {
+                numFrames: 1,
+                newRenders: 1,
+                chunk: { samples: [1, 2, 3], timestamps: [0, 1, 2] },
+            },
+            'Did not render messages once per frame!'
+        )
+    }
+
+    private static plotRendersFor(name: string) {
+        return passedStreamPlotProps.filter((props) => props.name === name)
+            .length
     }
 
     private static async sendChunk(chunk: StreamData) {

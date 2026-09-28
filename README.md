@@ -11,4 +11,3 @@ yarn web        # in a browser
 yarn ios        # prebuild output must exist; run `npx expo prebuild` first
 yarn android
 ```
-
