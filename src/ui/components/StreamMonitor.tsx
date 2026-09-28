@@ -14,23 +14,79 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const { streams, windowSeconds = 10 } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
+    const [arrivalsByPort, setArrivalsByPort] = useState<
+        Record<number, LatestArrival>
+    >({})
+    const [nowMs, setNowMs] = useState(0)
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
     useEffect(() => {
         let pendingByPort: Record<number, StreamData[]> = {}
+        const latestArrivalByPort: Record<number, LatestArrival> = {}
         let isFrameScheduled = false
         let isClosed = false
 
-        const renderPending = () => {
+        const scheduleNextFrame = () => {
+            if (!isFrameScheduled) {
+                isFrameScheduled = true
+                scheduleFrame(renderFrame)
+            }
+        }
+
+        const renderFrame = () => {
             isFrameScheduled = false
 
             if (isClosed) {
                 return
             }
 
+            const frameMs = clock()
             const batches = pendingByPort
             pendingByPort = {}
+
+            recordLatestArrivals(batches, frameMs)
+            renderBatches(batches)
+            setNowMs(frameMs)
+
+            if (isAnyDataStillOnScreen(frameMs)) {
+                scheduleNextFrame()
+            }
+        }
+
+        const recordLatestArrivals = (
+            batches: Record<number, StreamData[]>,
+            frameMs: number
+        ) => {
+            let hasNewArrivals = false
+
+            for (const [port, pending] of Object.entries(batches)) {
+                const timestamps = pending.flatMap((data) => data.timestamps)
+
+                if (timestamps.length > 0) {
+                    latestArrivalByPort[Number(port)] = {
+                        timestamp: timestamps[timestamps.length - 1],
+                        arrivedAtMs: frameMs,
+                    }
+                    hasNewArrivals = true
+                }
+            }
+
+            if (hasNewArrivals) {
+                setArrivalsByPort({ ...latestArrivalByPort })
+            }
+        }
+
+        const isAnyDataStillOnScreen = (frameMs: number) =>
+            Object.values(latestArrivalByPort).some(
+                (arrival) =>
+                    frameMs - arrival.arrivedAtMs <= windowSeconds * 1000
+            )
+
+        const renderBatches = (batches: Record<number, StreamData[]>) => {
+            if (Object.keys(batches).length === 0) {
+                return
+            }
 
             setDataByPort((previous) => {
                 const next = { ...previous }
@@ -118,10 +174,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     pendingByPort[stream.wssPort] ??= []
                     pendingByPort[stream.wssPort].push({ samples, timestamps })
 
-                    if (!isFrameScheduled) {
-                        isFrameScheduled = true
-                        scheduleFrame(renderPending)
-                    }
+                    scheduleNextFrame()
                 }
             })
 
@@ -145,6 +198,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     {...stream}
                     {...dataByPort[stream.wssPort]}
                     windowSeconds={windowSeconds}
+                    nowTimestamp={nowTimestampFor(
+                        arrivalsByPort[stream.wssPort],
+                        nowMs
+                    )}
                 />
             ))}
         </View>
@@ -152,6 +209,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function nowTimestampFor(arrival: LatestArrival | undefined, nowMs: number) {
+    return arrival
+        ? arrival.timestamp + (nowMs - arrival.arrivedAtMs) / 1000
+        : undefined
+}
 
 function retryDelayMsAfter(numFailedRetries: number) {
     return numFailedRetries < 10 ? 1000 : 10000
@@ -174,6 +237,11 @@ function appendToWindow(
         samples: samples.slice(firstKept * channelCount),
         timestamps: timestamps.slice(firstKept),
     }
+}
+
+interface LatestArrival {
+    timestamp: number
+    arrivedAtMs: number
 }
 
 export interface StreamData {
@@ -200,6 +268,12 @@ export let scheduleFrame = (callback: () => void) => {
 
 export function setFrameScheduler(scheduler: typeof scheduleFrame) {
     scheduleFrame = scheduler
+}
+
+export let clock = () => performance.now()
+
+export function setClock(nextClock: typeof clock) {
+    clock = nextClock
 }
 
 export let retryTimer: RetryTimer = {

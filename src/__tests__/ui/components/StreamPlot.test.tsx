@@ -103,6 +103,23 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async drawsRelativeToNowTimestamp() {
+        await this.render({
+            samples: [0, 10],
+            timestamps: [4, 5],
+            width: 100,
+            height: 50,
+            nowTimestamp: 7,
+        })
+
+        assert.isEqual(
+            this.pathForChannel(0),
+            'M70,50L80,0',
+            'Did not draw relative to nowTimestamp!'
+        )
+    }
+
+    @test()
     protected static async drawsFlatSignalThroughMiddle() {
         await this.render({
             samples: [7, 7],

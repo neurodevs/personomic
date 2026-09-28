@@ -5,10 +5,12 @@ import FakeStreamPlot, {
     passedStreamPlotProps,
     resetStreamPlotProps,
 } from '../../../testDoubles/StreamPlot/FakeStreamPlot'
+import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
 import FakeRetryTimer from '../../../testDoubles/RetryTimer/FakeRetryTimer'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
     BiosignalStream,
+    setClock,
     setFrameScheduler,
     setRetryTimer,
     setStreamPlotComponent,
@@ -18,6 +20,8 @@ import StreamMonitor, {
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class StreamMonitorTest extends AbstractPackageTest {
+    private static nowMs = 0
+
     private static readonly streams = [
         { name: this.generateId(), wssPort: 1234 },
         { name: this.generateId(), wssPort: 5678 },
@@ -27,7 +31,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await super.beforeEach()
 
         this.setFakeWebSocket()
-        setFrameScheduler((callback) => callback())
+        setFrameScheduler(FakeFrameScheduler.schedule)
+        FakeFrameScheduler.resetTestDouble()
+        this.nowMs = 0
+        setClock(() => this.nowMs)
         setRetryTimer(FakeRetryTimer)
         FakeRetryTimer.resetTestDouble()
     }
@@ -222,22 +229,20 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
     @test()
     protected static async rendersMessagesOncePerFrame() {
-        const frames: (() => void)[] = []
-        setFrameScheduler((callback) => frames.push(callback))
-
         await this.renderWithFakePlot()
 
-        await this.sendChunk({ samples: [1], timestamps: [0] })
-        await this.sendChunk({ samples: [2], timestamps: [1] })
-        await this.sendChunk({ samples: [3], timestamps: [2] })
+        this.receiveChunk({ samples: [1], timestamps: [0] })
+        this.receiveChunk({ samples: [2], timestamps: [1] })
+        this.receiveChunk({ samples: [3], timestamps: [2] })
 
+        const numFrames = FakeFrameScheduler.pending.length
         const rendersBeforeFrame = this.plotRendersFor(this.streams[0].name)
 
-        await act(() => frames.forEach((frame) => frame()))
+        await this.runFrame()
 
         assert.isEqualDeep(
             {
-                numFrames: frames.length,
+                numFrames,
                 newRenders:
                     this.plotRendersFor(this.streams[0].name) -
                     rendersBeforeFrame,
@@ -249,6 +254,46 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 chunk: { samples: [1, 2, 3], timestamps: [0, 1, 2] },
             },
             'Did not render messages once per frame!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsMovingWithoutNewData() {
+        await this.renderWithFakePlot()
+
+        this.nowMs = 1000
+        await this.sendChunk({ samples: [1], timestamps: [5] })
+
+        this.nowMs = 3000
+        await this.runFrame()
+
+        assert.isEqual(
+            this.latestPlotPropsFor(this.streams[0].name)?.nowTimestamp,
+            7,
+            'Did not keep plots moving without new data!'
+        )
+    }
+
+    @test()
+    protected static async stopsAnimatingOnceOldDataIsGone() {
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({ samples: [1], timestamps: [5] })
+
+        this.nowMs = 5000
+        await this.runFrame()
+        const framesWhileVisible = FakeFrameScheduler.pending.length
+
+        this.nowMs = 10001
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                framesWhileVisible,
+                framesAfterGone: FakeFrameScheduler.pending.length,
+            },
+            { framesWhileVisible: 1, framesAfterGone: 0 },
+            'Did not stop animating once old data was gone!'
         )
     }
 
@@ -426,9 +471,16 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static async sendChunk(chunk: StreamData) {
-        await act(() => {
-            FakeWebSocket.instances[0].receive(chunk)
-        })
+        this.receiveChunk(chunk)
+        await this.runFrame()
+    }
+
+    private static receiveChunk(chunk: StreamData) {
+        FakeWebSocket.instances[0].receive(chunk)
+    }
+
+    private static async runFrame() {
+        await act(() => FakeFrameScheduler.runFrame())
     }
 
     private static get latestFirstPlotChunk() {
@@ -442,11 +494,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             timestamps: [Math.random(), Math.random()],
         }))
 
-        await act(() => {
-            FakeWebSocket.instances.forEach((socket, i) =>
-                socket.receive(chunks[i])
-            )
-        })
+        FakeWebSocket.instances.forEach((socket, i) =>
+            socket.receive(chunks[i])
+        )
+        await this.runFrame()
 
         return chunks
     }
