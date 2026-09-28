@@ -41,7 +41,8 @@
   },
   "dependencies": {
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "uplot": "^1.6.32"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
@@ -74,6 +75,9 @@
     "testMatch": [
       "<rootDir>/src/__tests__/**/*.test.ts?(x)"
     ],
+    "moduleNameMapper": {
+      "^uplot$": "<rootDir>/src/testDoubles/UPlot/FakeUPlot.ts"
+    },
     "transformIgnorePatterns": [
       "node_modules/(?!(@neurodevs/.*|chalk|ansi-styles|lodash-es|deep-equal|variable-diff|ts-expect|generate-id))"
     ],

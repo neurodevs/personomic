@@ -1,11 +1,18 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { render, screen } from '@testing-library/react'
 
+import FakeUPlot from '../../../testDoubles/UPlot/FakeUPlot'
 import StreamPlot, { StreamPlotProps } from '../../../ui/components/StreamPlot'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class StreamPlotTest extends AbstractPackageTest {
     private static readonly plotName = this.generateId()
+
+    protected static async beforeEach() {
+        await super.beforeEach()
+
+        FakeUPlot.resetTestDouble()
+    }
 
     @test()
     protected static async rendersTopLevelView() {
@@ -28,121 +35,83 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async drawsLineForEachChannel() {
+    protected static async createsPlotWithSize() {
+        await this.render({ width: 100, height: 50 })
+
+        assert.isEqualDeep(
+            {
+                width: FakeUPlot.latest.options.width,
+                height: FakeUPlot.latest.options.height,
+            },
+            { width: 100, height: 50 },
+            'Did not create plot with size!'
+        )
+    }
+
+    @test()
+    protected static async plotsEachChannelAgainstTimestamps() {
         await this.render({
             samples: [1, 10, 2, 20, 3, 30],
             timestamps: [0, 1, 2],
         })
 
-        assert.isEqual(
-            screen.queryAllByTestId(/-channel-/).length,
-            2,
-            'Did not draw a line for each channel!'
+        assert.isEqualDeep(
+            {
+                numSeries: FakeUPlot.latest.options.series.length,
+                data: FakeUPlot.latest.data,
+            },
+            {
+                numSeries: 3,
+                data: [
+                    [0, 1, 2],
+                    [1, 2, 3],
+                    [10, 20, 30],
+                ],
+            },
+            'Did not plot each channel against timestamps!'
         )
     }
 
     @test()
-    protected static async drawsLatestSampleAtRightEdge() {
-        await this.render({
-            samples: [0, 5, 10],
-            timestamps: [4, 5, 6],
-            width: 100,
-            height: 50,
-        })
-
-        assert.isEqual(
-            this.pathForChannel(0),
-            'M80,50L90,25L100,0',
-            'Did not draw latest sample at right edge!'
-        )
-    }
-
-    @test()
-    protected static async scalesTimeByWindowSeconds() {
-        await this.render({
-            samples: [0, 5, 10],
-            timestamps: [4, 5, 6],
-            width: 100,
-            height: 50,
-            windowSeconds: 2,
-        })
-
-        assert.isEqual(
-            this.pathForChannel(0),
-            'M0,50L50,25L100,0',
-            'Did not scale time by windowSeconds!'
-        )
-    }
-
-    @test()
-    protected static async translatesLineLeftAsDataArrives() {
-        const size = { width: 100, height: 50 }
-
-        const { rerender } = await this.render({
-            samples: [0, 10],
-            timestamps: [0, 1],
-            ...size,
-        })
-
-        const before = this.pathForChannel(0)
-
-        await rerender(
-            <StreamPlot
-                name={this.plotName}
-                samples={[0, 10, 0]}
-                timestamps={[0, 1, 2]}
-                {...size}
-            />
-        )
+    protected static async showsWindowEndingAtLatestSample() {
+        await this.render({ samples: [0, 5, 10], timestamps: [4, 5, 6] })
 
         assert.isEqualDeep(
-            { before, after: this.pathForChannel(0) },
-            { before: 'M90,50L100,0', after: 'M80,50L90,0L100,50' },
-            'Did not translate line left as data arrived!'
+            FakeUPlot.latest.scales.x,
+            { min: -4, max: 6 },
+            'Did not show window ending at latest sample!'
         )
     }
 
     @test()
-    protected static async drawsRelativeToNowTimestamp() {
+    protected static async showsWindowEndingAtNowTimestamp() {
         await this.render({
             samples: [0, 10],
             timestamps: [4, 5],
-            width: 100,
-            height: 50,
+            windowSeconds: 2,
             nowTimestamp: 7,
         })
 
-        assert.isEqual(
-            this.pathForChannel(0),
-            'M70,50L80,0',
-            'Did not draw relative to nowTimestamp!'
+        assert.isEqualDeep(
+            FakeUPlot.latest.scales.x,
+            { min: 5, max: 7 },
+            'Did not show window ending at nowTimestamp!'
         )
     }
 
     @test()
-    protected static async drawsFlatSignalThroughMiddle() {
-        await this.render({
-            samples: [7, 7],
-            timestamps: [0, 1],
-            width: 100,
-            height: 50,
-            windowSeconds: 1,
-        })
+    protected static async destroysPlotOnUnmount() {
+        const { unmount } = await this.render()
 
-        assert.isEqual(
-            this.pathForChannel(0),
-            'M0,25L100,25',
-            'Did not draw flat signal through middle!'
+        unmount()
+
+        assert.isTrue(
+            FakeUPlot.latest.isDestroyed,
+            'Did not destroy plot on unmount!'
         )
     }
 
-    private static pathForChannel(channel: number) {
-        return screen
-            .getByTestId(`stream-plot-${this.plotName}-channel-${channel}`)
-            .getAttribute('d')
-    }
-
     private static async render(props?: Partial<StreamPlotProps>) {
-        return await render(<StreamPlot name={this.plotName} {...props} />)
+        return render(<StreamPlot name={this.plotName} {...props} />)
     }
 }

@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
+import uPlot from 'uplot'
 
 export interface StreamPlotProps {
     name: string
@@ -21,47 +22,82 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         nowTimestamp,
     } = props
 
+    const containerRef = useRef<HTMLDivElement>(null)
+    const plotRef = useRef<uPlot | null>(null)
+
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
-    const rightEdgeTimestamp = nowTimestamp ?? timestamps[timestamps.length - 1]
+    useEffect(() => {
+        const plot = new uPlot(
+            optionsFor(channelCount, width, height),
+            toAlignedData([], [], channelCount),
+            containerRef.current!
+        )
 
-    const min = Math.min(...samples)
-    const valueSpan = Math.max(...samples) - min
+        plotRef.current = plot
 
-    const toX = (timestamp: number) =>
-        width - ((rightEdgeTimestamp - timestamp) / windowSeconds) * width
+        return () => plot.destroy()
+    }, [channelCount, width, height])
 
-    const toY = (value: number) =>
-        valueSpan > 0
-            ? height - ((value - min) / valueSpan) * height
-            : height / 2
+    useEffect(() => {
+        const plot = plotRef.current!
+        const rightEdgeTimestamp =
+            nowTimestamp ?? timestamps[timestamps.length - 1]
 
-    const pathForChannel = (channel: number) =>
-        timestamps
-            .map(
-                (timestamp, i) =>
-                    `${toX(timestamp)},${toY(samples[i * channelCount + channel])}`
-            )
-            .map((point, i) => `${i === 0 ? 'M' : 'L'}${point}`)
-            .join('')
+        plot.batch(() => {
+            plot.setData(toAlignedData(samples, timestamps, channelCount))
+
+            if (rightEdgeTimestamp !== undefined) {
+                plot.setScale('x', {
+                    min: rightEdgeTimestamp - windowSeconds,
+                    max: rightEdgeTimestamp,
+                })
+            }
+        })
+    }, [samples, timestamps, nowTimestamp, windowSeconds, channelCount])
 
     return (
         <div data-testid={`stream-plot-${name}`}>
             <span>{name}</span>
-            <svg width={width} height={height} display="block">
-                {Array.from({ length: channelCount }, (_, channel) => (
-                    <path
-                        key={channel}
-                        data-testid={`stream-plot-${name}-channel-${channel}`}
-                        d={pathForChannel(channel)}
-                        fill="none"
-                        stroke="black"
-                    />
-                ))}
-            </svg>
+            <div ref={containerRef} />
         </div>
     )
 }
 
 export default StreamPlot
+
+function optionsFor(
+    channelCount: number,
+    width: number,
+    height: number
+): uPlot.Options {
+    return {
+        width,
+        height,
+        legend: { show: false },
+        cursor: { show: false },
+        scales: { x: { time: false } },
+        axes: [{ show: false }, { show: false }],
+        series: [
+            {},
+            ...Array.from({ length: channelCount }, () => ({
+                stroke: 'black',
+                width: 1,
+            })),
+        ],
+    }
+}
+
+function toAlignedData(
+    samples: number[],
+    timestamps: number[],
+    channelCount: number
+): uPlot.AlignedData {
+    return [
+        timestamps,
+        ...Array.from({ length: channelCount }, (_, channel) =>
+            timestamps.map((_, i) => samples[i * channelCount + channel])
+        ),
+    ]
+}
