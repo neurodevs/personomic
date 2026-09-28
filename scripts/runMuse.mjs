@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 
-import { MuseDeviceController } from '@neurodevs/node-biosensors'
-import { LslWebSocketBridge } from '@neurodevs/node-lsl'
+import {
+    BiosensorWebSocketGateway,
+    MuseDeviceController,
+} from '@neurodevs/node-biosensors'
 
 const BLE_UUID =
     process.env.MUSE_BLE_UUID ?? 'CA6A61B7-B7A8-AF24-3C9E-04A6A5012554'
 
-const STREAMS = [
-    { name: 'EEG', sourceIdPrefix: 'muse-eeg', wssPort: 8765 },
-    { name: 'PPG', sourceIdPrefix: 'muse-ppg', wssPort: 8766 },
-]
+const LISTEN_PORT_START = 8765
 
 console.log(`Creating Muse S Gen 2 controller for ${BLE_UUID}...`)
 
@@ -19,8 +18,11 @@ const muse = await MuseDeviceController.Create({
     disableStreams: ['Gyroscope', 'Accelerometer'],
 })
 
-const bridges = await Promise.all(STREAMS.map(createBridge))
-await Promise.all(bridges.map((bridge) => bridge.activate()))
+const gateway = await BiosensorWebSocketGateway.Create([muse], {
+    listenPortStart: LISTEN_PORT_START,
+})
+
+gateway.open()
 
 console.log('Connecting...')
 await muse.connect()
@@ -28,26 +30,14 @@ await muse.connect()
 console.log('Starting streaming...')
 await muse.startStreaming()
 
-STREAMS.forEach(({ name, wssPort }) =>
-    console.log(`${name} on ws://localhost:${wssPort}`)
+muse.outlets.forEach((outlet, i) =>
+    console.log(`${outlet.type} on ws://localhost:${LISTEN_PORT_START + i}`)
 )
 console.log('Streaming. Run `yarn dev` to see it. Ctrl+C stops.')
 
 process.on('SIGINT', async () => {
     console.log('\nDisconnecting...')
     await muse.disconnect()
-    bridges.forEach((bridge) => bridge.deactivate())
+    gateway.close()
     process.exit(0)
 })
-
-function createBridge({ sourceIdPrefix, wssPort }) {
-    return LslWebSocketBridge.Create({
-        sourceId: museSourceId(sourceIdPrefix),
-        chunkSize: 1,
-        listenPort: wssPort,
-    })
-}
-
-function museSourceId(prefix) {
-    return `${prefix}-${BLE_UUID.slice(0, 6)}`
-}
