@@ -8,6 +8,7 @@ export default class FakeUPlot {
     public target: HTMLElement
     public scales: Record<string, uPlot.Scale> = {}
     public isDestroyed = false
+    public size?: { width: number; height: number }
 
     public constructor(
         options: uPlot.Options,
@@ -26,6 +27,10 @@ export default class FakeUPlot {
 
     public setScale(key: string, limits: uPlot.Scale) {
         this.scales[key] = limits
+    }
+
+    public setSize(size: { width: number; height: number }) {
+        this.size = size
     }
 
     public batch(callback: () => void) {

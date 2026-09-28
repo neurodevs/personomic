@@ -4,7 +4,7 @@ import StreamMonitor from './components/StreamMonitor'
 
 const App: React.FC = () => {
     return (
-        <div>
+        <div style={{ width: '80%', margin: '0 auto' }}>
             <span>Hello Personomic!</span>
             <StreamMonitor
                 streams={[

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import uPlot from 'uplot'
 
 export interface StreamPlotProps {
@@ -16,24 +16,42 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         name,
         samples = [],
         timestamps = [],
-        width = 300,
+        width,
         height = 60,
         windowSeconds = 10,
         nowTimestamp,
     } = props
 
+    const rootRef = useRef<HTMLDivElement>(null)
     const containerRefs = useRef<(HTMLDivElement | null)[]>([])
     const plotsRef = useRef<uPlot[]>([])
 
+    const [containerWidth, setContainerWidth] = useState(0)
+    const plotWidth = width ?? containerWidth
+
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
+
+    useEffect(() => {
+        if (width !== undefined) {
+            return
+        }
+
+        const observer = new ResizeObserverComponent(([entry]) =>
+            setContainerWidth(entry.contentRect.width)
+        )
+
+        observer.observe(rootRef.current!)
+
+        return () => observer.disconnect()
+    }, [width])
 
     useEffect(() => {
         const plots = Array.from(
             { length: channelCount },
             (_, channel) =>
                 new uPlot(
-                    optionsFor(width, height),
+                    optionsFor(plotWidth, height),
                     [[], []],
                     containerRefs.current[channel]!
                 )
@@ -42,7 +60,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [channelCount, width, height])
+    }, [channelCount])
+
+    useEffect(() => {
+        plotsRef.current.forEach((plot) =>
+            plot.setSize({ width: plotWidth, height })
+        )
+    }, [plotWidth, height, channelCount])
 
     useEffect(() => {
         const rightEdgeTimestamp =
@@ -71,7 +95,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     }, [samples, timestamps, nowTimestamp, windowSeconds, channelCount])
 
     return (
-        <div data-testid={`stream-plot-${name}`}>
+        <div ref={rootRef} data-testid={`stream-plot-${name}`}>
             <span>{name}</span>
             {Array.from({ length: channelCount }, (_, channel) => (
                 <div
@@ -86,6 +110,12 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 }
 
 export default StreamPlot
+
+export let ResizeObserverComponent = globalThis.ResizeObserver
+
+export function setResizeObserverComponent(component: typeof ResizeObserver) {
+    ResizeObserverComponent = component
+}
 
 function optionsFor(width: number, height: number): uPlot.Options {
     return {

@@ -1,6 +1,7 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 
+import FakeResizeObserver from '../../../testDoubles/ResizeObserver/FakeResizeObserver'
 import FakeUPlot from '../../../testDoubles/UPlot/FakeUPlot'
 import StreamPlot, { StreamPlotProps } from '../../../ui/components/StreamPlot'
 import AbstractPackageTest from '../../AbstractPackageTest'
@@ -134,6 +135,42 @@ export default class StreamPlotTest extends AbstractPackageTest {
             FakeUPlot.instances.map((plot) => plot.isDestroyed),
             [true, true],
             'Did not destroy plots on unmount!'
+        )
+    }
+
+    @test()
+    protected static async fillsContainerWidthByDefault() {
+        await this.render(this.twoChannels)
+
+        act(() => FakeResizeObserver.latest.resize(800))
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.size?.width),
+            [800, 800],
+            'Did not fill container width by default!'
+        )
+    }
+
+    @test()
+    protected static async usesGivenWidthInsteadOfContainerWidth() {
+        await this.render({ ...this.twoChannels, width: 100 })
+
+        assert.isEqual(
+            FakeResizeObserver.instances.length,
+            0,
+            'Observed container width despite a given width!'
+        )
+    }
+
+    @test()
+    protected static async stopsObservingContainerOnUnmount() {
+        const { unmount } = await this.render(this.twoChannels)
+
+        unmount()
+
+        assert.isTrue(
+            FakeResizeObserver.latest.isDisconnected,
+            'Did not stop observing container on unmount!'
         )
     }
 
