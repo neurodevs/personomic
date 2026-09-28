@@ -9,6 +9,8 @@ export default class FakeWebSocket {
     public readyState: number = WebSocket.OPEN
     public id = generateId()
     public onmessage?: (event: { data: string }) => void
+    public onopen?: () => void
+    public onclose?: () => void
 
     public constructor(url?: string) {
         FakeWebSocket.callsToConstructor.push(url)
@@ -19,6 +21,16 @@ export default class FakeWebSocket {
         this.onmessage?.({ data: JSON.stringify(payload) })
     }
 
+    public open() {
+        this.readyState = WebSocket.OPEN
+        this.onopen?.()
+    }
+
+    public dropConnection() {
+        this.readyState = WebSocket.CLOSED
+        this.onclose?.()
+    }
+
     public send(data: unknown) {
         FakeWebSocket.callsToSend.push({ id: this.id, data })
     }
@@ -26,6 +38,7 @@ export default class FakeWebSocket {
     public close() {
         FakeWebSocket.numCallsToClose++
         this.readyState = WebSocket.CLOSED
+        this.onclose?.()
     }
 
     public static resetTestDouble() {

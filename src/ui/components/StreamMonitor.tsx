@@ -49,10 +49,32 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             })
         }
 
-        const sockets = streams.map((stream) => {
+        const socketsByPort: Record<number, WebSocket> = {}
+        const retryTimerIds = new Set<unknown>()
+
+        const connect = (stream: BiosignalStream, numFailedRetries = 0) => {
             const socket = new WebSocketComponent(
                 `ws://localhost:${stream.wssPort}`
             )
+
+            socketsByPort[stream.wssPort] = socket
+
+            socket.onopen = () => {
+                numFailedRetries = 0
+            }
+
+            socket.onclose = () => {
+                if (isClosed) {
+                    return
+                }
+
+                const id = retryTimer.set(() => {
+                    retryTimerIds.delete(id)
+                    connect(stream, numFailedRetries + 1)
+                }, retryDelayMsAfter(numFailedRetries))
+
+                retryTimerIds.add(id)
+            }
 
             socket.onmessage = (event) => {
                 const { samples, timestamps } = JSON.parse(event.data)
@@ -65,13 +87,14 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     scheduleFrame(renderPending)
                 }
             }
+        }
 
-            return socket
-        })
+        streams.forEach((stream) => connect(stream))
 
         return () => {
             isClosed = true
-            sockets.forEach((socket) => socket.close())
+            retryTimerIds.forEach((id) => retryTimer.clear(id))
+            Object.values(socketsByPort).forEach((socket) => socket.close())
         }
     }, [wssPorts])
 
@@ -90,6 +113,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function retryDelayMsAfter(numFailedRetries: number) {
+    return numFailedRetries < 10 ? 1000 : 10000
+}
 
 function appendToWindow(
     previous: StreamData | undefined,
@@ -134,6 +161,20 @@ export let scheduleFrame = (callback: () => void) => {
 
 export function setFrameScheduler(scheduler: typeof scheduleFrame) {
     scheduleFrame = scheduler
+}
+
+export let retryTimer: RetryTimer = {
+    set: (callback, delayMs) => setTimeout(callback, delayMs),
+    clear: (id) => clearTimeout(id),
+}
+
+export function setRetryTimer(timer: RetryTimer) {
+    retryTimer = timer
+}
+
+export interface RetryTimer {
+    set(callback: () => void, delayMs: number): unknown
+    clear(id: any): void
 }
 
 export let StreamPlotComponent = StreamPlot

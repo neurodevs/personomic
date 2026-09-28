@@ -5,10 +5,12 @@ import FakeStreamPlot, {
     passedStreamPlotProps,
     resetStreamPlotProps,
 } from '../../../testDoubles/StreamPlot/FakeStreamPlot'
+import FakeRetryTimer from '../../../testDoubles/RetryTimer/FakeRetryTimer'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
     BiosignalStream,
     setFrameScheduler,
+    setRetryTimer,
     setStreamPlotComponent,
     setWebSocketComponent,
     StreamData,
@@ -26,6 +28,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         this.setFakeWebSocket()
         setFrameScheduler((callback) => callback())
+        setRetryTimer(FakeRetryTimer)
+        FakeRetryTimer.resetTestDouble()
     }
 
     @test()
@@ -246,6 +250,110 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             },
             'Did not render messages once per frame!'
         )
+    }
+
+    @test()
+    protected static async reconnectsOneSecondAfterUnexpectedClose() {
+        await this.render()
+
+        FakeWebSocket.instances[0].dropConnection()
+        FakeRetryTimer.runPending()
+
+        assert.isEqualDeep(
+            {
+                delaysMs: FakeRetryTimer.delaysMs,
+                callsToConstructor: FakeWebSocket.callsToConstructor,
+            },
+            {
+                delaysMs: [1000],
+                callsToConstructor: [
+                    ...this.urlsFor(this.streams),
+                    ...this.urlsFor([this.streams[0]]),
+                ],
+            },
+            'Did not reconnect one second after unexpected close!'
+        )
+    }
+
+    @test()
+    protected static async retriesEverySecondTenTimesThenEveryTenSeconds() {
+        await this.render()
+
+        this.failToReconnect(12)
+
+        assert.isEqualDeep(
+            FakeRetryTimer.delaysMs,
+            [...Array(10).fill(1000), 10000, 10000],
+            'Did not retry every second ten times then every ten seconds!'
+        )
+    }
+
+    @test()
+    protected static async retriesEverySecondAgainAfterReconnecting() {
+        await this.render()
+
+        this.failToReconnect(11)
+
+        this.latestSocketForFirstStream.open()
+        this.latestSocketForFirstStream.dropConnection()
+
+        assert.isEqual(
+            FakeRetryTimer.delaysMs.at(-1),
+            1000,
+            'Did not retry every second again after reconnecting!'
+        )
+    }
+
+    @test()
+    protected static async doesNotReconnectAfterUnmount() {
+        const { unmount } = await this.render()
+
+        FakeWebSocket.instances[0].dropConnection()
+        await unmount()
+
+        assert.isEqualDeep(
+            {
+                pending: FakeRetryTimer.pending.length,
+                delaysMs: FakeRetryTimer.delaysMs,
+            },
+            { pending: 0, delaysMs: [1000] },
+            'Reconnected after unmount!'
+        )
+    }
+
+    @test()
+    protected static async doesNotReconnectAfterPortsChange() {
+        const { rerender } = await this.render()
+
+        await rerender(
+            <StreamMonitor
+                streams={this.streams.map((stream) => ({
+                    ...stream,
+                    wssPort: stream.wssPort + 1,
+                }))}
+            />
+        )
+
+        assert.isEqual(
+            FakeRetryTimer.delaysMs.length,
+            0,
+            'Reconnected after ports changed!'
+        )
+    }
+
+    private static failToReconnect(times: number) {
+        FakeWebSocket.instances[0].dropConnection()
+
+        for (let i = 1; i < times; i++) {
+            FakeRetryTimer.runPending()
+            this.latestSocketForFirstStream.dropConnection()
+        }
+    }
+
+    private static get latestSocketForFirstStream() {
+        const url = this.urlsFor([this.streams[0]])[0]
+        const index = FakeWebSocket.callsToConstructor.lastIndexOf(url)
+        return FakeWebSocket.instances[index]
     }
 
     private static plotRendersFor(name: string) {
