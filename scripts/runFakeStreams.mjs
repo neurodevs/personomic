@@ -77,11 +77,7 @@ async function startStream(stream) {
     }
 }
 
-const stops = []
-
-for (const stream of STREAMS) {
-    stops.push(await startStream(stream))
-}
+const stops = await Promise.all(STREAMS.map(startStream))
 
 console.log('Streaming. Run `yarn web` to see it. Ctrl+C stops.')
 
