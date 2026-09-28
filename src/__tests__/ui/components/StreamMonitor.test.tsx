@@ -275,6 +275,23 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async sharesTimeAxisAcrossStreams() {
+        await this.renderWithFakePlot()
+
+        this.receiveChunk({ samples: [1], timestamps: [10] })
+        this.receiveChunk({ samples: [2], timestamps: [8] }, 1)
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.nowTimestamp
+            ),
+            [10, 10],
+            'Did not share time axis across streams!'
+        )
+    }
+
+    @test()
     protected static async stopsAnimatingOnceOldDataIsGone() {
         await this.renderWithFakePlot()
 
@@ -475,8 +492,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await this.runFrame()
     }
 
-    private static receiveChunk(chunk: StreamData) {
-        FakeWebSocket.instances[0].receive(chunk)
+    private static receiveChunk(chunk: StreamData, streamIndex = 0) {
+        FakeWebSocket.instances[streamIndex].receive(chunk)
     }
 
     private static async runFrame() {

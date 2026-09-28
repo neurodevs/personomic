@@ -190,6 +190,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
     }, [wssPorts])
 
+    const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
+
     return (
         <View testID="stream-monitor">
             {streams.map((stream) => (
@@ -198,10 +200,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     {...stream}
                     {...dataByPort[stream.wssPort]}
                     windowSeconds={windowSeconds}
-                    nowTimestamp={nowTimestampFor(
-                        arrivalsByPort[stream.wssPort],
-                        nowMs
-                    )}
+                    nowTimestamp={sharedNowTimestamp}
                 />
             ))}
         </View>
@@ -210,10 +209,15 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
 export default StreamMonitor
 
-function nowTimestampFor(arrival: LatestArrival | undefined, nowMs: number) {
-    return arrival
-        ? arrival.timestamp + (nowMs - arrival.arrivedAtMs) / 1000
-        : undefined
+function sharedNowTimestampFor(
+    arrivalsByPort: Record<number, LatestArrival>,
+    nowMs: number
+) {
+    const estimates = Object.values(arrivalsByPort).map(
+        (arrival) => arrival.timestamp + (nowMs - arrival.arrivedAtMs) / 1000
+    )
+
+    return estimates.length > 0 ? Math.max(...estimates) : undefined
 }
 
 function retryDelayMsAfter(numFailedRetries: number) {
