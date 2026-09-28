@@ -35,50 +35,75 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async createsPlotWithSize() {
-        await this.render({ width: 100, height: 50 })
+    protected static async createsPlotForEachChannel() {
+        await this.render(this.twoChannels)
 
-        assert.isEqualDeep(
-            {
-                width: FakeUPlot.latest.options.width,
-                height: FakeUPlot.latest.options.height,
-            },
-            { width: 100, height: 50 },
-            'Did not create plot with size!'
+        assert.isEqual(
+            FakeUPlot.instances.length,
+            2,
+            'Did not create a plot for each channel!'
         )
     }
 
     @test()
-    protected static async plotsEachChannelAgainstTimestamps() {
-        await this.render({
-            samples: [1, 10, 2, 20, 3, 30],
-            timestamps: [0, 1, 2],
-        })
+    protected static async plotsEachChannelSeparately() {
+        await this.render(this.twoChannels)
 
         assert.isEqualDeep(
-            {
-                numSeries: FakeUPlot.latest.options.series.length,
-                data: FakeUPlot.latest.data,
-            },
-            {
-                numSeries: 3,
-                data: [
-                    [0, 1, 2],
-                    [1, 2, 3],
-                    [10, 20, 30],
-                ],
-            },
-            'Did not plot each channel against timestamps!'
+            FakeUPlot.instances.map((plot) => ({
+                numSeries: plot.options.series.length,
+                data: plot.data,
+            })),
+            [
+                {
+                    numSeries: 2,
+                    data: [
+                        [0, 1, 2],
+                        [1, 2, 3],
+                    ],
+                },
+                {
+                    numSeries: 2,
+                    data: [
+                        [0, 1, 2],
+                        [10, 20, 30],
+                    ],
+                },
+            ],
+            'Did not plot each channel separately!'
+        )
+    }
+
+    @test()
+    protected static async createsEachChannelPlotWithSize() {
+        await this.render({ ...this.twoChannels, width: 100, height: 50 })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => ({
+                width: plot.options.width,
+                height: plot.options.height,
+            })),
+            [
+                { width: 100, height: 50 },
+                { width: 100, height: 50 },
+            ],
+            'Did not create each channel plot with size!'
         )
     }
 
     @test()
     protected static async showsWindowEndingAtLatestSample() {
-        await this.render({ samples: [0, 5, 10], timestamps: [4, 5, 6] })
+        await this.render({
+            samples: [0, 0, 5, 5, 10, 10],
+            timestamps: [4, 5, 6],
+        })
 
         assert.isEqualDeep(
-            FakeUPlot.latest.scales.x,
-            { min: -4, max: 6 },
+            this.xScales,
+            [
+                { min: -4, max: 6 },
+                { min: -4, max: 6 },
+            ],
             'Did not show window ending at latest sample!'
         )
     }
@@ -93,22 +118,32 @@ export default class StreamPlotTest extends AbstractPackageTest {
         })
 
         assert.isEqualDeep(
-            FakeUPlot.latest.scales.x,
-            { min: 5, max: 7 },
+            this.xScales,
+            [{ min: 5, max: 7 }],
             'Did not show window ending at nowTimestamp!'
         )
     }
 
     @test()
-    protected static async destroysPlotOnUnmount() {
-        const { unmount } = await this.render()
+    protected static async destroysPlotsOnUnmount() {
+        const { unmount } = await this.render(this.twoChannels)
 
         unmount()
 
-        assert.isTrue(
-            FakeUPlot.latest.isDestroyed,
-            'Did not destroy plot on unmount!'
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.isDestroyed),
+            [true, true],
+            'Did not destroy plots on unmount!'
         )
+    }
+
+    private static readonly twoChannels = {
+        samples: [1, 10, 2, 20, 3, 30],
+        timestamps: [0, 1, 2],
+    }
+
+    private static get xScales() {
+        return FakeUPlot.instances.map((plot) => plot.scales.x)
     }
 
     private static async render(props?: Partial<StreamPlotProps>) {

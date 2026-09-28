@@ -17,61 +17,77 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         samples = [],
         timestamps = [],
         width = 300,
-        height = 100,
+        height = 60,
         windowSeconds = 10,
         nowTimestamp,
     } = props
 
-    const containerRef = useRef<HTMLDivElement>(null)
-    const plotRef = useRef<uPlot | null>(null)
+    const containerRefs = useRef<(HTMLDivElement | null)[]>([])
+    const plotsRef = useRef<uPlot[]>([])
 
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
     useEffect(() => {
-        const plot = new uPlot(
-            optionsFor(channelCount, width, height),
-            toAlignedData([], [], channelCount),
-            containerRef.current!
+        const plots = Array.from(
+            { length: channelCount },
+            (_, channel) =>
+                new uPlot(
+                    optionsFor(width, height),
+                    [[], []],
+                    containerRefs.current[channel]!
+                )
         )
 
-        plotRef.current = plot
+        plotsRef.current = plots
 
-        return () => plot.destroy()
+        return () => plots.forEach((plot) => plot.destroy())
     }, [channelCount, width, height])
 
     useEffect(() => {
-        const plot = plotRef.current!
         const rightEdgeTimestamp =
             nowTimestamp ?? timestamps[timestamps.length - 1]
 
-        plot.batch(() => {
-            plot.setData(toAlignedData(samples, timestamps, channelCount))
+        plotsRef.current.forEach((plot, channel) =>
+            plot.batch(() => {
+                plot.setData([
+                    timestamps,
+                    valuesForChannel(
+                        samples,
+                        timestamps,
+                        channelCount,
+                        channel
+                    ),
+                ])
 
-            if (rightEdgeTimestamp !== undefined) {
-                plot.setScale('x', {
-                    min: rightEdgeTimestamp - windowSeconds,
-                    max: rightEdgeTimestamp,
-                })
-            }
-        })
+                if (rightEdgeTimestamp !== undefined) {
+                    plot.setScale('x', {
+                        min: rightEdgeTimestamp - windowSeconds,
+                        max: rightEdgeTimestamp,
+                    })
+                }
+            })
+        )
     }, [samples, timestamps, nowTimestamp, windowSeconds, channelCount])
 
     return (
         <div data-testid={`stream-plot-${name}`}>
             <span>{name}</span>
-            <div ref={containerRef} />
+            {Array.from({ length: channelCount }, (_, channel) => (
+                <div
+                    key={channel}
+                    ref={(container) => {
+                        containerRefs.current[channel] = container
+                    }}
+                />
+            ))}
         </div>
     )
 }
 
 export default StreamPlot
 
-function optionsFor(
-    channelCount: number,
-    width: number,
-    height: number
-): uPlot.Options {
+function optionsFor(width: number, height: number): uPlot.Options {
     return {
         width,
         height,
@@ -79,25 +95,15 @@ function optionsFor(
         cursor: { show: false },
         scales: { x: { time: false } },
         axes: [{ show: false }, { show: false }],
-        series: [
-            {},
-            ...Array.from({ length: channelCount }, () => ({
-                stroke: 'black',
-                width: 1,
-            })),
-        ],
+        series: [{}, { stroke: 'black', width: 1 }],
     }
 }
 
-function toAlignedData(
+function valuesForChannel(
     samples: number[],
     timestamps: number[],
-    channelCount: number
-): uPlot.AlignedData {
-    return [
-        timestamps,
-        ...Array.from({ length: channelCount }, (_, channel) =>
-            timestamps.map((_, i) => samples[i * channelCount + channel])
-        ),
-    ]
+    channelCount: number,
+    channel: number
+) {
+    return timestamps.map((_, i) => samples[i * channelCount + channel])
 }
