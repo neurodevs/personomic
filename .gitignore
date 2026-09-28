@@ -144,27 +144,6 @@ vite.config.ts.timestamp-*
 
 build/
 
-# Expo
-.expo/
-web-build/
-expo-env.d.ts
-
-# Metro
-.metro-health-check*
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# generated native folders
-/ios
-/android
-
 # macOS
 .DS_Store
 *.pem

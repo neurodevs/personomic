@@ -1,5 +1,4 @@
 import React from 'react'
-import { View } from 'react-native'
 
 import { StreamMonitorProps } from '../../ui/components/StreamMonitor'
 
@@ -10,7 +9,7 @@ const FakeStreamMonitor: React.FC<StreamMonitorProps> = (
 ) => {
     lastStreamMonitorProps = props
 
-    return <View testID="fake-stream-monitor" />
+    return <div data-testid="fake-stream-monitor" />
 }
 
 export default FakeStreamMonitor

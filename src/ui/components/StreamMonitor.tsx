@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react'
-import { View } from 'react-native'
 
 import StreamPlot from './StreamPlot'
 
@@ -193,7 +192,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
     return (
-        <View testID="stream-monitor">
+        <div data-testid="stream-monitor">
             {streams.map((stream) => (
                 <StreamPlotComponent
                     key={stream.name}
@@ -203,7 +202,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     nowTimestamp={sharedNowTimestamp}
                 />
             ))}
-        </View>
+        </div>
     )
 }
 

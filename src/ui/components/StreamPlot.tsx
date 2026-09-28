@@ -1,6 +1,4 @@
 import React from 'react'
-import { Text, View } from 'react-native'
-import Svg, { Path } from 'react-native-svg'
 
 export interface StreamPlotProps {
     name: string
@@ -49,20 +47,20 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             .join('')
 
     return (
-        <View testID={`stream-plot-${name}`}>
-            <Text>{name}</Text>
-            <Svg width={width} height={height}>
+        <div data-testid={`stream-plot-${name}`}>
+            <span>{name}</span>
+            <svg width={width} height={height} display="block">
                 {Array.from({ length: channelCount }, (_, channel) => (
-                    <Path
+                    <path
                         key={channel}
-                        testID={`stream-plot-${name}-channel-${channel}`}
+                        data-testid={`stream-plot-${name}-channel-${channel}`}
                         d={pathForChannel(channel)}
                         fill="none"
                         stroke="black"
                     />
                 ))}
-            </Svg>
-        </View>
+            </svg>
+        </div>
     )
 }
 

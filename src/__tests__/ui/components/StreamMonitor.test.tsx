@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, render, screen } from '@testing-library/react-native'
+import { act, render, screen } from '@testing-library/react'
 
 import FakeStreamPlot, {
     passedStreamPlotProps,

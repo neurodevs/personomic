@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { render, screen } from '@testing-library/react-native'
+import { render, screen } from '@testing-library/react'
 
 import StreamPlot, { StreamPlotProps } from '../../../ui/components/StreamPlot'
 import AbstractPackageTest from '../../AbstractPackageTest'
@@ -137,9 +137,9 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     private static pathForChannel(channel: number) {
-        return screen.getByTestId(
-            `stream-plot-${this.plotName}-channel-${channel}`
-        ).props.d
+        return screen
+            .getByTestId(`stream-plot-${this.plotName}-channel-${channel}`)
+            .getAttribute('d')
     }
 
     private static async render(props?: Partial<StreamPlotProps>) {
