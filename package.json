@@ -35,10 +35,10 @@
     "run.fakeStreams": "node scripts/runFakeStreams.mjs",
     "run.muse": "node scripts/runMuse.mjs",
     "update.dependencies": "yarn run clean.dependencies && yarn",
-    "test": "jest",
-    "test.ci": "jest --ci --testTimeout=20000",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test.ci": "NODE_OPTIONS=--experimental-vm-modules jest --ci --testTimeout=20000",
     "watch.build.dev": "tsc --noEmit --watch",
-    "watch.test": "jest --watch"
+    "watch.test": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
   },
   "dependencies": {
     "react": "19.2.3",
@@ -74,6 +74,10 @@
   },
   "jest": {
     "testEnvironment": "jsdom",
+    "extensionsToTreatAsEsm": [
+      ".ts",
+      ".tsx"
+    ],
     "testRunner": "jest-circus/runner",
     "testMatch": [
       "<rootDir>/src/__tests__/**/*.test.ts?(x)"
