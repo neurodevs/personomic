@@ -11,10 +11,15 @@ const App: React.FC = () => {
             </header>
             <StreamMonitor
                 streams={[
-                    { name: 'EEG', wssPort: 8765 },
+                    {
+                        name: 'EEG',
+                        wssPort: 8765,
+                        channelNames: ['TP10', 'AF8', 'TP9', 'AF7', 'AUX'],
+                    },
                     {
                         name: 'PPG',
                         wssPort: 8766,
+                        channelNames: ['AMBIENT', 'INFRARED', 'RED'],
                         detectPeaks: { sampleRate: 64 },
                     },
                 ]}

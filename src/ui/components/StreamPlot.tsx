@@ -14,6 +14,7 @@ export interface StreamPlotProps {
     nowTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
+    channelNames?: string[]
 }
 
 export interface PeakDetectionOptions {
@@ -31,6 +32,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         nowTimestamp,
         color = '#8b93a7',
         detectPeaks,
+        channelNames,
     } = props
 
     const rootRef = useRef<HTMLDivElement>(null)
@@ -164,7 +166,9 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             {Array.from({ length: channelCount }, (_, channel) => (
                 <div key={channel} className="stream-plot__channel">
                     <span className="stream-plot__channel-label">
-                        CH {channel + 1}
+                        {channelNames?.length === channelCount
+                            ? channelNames[channel]
+                            : `CH ${channel + 1}`}
                     </span>
                     <div
                         ref={(container) => {

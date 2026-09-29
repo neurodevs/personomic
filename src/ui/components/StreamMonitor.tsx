@@ -276,6 +276,7 @@ export interface BiosignalStream {
     name: string
     wssPort: number
     detectPeaks?: PeakDetectionOptions
+    channelNames?: string[]
 }
 
 // Test doubles

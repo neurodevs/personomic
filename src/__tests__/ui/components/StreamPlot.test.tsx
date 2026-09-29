@@ -115,6 +115,26 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async labelsChannelsByName() {
+        await this.render({ ...this.twoChannels, channelNames: ['TP9', 'AF7'] })
+
+        assert.isTruthy(
+            screen.getByText('TP9') && screen.getByText('AF7'),
+            'Did not label channels by name!'
+        )
+    }
+
+    @test()
+    protected static async numbersChannelsWhenNamesDoNotMatchChannelCount() {
+        await this.render({ ...this.twoChannels, channelNames: ['PPG'] })
+
+        assert.isTruthy(
+            screen.getByText('CH 1') && screen.getByText('CH 2'),
+            'Did not number channels when names did not match!'
+        )
+    }
+
+    @test()
     protected static async showsWindowEndingAtLatestSample() {
         await this.render({
             samples: [0, 0, 5, 5, 10, 10],
@@ -195,7 +215,10 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     @test()
     protected static async createsPeakDetectorWithSampleRate() {
-        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64 },
+        })
 
         assert.isEqualDeep(
             FakePpgDetector.callsToConstructor,
@@ -206,7 +229,10 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     @test()
     protected static async detectsPeaksInEachChannel() {
-        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64 },
+        })
 
         assert.isEqualDeep(
             FakePpgDetector.callsToRun,
@@ -222,7 +248,10 @@ export default class StreamPlotTest extends AbstractPackageTest {
     protected static async marksDetectedPeaksOnTrace() {
         FakePpgDetector.peakTimestamps = [1]
 
-        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64 },
+        })
 
         assert.isEqualDeep(
             FakeUPlot.instances.map((plot) => plot.data[2]),

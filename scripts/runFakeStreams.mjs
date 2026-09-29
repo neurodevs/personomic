@@ -9,9 +9,9 @@ const STREAMS = [
         name: 'EEG',
         wssPort: 8765,
         sampleRateHz: 256,
-        channelNames: ['TP9', 'AF7', 'AF8', 'TP10'],
+        channelNames: ['TP10', 'AF8', 'TP9', 'AF7', 'AUX'],
         sample: (t) =>
-            [1, 2, 3, 4].map(
+            [1, 2, 3, 4, 5].map(
                 (amplitude, channel) =>
                     amplitude * Math.sin(2 * Math.PI * 10 * t) +
                     channel * 10 +
@@ -22,8 +22,12 @@ const STREAMS = [
         name: 'PPG',
         wssPort: 8766,
         sampleRateHz: 64,
-        channelNames: ['PPG'],
-        sample: (t) => [Math.pow(Math.sin(Math.PI * 1.2 * t), 8)],
+        channelNames: ['AMBIENT', 'INFRARED', 'RED'],
+        sample: (t) =>
+            [0.1, 1, 0.6].map(
+                (amplitude) =>
+                    amplitude * Math.pow(Math.sin(Math.PI * 1.2 * t), 8)
+            ),
     },
 ]
 
