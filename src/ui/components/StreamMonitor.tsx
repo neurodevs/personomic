@@ -240,10 +240,14 @@ function appendToWindow(
     data: StreamData,
     windowSeconds: number
 ): StreamData {
-    const channelCount = data.samples.length / data.timestamps.length
+    const channelCount = channelCountOf(data)
+    const kept =
+        previous && channelCountOf(previous) === channelCount
+            ? previous
+            : undefined
 
-    const samples = [...(previous?.samples ?? []), ...data.samples]
-    const timestamps = [...(previous?.timestamps ?? []), ...data.timestamps]
+    const samples = [...(kept?.samples ?? []), ...data.samples]
+    const timestamps = [...(kept?.timestamps ?? []), ...data.timestamps]
 
     const cutoff = timestamps[timestamps.length - 1] - windowSeconds
     const firstKept = timestamps.findIndex((timestamp) => timestamp >= cutoff)
@@ -252,6 +256,10 @@ function appendToWindow(
         samples: samples.slice(firstKept * channelCount),
         timestamps: timestamps.slice(firstKept),
     }
+}
+
+function channelCountOf(data: StreamData) {
+    return data.samples.length / data.timestamps.length
 }
 
 interface LatestArrival {

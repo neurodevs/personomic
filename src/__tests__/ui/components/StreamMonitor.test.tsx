@@ -217,6 +217,20 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async startsFreshWhenChannelCountChanges() {
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({ samples: [1, 2], timestamps: [0, 1] })
+        await this.sendChunk({ samples: [10, 20, 30, 40], timestamps: [2, 3] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [10, 20, 30, 40], timestamps: [2, 3] },
+            'Did not start fresh when channel count changed!'
+        )
+    }
+
+    @test()
     protected static async passesWindowSecondsToEachPlot() {
         this.setFakeStreamPlot()
         await render(<StreamMonitor streams={this.streams} windowSeconds={3} />)
