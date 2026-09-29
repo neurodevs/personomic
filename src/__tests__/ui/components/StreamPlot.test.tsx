@@ -313,6 +313,65 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async skipsPeakDetectionWithinInterval() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, detectPeaks: { sampleRate: 64 } },
+            {
+                samples: [1, 10, 2, 20, 3, 30, 4, 40],
+                timestamps: [0, 1, 2, 2.2],
+                detectPeaks: { sampleRate: 64 },
+            }
+        )
+
+        assert.isEqual(
+            FakePpgDetector.callsToRun.length,
+            2,
+            'Did not skip peak detection within interval!'
+        )
+    }
+
+    @test()
+    protected static async detectsPeaksAgainOnceIntervalPasses() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, detectPeaks: { sampleRate: 64 } },
+            {
+                samples: [1, 10, 2, 20, 3, 30, 4, 40],
+                timestamps: [0, 1, 2, 2.6],
+                detectPeaks: { sampleRate: 64 },
+            }
+        )
+
+        assert.isEqual(
+            FakePpgDetector.callsToRun.length,
+            4,
+            'Did not detect peaks again once interval passed!'
+        )
+    }
+
+    @test()
+    protected static async keepsPeakMarkersOnPeakSamplesBetweenDetections() {
+        FakePpgDetector.peakTimestamps = [1]
+
+        await this.renderThenUpdate(
+            { ...this.twoChannels, detectPeaks: { sampleRate: 64 } },
+            {
+                samples: [2, 20, 3, 30, 4, 40],
+                timestamps: [1, 2, 2.2],
+                detectPeaks: { sampleRate: 64 },
+            }
+        )
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.data[2]),
+            [
+                [2, null, null],
+                [20, null, null],
+            ],
+            'Did not keep peak markers on peak samples between detections!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 
@@ -372,5 +431,13 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static async render(props?: Partial<StreamPlotProps>) {
         return render(<StreamPlot name={this.plotName} {...props} />)
+    }
+
+    private static async renderThenUpdate(
+        props: Partial<StreamPlotProps>,
+        nextProps: Partial<StreamPlotProps>
+    ) {
+        const { rerender } = await this.render(props)
+        rerender(<StreamPlot name={this.plotName} {...nextProps} />)
     }
 }

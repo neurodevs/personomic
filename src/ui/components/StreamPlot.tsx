@@ -70,15 +70,37 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         [samples, timestamps, channelCount]
     )
 
-    const peakMarkersByChannel = useMemo(
+    const peakDetectionTick = Math.floor(
+        timestamps[timestamps.length - 1] / peakDetectionIntervalSeconds
+    )
+
+    const peakTimestampsByChannel = useMemo(
         () =>
             peakDetector &&
             valuesByChannel.map((values, channel) =>
                 (peakChannels?.includes(labelFor(channel)) ?? true)
-                    ? peakMarkersFor(peakDetector, values, timestamps)
-                    : values.map(() => null)
+                    ? peakTimestampsFor(peakDetector, values, timestamps)
+                    : new Set<number>()
             ),
-        [peakDetector, valuesByChannel, peakChannels, channelNames]
+        [
+            peakDetector,
+            peakDetectionTick,
+            channelCount,
+            peakChannels,
+            channelNames,
+        ]
+    )
+
+    const peakMarkersByChannel = useMemo(
+        () =>
+            peakTimestampsByChannel?.map((peakTimestamps, channel) =>
+                timestamps.map((timestamp, i) =>
+                    peakTimestamps.has(timestamp)
+                        ? valuesByChannel[channel][i]
+                        : null
+                )
+            ),
+        [peakTimestampsByChannel, valuesByChannel]
     )
 
     const hasPeakMarkers = peakDetector !== undefined
@@ -198,6 +220,8 @@ export function setResizeObserverComponent(component: typeof ResizeObserver) {
 
 type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
 
+const peakDetectionIntervalSeconds = 0.5
+
 function optionsFor(
     width: number,
     height: number,
@@ -263,21 +287,17 @@ function verticalLinesAtPeaks(
     return { stroke: lines }
 }
 
-function peakMarkersFor(
+function peakTimestampsFor(
     detector: PpgDetector,
     values: number[],
     timestamps: number[]
 ) {
     if (values.length < 2) {
-        return values.map(() => null)
+        return new Set<number>()
     }
 
     const { peaks } = detector.run(values, timestamps)
-    const peakTimestamps = new Set(peaks.map((peak) => peak.timestamp))
-
-    return timestamps.map((timestamp, i) =>
-        peakTimestamps.has(timestamp) ? values[i] : null
-    )
+    return new Set(peaks.map((peak) => peak.timestamp))
 }
 
 function fadingGlowFor(plot: uPlot, hexColor: string) {
