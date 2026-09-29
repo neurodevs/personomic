@@ -192,11 +192,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
     return (
-        <div data-testid="stream-monitor">
-            {streams.map((stream) => (
+        <div className="stream-monitor" data-testid="stream-monitor">
+            {streams.map((stream, index) => (
                 <StreamPlotComponent
                     key={stream.name}
                     {...stream}
+                    color={streamColors[index]}
                     {...dataByPort[stream.wssPort]}
                     windowSeconds={windowSeconds}
                     nowTimestamp={sharedNowTimestamp}
@@ -207,6 +208,17 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+export const streamColors = [
+    '#3987e5',
+    '#d95926',
+    '#199e70',
+    '#c98500',
+    '#d55181',
+    '#008300',
+    '#9085e9',
+    '#e66767',
+] as const
 
 function sharedNowTimestampFor(
     arrivalsByPort: Record<number, LatestArrival>,

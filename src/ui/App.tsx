@@ -4,15 +4,18 @@ import StreamMonitor from './components/StreamMonitor'
 
 const App: React.FC = () => {
     return (
-        <div style={{ width: '80%', margin: '0 auto' }}>
-            <span>Hello Personomic!</span>
+        <main className="app">
+            <header className="app__header">
+                <span className="app__wordmark">Personomic</span>
+                <span className="app__tagline">Live biosignal monitor</span>
+            </header>
             <StreamMonitor
                 streams={[
                     { name: 'EEG', wssPort: 8765 },
                     { name: 'PPG', wssPort: 8766 },
                 ]}
             />
-        </div>
+        </main>
     )
 }
 

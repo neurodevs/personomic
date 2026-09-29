@@ -16,6 +16,7 @@ import StreamMonitor, {
     setStreamPlotComponent,
     setWebSocketComponent,
     StreamData,
+    streamColors,
 } from '../../../ui/components/StreamMonitor'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
@@ -224,6 +225,22 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             passedStreamPlotProps.map((props) => props.windowSeconds),
             this.streams.map(() => 3),
             'Did not pass windowSeconds to each plot!'
+        )
+    }
+
+    @test()
+    protected static async givesEachStreamItsOwnColor() {
+        this.setFakeStreamPlot()
+        await this.render()
+
+        const colors = this.streams.map(
+            (stream) => this.latestPlotPropsFor(stream.name)?.color
+        )
+
+        assert.isEqualDeep(
+            colors,
+            [...streamColors.slice(0, this.streams.length)],
+            'Did not give each stream its own color!'
         )
     }
 

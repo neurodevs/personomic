@@ -93,6 +93,27 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async drawsEachChannelInGivenColor() {
+        await this.render({ ...this.twoChannels, color: '#abcdef' })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.options.series[1].stroke),
+            ['#abcdef', '#abcdef'],
+            'Did not draw each channel in given color!'
+        )
+    }
+
+    @test()
+    protected static async labelsEachChannel() {
+        await this.render(this.twoChannels)
+
+        assert.isTruthy(
+            screen.getByText('CH 1') && screen.getByText('CH 2'),
+            'Did not label each channel!'
+        )
+    }
+
+    @test()
     protected static async showsWindowEndingAtLatestSample() {
         await this.render({
             samples: [0, 0, 5, 5, 10, 10],

@@ -9,6 +9,7 @@ export interface StreamPlotProps {
     height?: number
     windowSeconds?: number
     nowTimestamp?: number
+    color?: string
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -20,6 +21,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         height = 60,
         windowSeconds = 10,
         nowTimestamp,
+        color = '#8b93a7',
     } = props
 
     const rootRef = useRef<HTMLDivElement>(null)
@@ -51,7 +53,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             { length: channelCount },
             (_, channel) =>
                 new uPlot(
-                    optionsFor(plotWidth, height),
+                    optionsFor(plotWidth, height, color),
                     [[], []],
                     containerRefs.current[channel]!
                 )
@@ -60,7 +62,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [channelCount])
+    }, [channelCount, color])
 
     useEffect(() => {
         plotsRef.current.forEach((plot) =>
@@ -99,18 +101,37 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         )
     }, [samples, timestamps, nowTimestamp, windowSeconds, channelCount])
 
+    const streamColorStyle: StreamColorStyle = { '--stream-color': color }
+
     return (
-        <div ref={rootRef} data-testid={`stream-plot-${name}`}>
-            <span>{name}</span>
+        <section
+            ref={rootRef}
+            className="stream-plot"
+            style={streamColorStyle}
+            data-testid={`stream-plot-${name}`}
+        >
+            <header className="stream-plot__header">
+                <span className="stream-plot__indicator" />
+                <span className="stream-plot__name">{name}</span>
+                <span className="stream-plot__meta">
+                    {channelCount > 0
+                        ? `${channelCount} ch · ${windowSeconds}s window`
+                        : 'Awaiting signal'}
+                </span>
+            </header>
             {Array.from({ length: channelCount }, (_, channel) => (
-                <div
-                    key={channel}
-                    ref={(container) => {
-                        containerRefs.current[channel] = container
-                    }}
-                />
+                <div key={channel} className="stream-plot__channel">
+                    <span className="stream-plot__channel-label">
+                        CH {channel + 1}
+                    </span>
+                    <div
+                        ref={(container) => {
+                            containerRefs.current[channel] = container
+                        }}
+                    />
+                </div>
             ))}
-        </div>
+        </section>
     )
 }
 
@@ -122,16 +143,41 @@ export function setResizeObserverComponent(component: typeof ResizeObserver) {
     ResizeObserverComponent = component
 }
 
-function optionsFor(width: number, height: number): uPlot.Options {
+type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
+
+function optionsFor(
+    width: number,
+    height: number,
+    color: string
+): uPlot.Options {
     return {
         width,
         height,
+        padding: [6, 0, 6, 0],
         legend: { show: false },
         cursor: { show: false },
         scales: { x: { time: false } },
         axes: [{ show: false }, { show: false }],
-        series: [{}, { stroke: 'black', width: 1 }],
+        series: [
+            {},
+            {
+                stroke: color,
+                width: 1.5,
+                fill: (plot) => fadingGlowFor(plot, color),
+                fillTo: (plot) => plot.scales.y.min ?? 0,
+            },
+        ],
     }
+}
+
+function fadingGlowFor(plot: uPlot, hexColor: string) {
+    const { top, height } = plot.bbox
+    const gradient = plot.ctx.createLinearGradient(0, top, 0, top + height)
+
+    gradient.addColorStop(0, `${hexColor}33`)
+    gradient.addColorStop(1, `${hexColor}00`)
+
+    return gradient
 }
 
 function valuesForChannel(
