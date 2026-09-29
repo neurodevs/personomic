@@ -72,16 +72,21 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         const rightEdgeTimestamp =
             nowTimestamp ?? timestamps[timestamps.length - 1]
 
+        const firstVisible = firstIndexAtOrAfter(
+            timestamps,
+            rightEdgeTimestamp - windowSeconds
+        )
+
         plotsRef.current.forEach((plot, channel) =>
             plot.batch(() => {
                 plot.setData([
-                    timestamps,
+                    timestamps.slice(firstVisible),
                     valuesForChannel(
                         samples,
                         timestamps,
                         channelCount,
                         channel
-                    ),
+                    ).slice(firstVisible),
                 ])
 
                 if (rightEdgeTimestamp !== undefined) {
@@ -136,4 +141,9 @@ function valuesForChannel(
     channel: number
 ) {
     return timestamps.map((_, i) => samples[i * channelCount + channel])
+}
+
+function firstIndexAtOrAfter(timestamps: number[], cutoff: number) {
+    const index = timestamps.findIndex((timestamp) => timestamp >= cutoff)
+    return index === -1 ? timestamps.length : index
 }

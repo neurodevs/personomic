@@ -126,6 +126,41 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async dropsSamplesThatScrolledOutOfWindow() {
+        await this.render({
+            samples: [1, 2, 3],
+            timestamps: [0, 1, 2],
+            windowSeconds: 10,
+            nowTimestamp: 11,
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [
+                [1, 2],
+                [2, 3],
+            ],
+            'Did not drop samples that scrolled out of window!'
+        )
+    }
+
+    @test()
+    protected static async clearsPlotOnceAllSamplesScrollOut() {
+        await this.render({
+            samples: [1, 2, 3],
+            timestamps: [0, 1, 2],
+            windowSeconds: 10,
+            nowTimestamp: 13,
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [[], []],
+            'Did not clear plot once all samples scrolled out!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 
