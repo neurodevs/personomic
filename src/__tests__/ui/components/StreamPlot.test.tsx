@@ -4,7 +4,10 @@ import { act, render, screen } from '@testing-library/react'
 import FakePpgDetector from '../../../testDoubles/PpgDetector/FakePpgDetector'
 import FakeResizeObserver from '../../../testDoubles/ResizeObserver/FakeResizeObserver'
 import FakeUPlot from '../../../testDoubles/UPlot/FakeUPlot'
-import StreamPlot, { StreamPlotProps } from '../../../ui/components/StreamPlot'
+import StreamPlot, {
+    Downsampling,
+    StreamPlotProps,
+} from '../../../ui/components/StreamPlot'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class StreamPlotTest extends AbstractPackageTest {
@@ -372,6 +375,100 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsEverySampleWithoutDownsampling() {
+        await this.render({ ...this.oneChannelMaxBeforeMin, width: 1 })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [
+                [0, 1, 2, 3, 4],
+                [5, 9, 3, 1, 4],
+            ],
+            'Did not keep every sample without downsampling!'
+        )
+    }
+
+    @test()
+    protected static async keepsMinAndMaxPerPixelWithLightDownsampling() {
+        await this.render({
+            ...this.oneChannelMaxBeforeMin,
+            width: 1,
+            downsampling: 'light',
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [
+                [1, 3],
+                [9, 1],
+            ],
+            'Did not keep min and max per pixel with light downsampling!'
+        )
+    }
+
+    @test('light keeps all six samples', 'light', [0, 1, 3, 4, 6, 8])
+    @test('medium keeps four samples', 'medium', [0, 4, 6, 8])
+    @test('heavy keeps two samples', 'heavy', [0, 8])
+    protected static async keepsFewerSamplesWithHeavierDownsampling(
+        downsampling: Downsampling,
+        expectedTimestamps: number[]
+    ) {
+        await this.render({
+            samples: [1, 2, 3, 4, 5, 6],
+            timestamps: [0, 1, 3, 4, 6, 8],
+            width: 4,
+            downsampling,
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data[0],
+            expectedTimestamps,
+            `Did not keep expected samples with ${downsampling} downsampling!`
+        )
+    }
+
+    @test()
+    protected static async alignsBucketsToAbsoluteTime() {
+        await this.render({
+            samples: [1, 2, 3, 4],
+            timestamps: [3, 4, 5, 6],
+            width: 2,
+            downsampling: 'light',
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [
+                [3, 4, 5, 6],
+                [1, 2, 3, 4],
+            ],
+            'Did not align buckets to absolute time!'
+        )
+    }
+
+    @test()
+    protected static async keepsPeakSamplesWhenDecimating() {
+        FakePpgDetector.peakTimestamps = [2]
+
+        await this.render({
+            ...this.oneChannelMaxBeforeMin,
+            width: 1,
+            downsampling: 'light',
+            detectPeaks: { sampleRate: 64 },
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data,
+            [
+                [1, 2, 3],
+                [9, 3, 1],
+                [null, 3, null],
+            ],
+            'Did not keep peak samples when decimating!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 
@@ -423,6 +520,11 @@ export default class StreamPlotTest extends AbstractPackageTest {
     private static readonly twoChannels = {
         samples: [1, 10, 2, 20, 3, 30],
         timestamps: [0, 1, 2],
+    }
+
+    private static readonly oneChannelMaxBeforeMin = {
+        samples: [5, 9, 3, 1, 4],
+        timestamps: [0, 1, 2, 3, 4],
     }
 
     private static get xScales() {

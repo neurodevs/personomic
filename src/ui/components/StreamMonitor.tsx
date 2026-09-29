@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react'
 
-import StreamPlot, { PeakDetectionOptions } from './StreamPlot'
+import StreamPlot, { Downsampling, PeakDetectionOptions } from './StreamPlot'
 
 export interface StreamMonitorProps {
     streams: BiosignalStream[]
     windowSeconds?: number
+    downsampling?: Downsampling
 }
 
 const StreamMonitor: React.FC<StreamMonitorProps> = (
     props: StreamMonitorProps
 ) => {
-    const { streams, windowSeconds = 10 } = props
+    const { streams, windowSeconds = 10, downsampling } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
     const [arrivalsByPort, setArrivalsByPort] = useState<
@@ -197,6 +198,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 <StreamPlotComponent
                     key={stream.name}
                     {...stream}
+                    downsampling={stream.downsampling ?? downsampling}
                     color={streamColors[index]}
                     {...dataByPort[stream.wssPort]}
                     windowSeconds={windowSeconds}
@@ -277,6 +279,7 @@ export interface BiosignalStream {
     wssPort: number
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
+    downsampling?: Downsampling
 }
 
 // Test doubles

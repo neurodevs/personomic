@@ -12,6 +12,14 @@ yarn build      # type check, then a production build in dist/
 yarn preview    # serve the production build
 ```
 
+Plots draw every sample by default. For smoother rendering, downsample to
+`light`, `medium`, or `heavy`. Heavier levels drop more samples, so the trace
+gets blockier:
+
+```
+VITE_DOWNSAMPLING=medium yarn dev
+```
+
 ## Fake streams
 
 ```

@@ -243,6 +243,39 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesDownsamplingToEachPlot() {
+        this.setFakeStreamPlot()
+        await render(
+            <StreamMonitor streams={this.streams} downsampling="heavy" />
+        )
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.downsampling
+            ),
+            this.streams.map(() => 'heavy' as const),
+            'Did not pass downsampling to each plot!'
+        )
+    }
+
+    @test()
+    protected static async streamDownsamplingOverridesMonitorValue() {
+        this.setFakeStreamPlot()
+        await render(
+            <StreamMonitor
+                streams={[{ ...this.streams[0], downsampling: 'light' }]}
+                downsampling="heavy"
+            />
+        )
+
+        assert.isEqual(
+            this.latestPlotPropsFor(this.streams[0].name)?.downsampling,
+            'light',
+            'Stream downsampling did not override monitor value!'
+        )
+    }
+
+    @test()
     protected static async givesEachStreamItsOwnColor() {
         this.setFakeStreamPlot()
         await this.render()

@@ -15,7 +15,10 @@ export interface StreamPlotProps {
     color?: string
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
+    downsampling?: Downsampling
 }
+
+export type Downsampling = 'light' | 'medium' | 'heavy'
 
 export interface PeakDetectionOptions {
     sampleRate: number
@@ -34,6 +37,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         color = '#8b93a7',
         detectPeaks,
         channelNames,
+        downsampling,
     } = props
 
     const rootRef = useRef<HTMLDivElement>(null)
@@ -150,14 +154,36 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             rightEdgeTimestamp - windowSeconds
         )
 
-        plotsRef.current.forEach((plot, channel) =>
+        const pointsPerPixel = downsampling
+            ? pointsPerPixelByDownsampling[downsampling]
+            : 0
+
+        const numBuckets = (plotWidth * pointsPerPixel) / 2
+        const bucketSeconds = windowSeconds / numBuckets
+
+        plotsRef.current.forEach((plot, channel) => {
+            const values = valuesByChannel[channel]
+            const peakMarkers = peakMarkersByChannel?.[channel]
+
+            const keptIndices =
+                numBuckets > 0
+                    ? decimatedIndices(
+                          { timestamps, values, peakMarkers },
+                          firstVisible,
+                          bucketSeconds
+                      )
+                    : undefined
+
+            const visible = <T,>(series: T[]) =>
+                keptIndices
+                    ? keptIndices.map((i) => series[i])
+                    : series.slice(firstVisible)
+
             plot.batch(() => {
                 plot.setData([
-                    timestamps.slice(firstVisible),
-                    valuesByChannel[channel].slice(firstVisible),
-                    ...(peakMarkersByChannel
-                        ? [peakMarkersByChannel[channel].slice(firstVisible)]
-                        : []),
+                    visible(timestamps),
+                    visible(values),
+                    ...(peakMarkers ? [visible(peakMarkers)] : []),
                 ])
 
                 if (rightEdgeTimestamp !== undefined) {
@@ -167,13 +193,15 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                     })
                 }
             })
-        )
+        })
     }, [
         timestamps,
         valuesByChannel,
         peakMarkersByChannel,
         nowTimestamp,
         windowSeconds,
+        plotWidth,
+        downsampling,
     ])
 
     const streamColorStyle: StreamColorStyle = { '--stream-color': color }
@@ -221,6 +249,18 @@ export function setResizeObserverComponent(component: typeof ResizeObserver) {
 type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
 
 const peakDetectionIntervalSeconds = 0.5
+
+const pointsPerPixelByDownsampling: Record<Downsampling, number> = {
+    light: 2,
+    medium: 1,
+    heavy: 0.5,
+}
+
+interface ChannelSeries {
+    timestamps: number[]
+    values: number[]
+    peakMarkers?: (number | null)[]
+}
 
 function optionsFor(
     width: number,
@@ -317,6 +357,62 @@ function valuesForChannel(
     channel: number
 ) {
     return timestamps.map((_, i) => samples[i * channelCount + channel])
+}
+
+function decimatedIndices(
+    series: ChannelSeries,
+    firstVisible: number,
+    bucketSeconds: number
+) {
+    const { timestamps, values, peakMarkers } = series
+    const kept: number[] = []
+
+    let bucket: number | undefined
+    let minIdx = 0
+    let maxIdx = 0
+    let peakIdxs: number[] = []
+
+    const keepBucket = () => {
+        if (peakIdxs.length === 0) {
+            kept.push(Math.min(minIdx, maxIdx))
+
+            if (minIdx !== maxIdx) {
+                kept.push(Math.max(minIdx, maxIdx))
+            }
+        } else {
+            const idxs = new Set([minIdx, maxIdx, ...peakIdxs])
+            kept.push(...[...idxs].sort((a, b) => a - b))
+        }
+    }
+
+    for (let i = firstVisible; i < timestamps.length; i++) {
+        const bucketOfSample = Math.floor(timestamps[i] / bucketSeconds)
+
+        if (bucketOfSample !== bucket) {
+            if (bucket !== undefined) {
+                keepBucket()
+            }
+
+            bucket = bucketOfSample
+            minIdx = i
+            maxIdx = i
+            peakIdxs = []
+        } else if (values[i] < values[minIdx]) {
+            minIdx = i
+        } else if (values[i] > values[maxIdx]) {
+            maxIdx = i
+        }
+
+        if (peakMarkers?.[i] != null) {
+            peakIdxs.push(i)
+        }
+    }
+
+    if (bucket !== undefined) {
+        keepBucket()
+    }
+
+    return kept
 }
 
 function firstIndexAtOrAfter(timestamps: number[], cutoff: number) {
