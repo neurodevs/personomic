@@ -1,6 +1,7 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { act, render, screen } from '@testing-library/react'
 
+import FakePpgDetector from '../../../testDoubles/PpgDetector/FakePpgDetector'
 import FakeResizeObserver from '../../../testDoubles/ResizeObserver/FakeResizeObserver'
 import FakeUPlot from '../../../testDoubles/UPlot/FakeUPlot'
 import StreamPlot, { StreamPlotProps } from '../../../ui/components/StreamPlot'
@@ -178,6 +179,58 @@ export default class StreamPlotTest extends AbstractPackageTest {
             FakeUPlot.latest.data,
             [[], []],
             'Did not clear plot once all samples scrolled out!'
+        )
+    }
+
+    @test()
+    protected static async doesNotDetectPeaksByDefault() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            FakePpgDetector.callsToConstructor.length,
+            0,
+            'Created a peak detector without being asked to!'
+        )
+    }
+
+    @test()
+    protected static async createsPeakDetectorWithSampleRate() {
+        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+
+        assert.isEqualDeep(
+            FakePpgDetector.callsToConstructor,
+            [{ sampleRate: 64 }],
+            'Did not create peak detector with sample rate!'
+        )
+    }
+
+    @test()
+    protected static async detectsPeaksInEachChannel() {
+        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+
+        assert.isEqualDeep(
+            FakePpgDetector.callsToRun,
+            [
+                { rawSignal: [1, 2, 3], timestamps: [0, 1, 2] },
+                { rawSignal: [10, 20, 30], timestamps: [0, 1, 2] },
+            ],
+            'Did not detect peaks in each channel!'
+        )
+    }
+
+    @test()
+    protected static async marksDetectedPeaksOnTrace() {
+        FakePpgDetector.peakTimestamps = [1]
+
+        await this.render({ ...this.twoChannels, detectPeaks: { sampleRate: 64 } })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.data[2]),
+            [
+                [null, 2, null],
+                [null, 20, null],
+            ],
+            'Did not mark detected peaks on trace!'
         )
     }
 

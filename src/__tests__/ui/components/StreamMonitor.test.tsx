@@ -245,6 +245,22 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesPeakDetectionToPlot() {
+        this.setFakeStreamPlot()
+        const detectPeaks = { sampleRate: 64 }
+
+        await render(
+            <StreamMonitor streams={[{ ...this.streams[0], detectPeaks }]} />
+        )
+
+        assert.isEqualDeep(
+            this.latestPlotPropsFor(this.streams[0].name)?.detectPeaks,
+            detectPeaks,
+            'Did not pass peak detection to plot!'
+        )
+    }
+
+    @test()
     protected static async rendersMessagesOncePerFrame() {
         await this.renderWithFakePlot()
 

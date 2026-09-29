@@ -12,7 +12,11 @@ const App: React.FC = () => {
             <StreamMonitor
                 streams={[
                     { name: 'EEG', wssPort: 8765 },
-                    { name: 'PPG', wssPort: 8766 },
+                    {
+                        name: 'PPG',
+                        wssPort: 8766,
+                        detectPeaks: { sampleRate: 64 },
+                    },
                 ]}
             />
         </main>

@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import PpgPeakDetector, {
+    PpgDetector,
+} from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 
 export interface StreamPlotProps {
@@ -10,6 +13,11 @@ export interface StreamPlotProps {
     windowSeconds?: number
     nowTimestamp?: number
     color?: string
+    detectPeaks?: PeakDetectionOptions
+}
+
+export interface PeakDetectionOptions {
+    sampleRate: number
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -22,6 +30,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         windowSeconds = 10,
         nowTimestamp,
         color = '#8b93a7',
+        detectPeaks,
     } = props
 
     const rootRef = useRef<HTMLDivElement>(null)
@@ -33,6 +42,35 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
+
+    const peakSampleRate = detectPeaks?.sampleRate
+
+    const peakDetector = useMemo(
+        () =>
+            peakSampleRate !== undefined
+                ? PpgPeakDetector.Create({ sampleRate: peakSampleRate })
+                : undefined,
+        [peakSampleRate]
+    )
+
+    const valuesByChannel = useMemo(
+        () =>
+            Array.from({ length: channelCount }, (_, channel) =>
+                valuesForChannel(samples, timestamps, channelCount, channel)
+            ),
+        [samples, timestamps, channelCount]
+    )
+
+    const peakMarkersByChannel = useMemo(
+        () =>
+            peakDetector &&
+            valuesByChannel.map((values) =>
+                peakMarkersFor(peakDetector, values, timestamps)
+            ),
+        [peakDetector, valuesByChannel]
+    )
+
+    const hasPeakMarkers = peakDetector !== undefined
 
     useEffect(() => {
         if (width !== undefined) {
@@ -53,8 +91,8 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             { length: channelCount },
             (_, channel) =>
                 new uPlot(
-                    optionsFor(plotWidth, height, color),
-                    [[], []],
+                    optionsFor(plotWidth, height, color, hasPeakMarkers),
+                    hasPeakMarkers ? [[], [], []] : [[], []],
                     containerRefs.current[channel]!
                 )
         )
@@ -62,7 +100,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [channelCount, color])
+    }, [channelCount, color, hasPeakMarkers])
 
     useEffect(() => {
         plotsRef.current.forEach((plot) =>
@@ -83,12 +121,10 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             plot.batch(() => {
                 plot.setData([
                     timestamps.slice(firstVisible),
-                    valuesForChannel(
-                        samples,
-                        timestamps,
-                        channelCount,
-                        channel
-                    ).slice(firstVisible),
+                    valuesByChannel[channel].slice(firstVisible),
+                    ...(peakMarkersByChannel
+                        ? [peakMarkersByChannel[channel].slice(firstVisible)]
+                        : []),
                 ])
 
                 if (rightEdgeTimestamp !== undefined) {
@@ -99,7 +135,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                 }
             })
         )
-    }, [samples, timestamps, nowTimestamp, windowSeconds, channelCount])
+    }, [
+        timestamps,
+        valuesByChannel,
+        peakMarkersByChannel,
+        nowTimestamp,
+        windowSeconds,
+    ])
 
     const streamColorStyle: StreamColorStyle = { '--stream-color': color }
 
@@ -148,7 +190,8 @@ type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
 function optionsFor(
     width: number,
     height: number,
-    color: string
+    color: string,
+    hasPeakMarkers: boolean
 ): uPlot.Options {
     return {
         width,
@@ -166,8 +209,64 @@ function optionsFor(
                 fill: (plot) => fadingGlowFor(plot, color),
                 fillTo: (plot) => plot.scales.y.min ?? 0,
             },
+            ...(hasPeakMarkers ? [peakMarkerSeriesFor(color)] : []),
         ],
     }
+}
+
+function peakMarkerSeriesFor(color: string): uPlot.Series {
+    return {
+        stroke: `${color}66`,
+        width: 1,
+        dash: [3, 3],
+        paths: verticalLinesAtPeaks,
+        points: {
+            show: true,
+            size: 9,
+            width: 2,
+            fill: color,
+            stroke: '#10141b',
+        },
+    }
+}
+
+function verticalLinesAtPeaks(
+    plot: uPlot,
+    seriesIdx: number,
+    firstIdx: number,
+    lastIdx: number
+) {
+    const lines = new Path2D()
+    const { top, height } = plot.bbox
+    const [timestamps] = plot.data
+    const peakValues = plot.data[seriesIdx]
+
+    for (let i = firstIdx; i <= lastIdx; i++) {
+        if (peakValues[i] != null) {
+            const x = plot.valToPos(timestamps[i], 'x', true)
+            lines.moveTo(x, top)
+            lines.lineTo(x, top + height)
+        }
+    }
+
+    return { stroke: lines }
+}
+
+function peakMarkersFor(
+    detector: PpgDetector,
+    values: number[],
+    timestamps: number[]
+) {
+    if (values.length < 2) {
+        return values.map(() => null)
+    }
+
+    const { peaks } = detector.run(values, timestamps)
+    const peakTimestamps = new Set(peaks.map((peak) => peak.timestamp))
+
+    return timestamps.map((timestamp, i) =>
+        peakTimestamps.has(timestamp) ? values[i] : null
+    )
 }
 
 function fadingGlowFor(plot: uPlot, hexColor: string) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-import StreamPlot from './StreamPlot'
+import StreamPlot, { PeakDetectionOptions } from './StreamPlot'
 
 export interface StreamMonitorProps {
     streams: BiosignalStream[]
@@ -267,6 +267,7 @@ export interface StreamData {
 export interface BiosignalStream {
     name: string
     wssPort: number
+    detectPeaks?: PeakDetectionOptions
 }
 
 // Test doubles

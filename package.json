@@ -41,6 +41,7 @@
     "watch.test": "NODE_OPTIONS=--experimental-vm-modules jest --watch"
   },
   "dependencies": {
+    "@neurodevs/node-biosignal-processing": "^1.2.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "uplot": "^1.6.32"
