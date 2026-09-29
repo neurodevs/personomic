@@ -20,7 +20,10 @@ const App: React.FC = () => {
                         name: 'PPG',
                         wssPort: 8766,
                         channelNames: ['AMBIENT', 'INFRARED', 'RED'],
-                        detectPeaks: { sampleRate: 64 },
+                        detectPeaks: {
+                            sampleRate: 64,
+                            channels: ['AMBIENT', 'INFRARED'],
+                        },
                     },
                 ]}
             />

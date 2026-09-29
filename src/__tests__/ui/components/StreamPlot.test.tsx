@@ -264,6 +264,55 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async detectsPeaksOnlyInGivenChannels() {
+        await this.render({
+            ...this.twoChannels,
+            channelNames: ['INFRARED', 'RED'],
+            detectPeaks: { sampleRate: 64, channels: ['INFRARED'] },
+        })
+
+        assert.isEqualDeep(
+            FakePpgDetector.callsToRun,
+            [{ rawSignal: [1, 2, 3], timestamps: [0, 1, 2] }],
+            'Did not detect peaks only in given channels!'
+        )
+    }
+
+    @test()
+    protected static async leavesOtherChannelsWithoutPeakMarkers() {
+        FakePpgDetector.peakTimestamps = [1]
+
+        await this.render({
+            ...this.twoChannels,
+            channelNames: ['INFRARED', 'RED'],
+            detectPeaks: { sampleRate: 64, channels: ['INFRARED'] },
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.data[2]),
+            [
+                [null, 2, null],
+                [null, null, null],
+            ],
+            'Did not leave other channels without peak markers!'
+        )
+    }
+
+    @test()
+    protected static async matchesPeakChannelsByNumberWithoutNames() {
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64, channels: ['CH 2'] },
+        })
+
+        assert.isEqualDeep(
+            FakePpgDetector.callsToRun,
+            [{ rawSignal: [10, 20, 30], timestamps: [0, 1, 2] }],
+            'Did not match peak channels by number without names!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 

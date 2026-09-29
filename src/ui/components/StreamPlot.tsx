@@ -19,6 +19,7 @@ export interface StreamPlotProps {
 
 export interface PeakDetectionOptions {
     sampleRate: number
+    channels?: string[]
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -45,7 +46,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
+    const labelFor = (channel: number) =>
+        channelNames?.length === channelCount
+            ? channelNames[channel]
+            : `CH ${channel + 1}`
+
     const peakSampleRate = detectPeaks?.sampleRate
+    const peakChannels = detectPeaks?.channels
 
     const peakDetector = useMemo(
         () =>
@@ -66,10 +73,12 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const peakMarkersByChannel = useMemo(
         () =>
             peakDetector &&
-            valuesByChannel.map((values) =>
-                peakMarkersFor(peakDetector, values, timestamps)
+            valuesByChannel.map((values, channel) =>
+                (peakChannels?.includes(labelFor(channel)) ?? true)
+                    ? peakMarkersFor(peakDetector, values, timestamps)
+                    : values.map(() => null)
             ),
-        [peakDetector, valuesByChannel]
+        [peakDetector, valuesByChannel, peakChannels, channelNames]
     )
 
     const hasPeakMarkers = peakDetector !== undefined
@@ -166,9 +175,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             {Array.from({ length: channelCount }, (_, channel) => (
                 <div key={channel} className="stream-plot__channel">
                     <span className="stream-plot__channel-label">
-                        {channelNames?.length === channelCount
-                            ? channelNames[channel]
-                            : `CH ${channel + 1}`}
+                        {labelFor(channel)}
                     </span>
                     <div
                         ref={(container) => {
