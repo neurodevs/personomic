@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import StreamPlot, { Downsampling, PeakDetectionOptions } from './StreamPlot'
 
 export interface StreamMonitorProps {
-    streams: BiosignalStream[]
+    devices: BiosignalDevice[]
     windowSeconds?: number
     downsampling?: Downsampling
 }
@@ -11,7 +11,9 @@ export interface StreamMonitorProps {
 const StreamMonitor: React.FC<StreamMonitorProps> = (
     props: StreamMonitorProps
 ) => {
-    const { streams, windowSeconds = 10, downsampling } = props
+    const { devices, windowSeconds = 10, downsampling } = props
+
+    const streams = devices.flatMap((device) => device.streams)
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
     const [arrivalsByPort, setArrivalsByPort] = useState<
@@ -194,16 +196,32 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
-            {streams.map((stream, index) => (
-                <StreamPlotComponent
-                    key={stream.name}
-                    {...stream}
-                    downsampling={stream.downsampling ?? downsampling}
-                    color={streamColors[index]}
-                    {...dataByPort[stream.wssPort]}
-                    windowSeconds={windowSeconds}
-                    nowTimestamp={sharedNowTimestamp}
-                />
+            {devices.map((device) => (
+                <section
+                    key={device.name}
+                    className="stream-monitor__device"
+                    data-testid={`device-${device.name}`}
+                >
+                    <header className="stream-monitor__device-header">
+                        <span className="stream-monitor__device-name">
+                            {device.name}
+                        </span>
+                        <span className="stream-monitor__device-meta">
+                            {device.streams.length} streams
+                        </span>
+                    </header>
+                    {device.streams.map((stream) => (
+                        <StreamPlotComponent
+                            key={stream.name}
+                            {...stream}
+                            downsampling={stream.downsampling ?? downsampling}
+                            color={streamColors[streams.indexOf(stream)]}
+                            {...dataByPort[stream.wssPort]}
+                            windowSeconds={windowSeconds}
+                            nowTimestamp={sharedNowTimestamp}
+                        />
+                    ))}
+                </section>
             ))}
         </div>
     )
@@ -272,6 +290,11 @@ interface LatestArrival {
 export interface StreamData {
     samples: number[]
     timestamps: number[]
+}
+
+export interface BiosignalDevice {
+    name: string
+    streams: BiosignalStream[]
 }
 
 export interface BiosignalStream {

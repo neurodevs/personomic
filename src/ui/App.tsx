@@ -18,20 +18,31 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             </header>
             <StreamMonitorComponent
                 downsampling={downsampling}
-                streams={[
+                devices={[
                     {
-                        name: 'EEG',
-                        wssPort: 8765,
-                        channelNames: ['TP10', 'AF8', 'TP9', 'AF7', 'AUX'],
-                    },
-                    {
-                        name: 'PPG',
-                        wssPort: 8766,
-                        channelNames: ['AMBIENT', 'INFRARED', 'RED'],
-                        detectPeaks: {
-                            sampleRate: 64,
-                            channels: ['AMBIENT', 'INFRARED'],
-                        },
+                        name: 'Muse S Gen 2',
+                        streams: [
+                            {
+                                name: 'EEG',
+                                wssPort: 8765,
+                                channelNames: [
+                                    'TP10',
+                                    'AF8',
+                                    'TP9',
+                                    'AF7',
+                                    'AUX',
+                                ],
+                            },
+                            {
+                                name: 'PPG',
+                                wssPort: 8766,
+                                channelNames: ['AMBIENT', 'INFRARED', 'RED'],
+                                detectPeaks: {
+                                    sampleRate: 64,
+                                    channels: ['AMBIENT', 'INFRARED'],
+                                },
+                            },
+                        ],
                     },
                 ]}
             />

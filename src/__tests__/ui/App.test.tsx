@@ -35,6 +35,20 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async monitorsEegAndPpgOfMuseDevice() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.devices.map((device) => ({
+                name: device.name,
+                streams: device.streams.map((stream) => stream.name),
+            })),
+            [{ name: 'Muse S Gen 2', streams: ['EEG', 'PPG'] }],
+            'Did not monitor EEG and PPG of Muse device!'
+        )
+    }
+
     private static renderApp() {
         return <App />
     }

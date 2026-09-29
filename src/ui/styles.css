@@ -65,6 +65,40 @@ body {
     gap: 20px;
 }
 
+.stream-monitor__device {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 14px 16px 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.stream-monitor__device-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 0 4px;
+    margin-bottom: -6px;
+}
+
+.stream-monitor__device-name {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.stream-monitor__device-meta {
+    margin-left: auto;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+}
+
 .stream-plot {
     position: relative;
     padding: 16px 18px 12px;
@@ -157,6 +191,11 @@ body {
 @media (max-width: 600px) {
     .app {
         padding: 24px 16px 48px;
+    }
+
+    .stream-monitor__device {
+        padding: 12px 8px 8px;
+        border-radius: 16px;
     }
 
     .stream-plot {

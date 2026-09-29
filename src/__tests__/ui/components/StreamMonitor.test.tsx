@@ -9,6 +9,7 @@ import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameSch
 import FakeRetryTimer from '../../../testDoubles/RetryTimer/FakeRetryTimer'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
+    BiosignalDevice,
     BiosignalStream,
     setClock,
     setFrameScheduler,
@@ -23,9 +24,16 @@ import AbstractPackageTest from '../../AbstractPackageTest'
 export default class StreamMonitorTest extends AbstractPackageTest {
     private static nowMs = 0
 
+    private static readonly deviceName = this.generateId()
+
     private static readonly streams = [
         { name: this.generateId(), wssPort: 1234 },
         { name: this.generateId(), wssPort: 5678 },
+    ]
+
+    private static readonly twoDevices: BiosignalDevice[] = [
+        { name: this.generateId(), streams: [this.streams[0]] },
+        { name: this.generateId(), streams: [this.streams[1]] },
     ]
 
     protected static async beforeEach() {
@@ -104,7 +112,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         const { rerender } = await this.render()
 
         const sameStreams = this.streams.map((stream) => ({ ...stream }))
-        await rerender(<StreamMonitor streams={sameStreams} />)
+        await rerender(<StreamMonitor devices={this.devicesFor(sameStreams)} />)
 
         assert.isEqual(
             FakeWebSocket.callsToConstructor.length,
@@ -122,7 +130,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             wssPort: stream.wssPort + 1,
         }))
 
-        await rerender(<StreamMonitor streams={newStreams} />)
+        await rerender(<StreamMonitor devices={this.devicesFor(newStreams)} />)
 
         assert.isEqualDeep(
             {
@@ -205,7 +213,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     @test()
     protected static async dropsSamplesOlderThanWindowSeconds() {
         this.setFakeStreamPlot()
-        await render(<StreamMonitor streams={this.streams} windowSeconds={1} />)
+        await render(
+            <StreamMonitor
+                devices={this.devicesFor(this.streams)}
+                windowSeconds={1}
+            />
+        )
 
         await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 1, 2] })
 
@@ -233,7 +246,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     @test()
     protected static async passesWindowSecondsToEachPlot() {
         this.setFakeStreamPlot()
-        await render(<StreamMonitor streams={this.streams} windowSeconds={3} />)
+        await render(
+            <StreamMonitor
+                devices={this.devicesFor(this.streams)}
+                windowSeconds={3}
+            />
+        )
 
         assert.isEqualDeep(
             passedStreamPlotProps.map((props) => props.windowSeconds),
@@ -243,10 +261,70 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNameOfEachDevice() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor devices={this.twoDevices} />)
+
+        assert.isTruthy(
+            this.twoDevices.every((device) => screen.getByText(device.name)),
+            'Did not show name of each device!'
+        )
+    }
+
+    @test()
+    protected static async groupsStreamsUnderTheirDevice() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor devices={this.twoDevices} />)
+
+        assert.isEqualDeep(
+            this.twoDevices.map((device) =>
+                Array.from(
+                    screen
+                        .getByTestId(`device-${device.name}`)
+                        .querySelectorAll('[data-testid^="stream-plot-"]'),
+                    (plot) => plot.getAttribute('data-testid')
+                )
+            ),
+            this.twoDevices.map((device) =>
+                device.streams.map((stream) => `stream-plot-${stream.name}`)
+            ),
+            'Did not group streams under their device!'
+        )
+    }
+
+    @test()
+    protected static async givesEachStreamItsOwnColorAcrossDevices() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor devices={this.twoDevices} />)
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.color
+            ),
+            [...streamColors.slice(0, this.streams.length)],
+            'Did not give each stream its own color across devices!'
+        )
+    }
+
+    @test()
+    protected static async connectsToStreamsOfEveryDevice() {
+        await render(<StreamMonitor devices={this.twoDevices} />)
+
+        assert.isEqualDeep(
+            FakeWebSocket.callsToConstructor,
+            this.urlsFor(this.streams),
+            'Did not connect to streams of every device!'
+        )
+    }
+
+    @test()
     protected static async passesDownsamplingToEachPlot() {
         this.setFakeStreamPlot()
         await render(
-            <StreamMonitor streams={this.streams} downsampling="heavy" />
+            <StreamMonitor
+                devices={this.devicesFor(this.streams)}
+                downsampling="heavy"
+            />
         )
 
         assert.isEqualDeep(
@@ -263,7 +341,9 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         this.setFakeStreamPlot()
         await render(
             <StreamMonitor
-                streams={[{ ...this.streams[0], downsampling: 'light' }]}
+                devices={this.devicesFor([
+                    { ...this.streams[0], downsampling: 'light' },
+                ])}
                 downsampling="heavy"
             />
         )
@@ -297,7 +377,9 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         const detectPeaks = { sampleRate: 64 }
 
         await render(
-            <StreamMonitor streams={[{ ...this.streams[0], detectPeaks }]} />
+            <StreamMonitor
+                devices={this.devicesFor([{ ...this.streams[0], detectPeaks }])}
+            />
         )
 
         assert.isEqualDeep(
@@ -470,10 +552,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         await rerender(
             <StreamMonitor
-                streams={this.streams.map((stream) => ({
-                    ...stream,
-                    wssPort: stream.wssPort + 1,
-                }))}
+                devices={this.devicesFor(
+                    this.streams.map((stream) => ({
+                        ...stream,
+                        wssPort: stream.wssPort + 1,
+                    }))
+                )}
             />
         )
 
@@ -605,6 +689,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             .at(-1)
     }
 
+    private static devicesFor(streams: BiosignalStream[]): BiosignalDevice[] {
+        return [{ name: this.deviceName, streams }]
+    }
+
     private static urlsFor(streams: BiosignalStream[]) {
         return streams.map((stream) => `ws://localhost:${stream.wssPort}`)
     }
@@ -625,6 +713,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static async render() {
-        return await render(<StreamMonitor streams={this.streams} />)
+        return await render(
+            <StreamMonitor devices={this.devicesFor(this.streams)} />
+        )
     }
 }
