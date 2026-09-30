@@ -2258,15 +2258,16 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/node-biosensors@^8.1.0":
-  version "8.1.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-8.1.0.tgz#60046fa796f8bec16e459bd3d6033ae672c932a5"
-  integrity sha512-B4POsU/UNy/0OqitNF5V1cEnbMhx9oiGxTSe87rl057PLuFxNxAjpOY8zac22VOBzpBA1CKsu55W7RqYkCskMg==
+"@neurodevs/node-biosensors@^8.2.0":
+  version "8.2.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-8.2.0.tgz#0c2349d8c10b9725fc36843921d2f434b9c44f07"
+  integrity sha512-vhjl9sMEapmjkyAAJqQgo+pIjLR3US85foklkYVcxS6j3AiGE3Nt3jsN74r1pkxVcrAUn7qgZyVesoZcl2EE4A==
   dependencies:
     "@neurodevs/node-lsl" "^23.1.1"
     "@neurodevs/node-xdf" "^5.0.1"
     ftdi-d2xx "^1.3.1"
     koffi "^3.0.2"
+    ws "^8.18.3"
 
 "@neurodevs/node-biosignal-processing@^1.3.0":
   version "1.3.0"

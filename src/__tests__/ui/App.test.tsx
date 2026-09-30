@@ -49,6 +49,17 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async watchesGatewayDeviceStatusPort() {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.deviceStatusPort,
+            8764,
+            'Did not watch gateway device status port!'
+        )
+    }
+
     private static renderApp() {
         return <App />
     }

@@ -261,6 +261,119 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNoDeviceStatusWithoutStatusPort() {
+        await this.renderWithFakePlot()
+
+        assert.isUndefined(
+            this.deviceStatusOf(this.deviceName),
+            'Showed a device status without a status port!'
+        )
+    }
+
+    @test()
+    protected static async connectsToDeviceStatusPort() {
+        await this.renderWithDeviceStatus()
+
+        assert.isTrue(
+            FakeWebSocket.callsToConstructor.includes(this.deviceStatusUrl),
+            'Did not connect to device status port!'
+        )
+    }
+
+    @test()
+    protected static async showsDisconnectedUntilDeviceStatusArrives() {
+        await this.renderWithDeviceStatus()
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            'disconnected',
+            'Did not show disconnected until device status arrived!'
+        )
+    }
+
+    @test('disconnected shows disconnected', 'disconnected', 'disconnected')
+    @test('connecting shows connecting', 'connecting', 'connecting')
+    @test('connected shows connected', 'connected', 'connected')
+    @test('streaming shows connected', 'streaming', 'connected')
+    protected static async showsDeviceStatusForGatewayState(
+        state: string,
+        expectedStatus: string
+    ) {
+        await this.renderWithDeviceStatus()
+
+        this.receiveDeviceStatus([
+            { state, listenPorts: this.portsOf(this.streams) },
+        ])
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            expectedStatus,
+            `Did not show ${expectedStatus} for ${state} device!`
+        )
+    }
+
+    @test()
+    protected static async matchesEachDeviceByItsStreamPorts() {
+        await this.renderWithDeviceStatus(this.twoDevices)
+
+        this.receiveDeviceStatus([
+            { state: 'streaming', listenPorts: [this.streams[1].wssPort] },
+            { state: 'connecting', listenPorts: [this.streams[0].wssPort] },
+        ])
+
+        assert.isEqualDeep(
+            this.twoDevices.map((device) => this.deviceStatusOf(device.name)),
+            ['connecting', 'connected'],
+            'Did not match each device by its stream ports!'
+        )
+    }
+
+    @test()
+    protected static async showsDisconnectedWhenDeviceStatusConnectionDrops() {
+        await this.renderWithDeviceStatus()
+
+        this.receiveDeviceStatus([
+            { state: 'streaming', listenPorts: this.portsOf(this.streams) },
+        ])
+        await this.dropConnection(this.latestDeviceStatusSocket)
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            'disconnected',
+            'Did not show disconnected when device status connection dropped!'
+        )
+    }
+
+    @test()
+    protected static async reconnectsToDeviceStatusAfterDrop() {
+        await this.renderWithDeviceStatus()
+
+        await this.dropConnection(this.latestDeviceStatusSocket)
+        this.runPendingRetries()
+
+        assert.isEqual(
+            FakeWebSocket.callsToConstructor.filter(
+                (url) => url === this.deviceStatusUrl
+            ).length,
+            2,
+            'Did not reconnect to device status after drop!'
+        )
+    }
+
+    @test()
+    protected static async closesDeviceStatusSocketOnUnmount() {
+        const { unmount } = await this.renderWithDeviceStatus()
+
+        unmount()
+
+        assert.isEqual(
+            this.latestDeviceStatusSocket.readyState,
+            WebSocket.CLOSED,
+            'Did not close device status socket on unmount!'
+        )
+    }
+
+    @test()
     protected static async showsNameOfEachDevice() {
         this.setFakeStreamPlot()
         await render(<StreamMonitor devices={this.twoDevices} />)
@@ -481,7 +594,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await this.render()
 
         await this.dropConnection(FakeWebSocket.instances[0])
-        FakeRetryTimer.runPending()
+        this.runPendingRetries()
 
         assert.isEqualDeep(
             {
@@ -518,8 +631,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         await this.failToReconnect(11)
 
-        FakeRetryTimer.runPending()
-        this.latestSocketFor(this.streams[0]).open()
+        this.runPendingRetries()
+        this.openSocket(this.latestSocketFor(this.streams[0]))
         await this.dropConnection(this.latestSocketFor(this.streams[0]))
 
         assert.isEqual(
@@ -573,7 +686,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await this.render()
 
         await this.dropConnection(...FakeWebSocket.instances)
-        FakeRetryTimer.runPending()
+        this.runPendingRetries()
 
         assert.isEqualDeep(
             {
@@ -597,12 +710,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         await this.failToReconnect(11, this.streams)
 
-        FakeRetryTimer.runPending()
-        this.latestSocketFor(this.streams[0]).open()
+        this.runPendingRetries()
+        this.openSocket(this.latestSocketFor(this.streams[0]))
         await this.dropConnection(this.latestSocketFor(this.streams[1]))
 
         const numCallsBeforeRetry = FakeWebSocket.callsToConstructor.length
-        FakeRetryTimer.runPending()
+        this.runPendingRetries()
 
         assert.isEqualDeep(
             {
@@ -627,7 +740,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
 
         for (let i = 1; i < times; i++) {
-            FakeRetryTimer.runPending()
+            this.runPendingRetries()
 
             await this.dropConnection(
                 ...streams.map((stream) => this.latestSocketFor(stream))
@@ -636,8 +749,18 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static async dropConnection(...sockets: FakeWebSocket[]) {
-        sockets.forEach((socket) => socket.dropConnection())
-        await new Promise((resolve) => setTimeout(resolve, 0))
+        await act(async () => {
+            sockets.forEach((socket) => socket.dropConnection())
+            await new Promise((resolve) => setTimeout(resolve, 0))
+        })
+    }
+
+    private static openSocket(socket: FakeWebSocket) {
+        act(() => socket.open())
+    }
+
+    private static runPendingRetries() {
+        act(() => FakeRetryTimer.runPending())
     }
 
     private static latestSocketFor(stream: BiosignalStream) {
@@ -687,6 +810,50 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return passedStreamPlotProps
             .filter((props) => props.name === name)
             .at(-1)
+    }
+
+    private static readonly deviceStatusPort = 4321
+
+    private static get deviceStatusUrl() {
+        return `ws://localhost:${this.deviceStatusPort}`
+    }
+
+    private static get latestDeviceStatusSocket() {
+        const index = FakeWebSocket.callsToConstructor.lastIndexOf(
+            this.deviceStatusUrl
+        )
+        return FakeWebSocket.instances[index]
+    }
+
+    private static async renderWithDeviceStatus(
+        devices = this.devicesFor(this.streams)
+    ) {
+        this.setFakeStreamPlot()
+        return await render(
+            <StreamMonitor
+                devices={devices}
+                deviceStatusPort={this.deviceStatusPort}
+            />
+        )
+    }
+
+    private static receiveDeviceStatus(
+        devices: { state: string; listenPorts: number[] }[]
+    ) {
+        act(() => this.latestDeviceStatusSocket.receive({ devices }))
+    }
+
+    private static deviceStatusOf(deviceName: string) {
+        return (
+            screen
+                .getByTestId(`device-${deviceName}`)
+                .querySelector('.stream-monitor__device-status')
+                ?.getAttribute('aria-label') ?? undefined
+        )
+    }
+
+    private static portsOf(streams: BiosignalStream[]) {
+        return streams.map((stream) => stream.wssPort)
     }
 
     private static devicesFor(streams: BiosignalStream[]): BiosignalDevice[] {

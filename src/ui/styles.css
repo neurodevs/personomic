@@ -150,6 +150,39 @@ body {
     text-transform: uppercase;
 }
 
+.stream-monitor__device-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--status-color);
+    box-shadow: 0 0 8px var(--status-color);
+}
+
+.stream-monitor__device-status--connected {
+    --status-color: #30a46c;
+}
+
+.stream-monitor__device-status--connecting {
+    --status-color: #f5c542;
+    animation: device-status-pulse 1.2s ease-in-out infinite;
+}
+
+.stream-monitor__device-status--disconnected {
+    --status-color: #e5484d;
+}
+
+@keyframes device-status-pulse {
+    50% {
+        opacity: 0.35;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stream-monitor__device-status--connecting {
+        animation: none;
+    }
+}
+
 .stream-plot__meta {
     margin-left: auto;
     color: var(--text-muted);

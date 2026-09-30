@@ -6,12 +6,18 @@ export interface StreamMonitorProps {
     devices: BiosignalDevice[]
     windowSeconds?: number
     downsampling?: Downsampling
+    deviceStatusPort?: number
 }
 
 const StreamMonitor: React.FC<StreamMonitorProps> = (
     props: StreamMonitorProps
 ) => {
-    const { devices, windowSeconds = 10, downsampling } = props
+    const {
+        devices,
+        windowSeconds = 10,
+        downsampling,
+        deviceStatusPort,
+    } = props
 
     const streams = devices.flatMap((device) => device.streams)
 
@@ -20,6 +26,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         Record<number, LatestArrival>
     >({})
     const [nowMs, setNowMs] = useState(0)
+    const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>()
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -192,6 +199,46 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
     }, [wssPorts])
 
+    useEffect(() => {
+        if (deviceStatusPort === undefined) {
+            return
+        }
+
+        let socket: WebSocket
+        let retryTimerId: unknown
+        let isClosed = false
+
+        const connect = () => {
+            retryTimerId = undefined
+            socket = new WebSocketComponent(
+                `ws://localhost:${deviceStatusPort}`
+            )
+
+            socket.onmessage = (event) =>
+                setGatewayDevices(JSON.parse(event.data).devices)
+
+            socket.onclose = () => {
+                if (isClosed) {
+                    return
+                }
+
+                setGatewayDevices(undefined)
+                retryTimerId = retryTimer.set(connect, deviceStatusRetryDelayMs)
+            }
+        }
+
+        connect()
+
+        return () => {
+            isClosed = true
+            if (retryTimerId !== undefined) {
+                retryTimer.clear(retryTimerId)
+            }
+
+            socket.close()
+        }
+    }, [deviceStatusPort])
+
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
     return (
@@ -206,6 +253,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         <span className="stream-monitor__device-name">
                             {device.name}
                         </span>
+                        {deviceStatusPort !== undefined && (
+                            <DeviceStatusIndicator
+                                status={deviceStatusFor(device, gatewayDevices)}
+                            />
+                        )}
                         <span className="stream-monitor__device-meta">
                             {device.streams.length} streams
                         </span>
@@ -251,6 +303,40 @@ function sharedNowTimestampFor(
     return estimates.length > 0 ? Math.max(...estimates) : undefined
 }
 
+const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({
+    status,
+}) => (
+    <span
+        className={`stream-monitor__device-status stream-monitor__device-status--${status}`}
+        aria-label={status}
+        title={status}
+    />
+)
+
+function deviceStatusFor(
+    device: BiosignalDevice,
+    gatewayDevices: GatewayDevice[] = []
+): DeviceStatus {
+    const ports = device.streams.map((stream) => stream.wssPort)
+
+    const gatewayDevice = gatewayDevices.find((candidate) =>
+        candidate.listenPorts.some((port) => ports.includes(port))
+    )
+
+    return gatewayDevice
+        ? deviceStatusByState[gatewayDevice.state]
+        : 'disconnected'
+}
+
+const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
+    disconnected: 'disconnected',
+    connecting: 'connecting',
+    connected: 'connected',
+    streaming: 'connected',
+}
+
+const deviceStatusRetryDelayMs = 1000
+
 function retryDelayMsAfter(numFailedRetries: number) {
     return numFailedRetries < 10 ? 1000 : 10000
 }
@@ -290,6 +376,16 @@ interface LatestArrival {
 export interface StreamData {
     samples: number[]
     timestamps: number[]
+}
+
+export type DeviceStatus = 'disconnected' | 'connecting' | 'connected'
+
+type GatewayDeviceState =
+    'disconnected' | 'connecting' | 'connected' | 'streaming'
+
+interface GatewayDevice {
+    state: GatewayDeviceState
+    listenPorts: number[]
 }
 
 export interface BiosignalDevice {

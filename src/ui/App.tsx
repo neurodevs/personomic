@@ -18,6 +18,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             </header>
             <StreamMonitorComponent
                 downsampling={downsampling}
+                deviceStatusPort={8764}
                 devices={[
                     {
                         name: 'Muse S Gen 2',
