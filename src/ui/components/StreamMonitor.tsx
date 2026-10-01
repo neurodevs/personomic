@@ -244,24 +244,15 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
             {devices.map((device) => (
-                <section
+                <DevicePanel
                     key={device.name}
-                    className="stream-monitor__device"
-                    data-testid={`device-${device.name}`}
+                    device={device}
+                    status={
+                        deviceStatusPort !== undefined
+                            ? deviceStatusFor(device, gatewayDevices)
+                            : undefined
+                    }
                 >
-                    <header className="stream-monitor__device-header">
-                        <span className="stream-monitor__device-name">
-                            {device.name}
-                        </span>
-                        {deviceStatusPort !== undefined && (
-                            <DeviceStatusIndicator
-                                status={deviceStatusFor(device, gatewayDevices)}
-                            />
-                        )}
-                        <span className="stream-monitor__device-meta">
-                            {device.streams.length} streams
-                        </span>
-                    </header>
                     {device.streams.map((stream) => (
                         <StreamPlotComponent
                             key={stream.name}
@@ -273,7 +264,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             nowTimestamp={sharedNowTimestamp}
                         />
                     ))}
-                </section>
+                </DevicePanel>
             ))}
         </div>
     )
@@ -301,6 +292,42 @@ function sharedNowTimestampFor(
     )
 
     return estimates.length > 0 ? Math.max(...estimates) : undefined
+}
+
+const DevicePanel: React.FC<DevicePanelProps> = ({
+    device,
+    status,
+    children,
+}) => {
+    const hasStreams = device.streams.length > 0
+
+    return (
+        <section
+            className="stream-monitor__device"
+            data-testid={`device-${device.name}`}
+        >
+            <header className="stream-monitor__device-header">
+                <span className="stream-monitor__device-name">
+                    {device.name}
+                </span>
+                {hasStreams && status && (
+                    <DeviceStatusIndicator status={status} />
+                )}
+                {hasStreams && (
+                    <span className="stream-monitor__device-meta">
+                        {device.streams.length} streams
+                    </span>
+                )}
+            </header>
+            {children}
+        </section>
+    )
+}
+
+interface DevicePanelProps {
+    device: BiosignalDevice
+    status?: DeviceStatus
+    children?: React.ReactNode
 }
 
 const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({

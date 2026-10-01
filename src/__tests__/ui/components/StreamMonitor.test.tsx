@@ -385,6 +385,19 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsOnlyNameForDeviceWithoutStreams() {
+        await this.renderWithDeviceStatus([
+            { name: this.deviceName, streams: [] },
+        ])
+
+        assert.isEqual(
+            screen.getByTestId(`device-${this.deviceName}`).textContent,
+            this.deviceName,
+            'Did not show only name for device without streams!'
+        )
+    }
+
+    @test()
     protected static async groupsStreamsUnderTheirDevice() {
         this.setFakeStreamPlot()
         await render(<StreamMonitor devices={this.twoDevices} />)

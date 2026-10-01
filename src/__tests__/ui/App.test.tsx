@@ -1,5 +1,6 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { render } from '@testing-library/react'
+import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
+import { fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 
 import FakeStreamMonitor, {
@@ -58,6 +59,76 @@ export default class AppTest extends AbstractPackageTest {
             8764,
             'Did not watch gateway device status port!'
         )
+    }
+
+    @test()
+    protected static async addsChosenBiosensorAsDeviceWithoutStreams() {
+        render(<App />)
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.devices.at(-1),
+            { name: 'OpenBCI Cyton', streams: [] },
+            'Did not add chosen biosensor as device without streams!'
+        )
+    }
+
+    @test()
+    protected static async offersEveryBiosensorNotAlreadyShown() {
+        render(<App />)
+
+        this.openBiosensorMenu()
+
+        assert.isEqualDeep(
+            this.offeredBiosensors,
+            DEVICE_NAMES.filter((name) => name !== 'Muse S Gen 2'),
+            'Did not offer every biosensor not already shown!'
+        )
+    }
+
+    @test()
+    protected static async stopsOfferingBiosensorOnceAdded() {
+        render(<App />)
+
+        this.addBiosensor('OpenBCI Cyton')
+        this.openBiosensorMenu()
+
+        assert.isFalse(
+            this.offeredBiosensors.includes('OpenBCI Cyton'),
+            'Kept offering biosensor after adding it!'
+        )
+    }
+
+    @test()
+    protected static async placesAddBiosensorButtonBelowDevices() {
+        render(<App />)
+
+        const monitor = screen.getByTestId('fake-stream-monitor')
+        const button = screen.getByRole('button', { name: /add biosensor/i })
+
+        assert.isTrue(
+            Boolean(
+                monitor.compareDocumentPosition(button) &
+                Node.DOCUMENT_POSITION_FOLLOWING
+            ),
+            'Did not place add biosensor button below devices!'
+        )
+    }
+
+    private static addBiosensor(name: string) {
+        this.openBiosensorMenu()
+        fireEvent.click(screen.getByRole('menuitem', { name }))
+    }
+
+    private static openBiosensorMenu() {
+        fireEvent.click(screen.getByRole('button', { name: /add biosensor/i }))
+    }
+
+    private static get offeredBiosensors() {
+        return screen
+            .queryAllByRole('menuitem')
+            .map((option) => option.textContent)
     }
 
     private static renderApp() {

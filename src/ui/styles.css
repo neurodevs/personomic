@@ -59,6 +59,70 @@ body {
     font-size: 13px;
 }
 
+.add-biosensor {
+    position: relative;
+    margin-top: 20px;
+}
+
+.add-biosensor__button {
+    display: block;
+    width: 100%;
+    padding: 16px 18px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 20px;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-align: left;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.add-biosensor__button:hover,
+.add-biosensor__button[aria-expanded='true'] {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.015);
+    color: var(--text-secondary);
+}
+
+.add-biosensor__menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 10;
+    min-width: 240px;
+    margin: 0;
+    padding: 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--surface-raised);
+    box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+    list-style: none;
+}
+
+.add-biosensor__option {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.add-biosensor__option:hover,
+.add-biosensor__option:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    outline: none;
+}
+
 .stream-monitor {
     display: flex;
     flex-direction: column;
