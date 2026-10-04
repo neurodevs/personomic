@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 
 import FakePpgDetector from '../../../testDoubles/PpgDetector/FakePpgDetector'
 import FakeResizeObserver from '../../../testDoubles/ResizeObserver/FakeResizeObserver'
@@ -469,6 +469,129 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesChannelsWhenClicked() {
+        await this.render(this.twoChannels)
+
+        this.clickPlot()
+
+        assert.isEqualDeep(
+            {
+                labels: [
+                    screen.queryByText('CH 1'),
+                    screen.queryByText('CH 2'),
+                ],
+                arePlotsDestroyed: FakeUPlot.instances.map(
+                    (plot) => plot.isDestroyed
+                ),
+            },
+            { labels: [null, null], arePlotsDestroyed: [true, true] },
+            'Did not hide channels when clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsIndicatorAndNameWhenHidden() {
+        await this.render(this.twoChannels)
+
+        this.clickPlot()
+
+        assert.isEqualDeep(
+            {
+                hasIndicator:
+                    this.plot.querySelector('.stream-plot__indicator') !== null,
+                name: screen.queryByText(this.plotName)?.textContent,
+            },
+            { hasIndicator: true, name: this.plotName },
+            'Did not keep indicator and name when hidden!'
+        )
+    }
+
+    @test()
+    protected static async showsHiddenChannelCountWithoutWindowWhenHidden() {
+        await this.render(this.twoChannels)
+
+        this.clickPlot()
+
+        assert.isEqual(
+            this.meta,
+            '2 ch · Hidden',
+            'Did not show hidden channel count without window when hidden!'
+        )
+    }
+
+    @test()
+    protected static async showsChannelCountAndWindowAgainWhenShownAgain() {
+        await this.render(this.twoChannels)
+
+        this.clickPlot()
+        this.clickPlot()
+
+        assert.isEqual(
+            this.meta,
+            '2 ch · 10s window',
+            'Did not show channel count and window again when shown again!'
+        )
+    }
+
+    @test()
+    protected static async showsAwaitingSignalWhenHiddenWithoutSamples() {
+        await this.render()
+
+        this.clickPlot()
+
+        assert.isEqual(
+            this.meta,
+            'Awaiting signal',
+            'Did not show awaiting signal when hidden without samples!'
+        )
+    }
+
+    @test()
+    protected static async plotsChannelsAgainWhenClickedAgain() {
+        await this.render(this.twoChannels)
+
+        this.clickPlot()
+        this.clickPlot()
+
+        assert.isEqualDeep(
+            FakeUPlot.instances
+                .filter((plot) => !plot.isDestroyed)
+                .map((plot) => plot.data),
+            [
+                [
+                    [0, 1, 2],
+                    [1, 2, 3],
+                ],
+                [
+                    [0, 1, 2],
+                    [10, 20, 30],
+                ],
+            ],
+            'Did not plot channels again when clicked again!'
+        )
+    }
+
+    @test()
+    protected static async staysHiddenWhenNewSamplesArrive() {
+        const { rerender } = await this.render(this.twoChannels)
+
+        this.clickPlot()
+        rerender(
+            <StreamPlot
+                name={this.plotName}
+                samples={[1, 10, 2, 20, 3, 30, 4, 40]}
+                timestamps={[0, 1, 2, 3]}
+            />
+        )
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.filter((plot) => !plot.isDestroyed),
+            [],
+            'Did not stay hidden when new samples arrived!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 
@@ -525,6 +648,18 @@ export default class StreamPlotTest extends AbstractPackageTest {
     private static readonly oneChannelMaxBeforeMin = {
         samples: [5, 9, 3, 1, 4],
         timestamps: [0, 1, 2, 3, 4],
+    }
+
+    private static clickPlot() {
+        fireEvent.click(this.plot)
+    }
+
+    private static get meta() {
+        return this.plot.querySelector('.stream-plot__meta')?.textContent
+    }
+
+    private static get plot() {
+        return screen.getByTestId(`stream-plot-${this.plotName}`)
     }
 
     private static get xScales() {

@@ -47,8 +47,12 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const [containerWidth, setContainerWidth] = useState(0)
     const plotWidth = width ?? containerWidth
 
+    const [isHidden, setIsHidden] = useState(false)
+
     const channelCount =
         timestamps.length > 0 ? samples.length / timestamps.length : 0
+
+    const plottedChannelCount = isHidden ? 0 : channelCount
 
     const labelFor = (channel: number) =>
         channelNames?.length === channelCount
@@ -125,7 +129,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     useEffect(() => {
         const plots = Array.from(
-            { length: channelCount },
+            { length: plottedChannelCount },
             (_, channel) =>
                 new uPlot(
                     optionsFor(plotWidth, height, color, hasPeakMarkers),
@@ -137,13 +141,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [channelCount, color, hasPeakMarkers])
+    }, [plottedChannelCount, color, hasPeakMarkers])
 
     useEffect(() => {
         plotsRef.current.forEach((plot) =>
             plot.setSize({ width: plotWidth, height })
         )
-    }, [plotWidth, height, channelCount])
+    }, [plotWidth, height, plottedChannelCount])
 
     useEffect(() => {
         const rightEdgeTimestamp =
@@ -202,6 +206,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         windowSeconds,
         plotWidth,
         downsampling,
+        plottedChannelCount,
     ])
 
     const streamColorStyle: StreamColorStyle = { '--stream-color': color }
@@ -212,17 +217,16 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             className="stream-plot"
             style={streamColorStyle}
             data-testid={`stream-plot-${name}`}
+            onClick={() => setIsHidden((wasHidden) => !wasHidden)}
         >
             <header className="stream-plot__header">
                 <span className="stream-plot__indicator" />
                 <span className="stream-plot__name">{name}</span>
                 <span className="stream-plot__meta">
-                    {channelCount > 0
-                        ? `${channelCount} ch · ${windowSeconds}s window`
-                        : 'Awaiting signal'}
+                    {metaFor(channelCount, windowSeconds, isHidden)}
                 </span>
             </header>
-            {Array.from({ length: channelCount }, (_, channel) => (
+            {Array.from({ length: plottedChannelCount }, (_, channel) => (
                 <div key={channel} className="stream-plot__channel">
                     <span className="stream-plot__channel-label">
                         {labelFor(channel)}
@@ -244,6 +248,20 @@ export let ResizeObserverComponent = globalThis.ResizeObserver
 
 export function setResizeObserverComponent(component: typeof ResizeObserver) {
     ResizeObserverComponent = component
+}
+
+function metaFor(
+    channelCount: number,
+    windowSeconds: number,
+    isHidden: boolean
+) {
+    if (channelCount === 0) {
+        return 'Awaiting signal'
+    }
+
+    return isHidden
+        ? `${channelCount} ch · Hidden`
+        : `${channelCount} ch · ${windowSeconds}s window`
 }
 
 type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
