@@ -20,6 +20,20 @@ gets blockier:
 VITE_DOWNSAMPLING=medium yarn dev
 ```
 
+## Connecting biosensors
+
+```
+yarn run.orchestrator   # waits on ws://localhost:8763 for Connect
+```
+
+Pick biosensors in the app, optionally type each one's UUID for a faster
+connection, and click Connect. The script starts a
+`BiosensorStreamingOrchestrator` with them, which serves device status on
+`ws://localhost:8764` and streams from `ws://localhost:8765`. Each status dot
+follows its own device: yellow while it connects, green once it has. Click
+Connect again to retry a failed connection; restart the script to change
+devices or UUIDs.
+
 ## Fake streams
 
 ```

@@ -8,6 +8,9 @@ export interface StreamMonitorProps {
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     downsampling?: Downsampling
+    isConnecting?: boolean
+    uuids?: Record<string, string>
+    onUuidChange?: (name: string, uuid: string) => void
     onRemoveDevice?: (name: string) => void
 }
 
@@ -21,6 +24,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         windowSeconds = 10,
         downsampling,
         onRemoveDevice,
+        isConnecting = false,
+        uuids = {},
+        onUuidChange,
     } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
@@ -243,7 +249,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             socket.close()
         }
-    }, [deviceStatusPort])
+    }, [deviceStatusPort, isConnecting])
 
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
@@ -256,9 +262,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     status={
                         isGatewayConnected
                             ? deviceStatusFor(device.name, gatewayDevices)
-                            : 'disconnected'
+                            : statusBeforeGatewayReports(isConnecting)
                     }
                     onRemove={onRemoveDevice}
+                    uuid={uuids[device.name] ?? ''}
+                    onUuidChange={onUuidChange}
                 >
                     {device.streams.map((stream) => (
                         <StreamPlotComponent
@@ -305,6 +313,8 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
     onRemove,
+    uuid,
+    onUuidChange,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -319,6 +329,18 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     {device.name}
                 </span>
                 <DeviceStatusIndicator status={status} />
+                {status === 'disconnected' && (
+                    <input
+                        type="text"
+                        className="stream-monitor__device-uuid"
+                        aria-label={`${device.name} UUID (optional)`}
+                        placeholder="UUID (optional)"
+                        value={uuid}
+                        onChange={(event) =>
+                            onUuidChange?.(device.name, event.target.value)
+                        }
+                    />
+                )}
                 {hasStreams && (
                     <span className="stream-monitor__device-meta">
                         {device.streams.length} streams
@@ -345,6 +367,8 @@ interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
     onRemove?: (name: string) => void
+    uuid: string
+    onUuidChange?: (name: string, uuid: string) => void
     children?: React.ReactNode
 }
 
@@ -408,6 +432,10 @@ function deviceStatusFor(
     return gatewayDevice
         ? deviceStatusByState[gatewayDevice.state]
         : 'disconnected'
+}
+
+function statusBeforeGatewayReports(isConnecting: boolean): DeviceStatus {
+    return isConnecting ? 'connecting' : 'disconnected'
 }
 
 function gatewayDeviceNamed(name: string, gatewayDevices: GatewayDevice[]) {

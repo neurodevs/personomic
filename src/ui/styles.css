@@ -88,6 +88,43 @@ body {
     color: var(--text-secondary);
 }
 
+.connect-devices {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.connect-devices__button {
+    padding: 12px 28px;
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    background: var(--surface-raised);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.connect-devices__button:hover:not(:disabled),
+.connect-devices__button:focus-visible {
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+}
+
+.connect-devices__button:disabled {
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.connect-devices__error {
+    color: #e5484d;
+    font-size: 12px;
+}
+
 .add-biosensor__menu {
     position: absolute;
     top: calc(100% + 6px);
@@ -242,6 +279,27 @@ body {
     border-radius: 50%;
     background: var(--status-color);
     box-shadow: 0 0 8px var(--status-color);
+}
+
+.stream-monitor__device-uuid {
+    align-self: center;
+    width: 280px;
+    padding: 3px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.stream-monitor__device-uuid::placeholder {
+    color: var(--text-muted);
+}
+
+.stream-monitor__device-uuid:focus-visible {
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
 }
 
 .stream-monitor__device-status--connected {

@@ -389,13 +389,156 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             {
-                text: screen.getByTestId(`device-${this.deviceName}`)
-                    .textContent,
+                name: screen.getByText(this.deviceName).textContent,
+                hasStreamCount:
+                    screen
+                        .getByTestId(`device-${this.deviceName}`)
+                        .querySelector('.stream-monitor__device-meta') !== null,
                 status: this.deviceStatusOf(this.deviceName),
                 numSockets: this.streamSocketUrls.length,
             },
-            { text: this.deviceName, status: 'disconnected', numSockets: 0 },
+            {
+                name: this.deviceName,
+                hasStreamCount: false,
+                status: 'disconnected',
+                numSockets: 0,
+            },
             'Did not show only name for device gateway does not report!'
+        )
+    }
+
+    @test()
+    protected static async showsConnectingWhileConnectingUntilGatewayReports() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { isConnecting: true })
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            'connecting',
+            'Did not show connecting while connecting until gateway reports!'
+        )
+    }
+
+    @test('disconnected device shows disconnected', 'disconnected')
+    @test('connecting device shows connecting', 'connecting')
+    @test('streaming device shows connected', 'streaming', 'connected')
+    protected static async showsDeviceReportedStatusWhileConnecting(
+        state: string,
+        expectedStatus = state
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { isConnecting: true })
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            expectedStatus,
+            `Did not show device-reported ${expectedStatus} while connecting!`
+        )
+    }
+
+    @test()
+    protected static async rechecksDeviceStatusAsSoonAsConnectingEnds() {
+        this.setFakeStreamPlot()
+        const { rerender } = await this.mount([this.deviceName], {
+            isConnecting: true,
+        })
+        const numBefore = this.numDeviceStatusSockets
+
+        await rerender(
+            <StreamMonitor
+                deviceNames={[this.deviceName]}
+                deviceStatusPort={this.deviceStatusPort}
+                isConnecting={false}
+            />
+        )
+
+        assert.isEqualDeep(
+            {
+                numNewSockets: this.numDeviceStatusSockets - numBefore,
+                numRetriesWaitedFor: FakeRetryTimer.delaysMs.length,
+            },
+            { numNewSockets: 1, numRetriesWaitedFor: 0 },
+            'Did not recheck device status as soon as connecting ended!'
+        )
+    }
+
+    @test()
+    protected static async showsUuidInputRightOfStatusWhenDisconnected() {
+        await this.renderBeforeDeviceStatus()
+
+        const status = screen
+            .getByTestId(`device-${this.deviceName}`)
+            .querySelector('.stream-monitor__device-status')!
+
+        assert.isTrue(
+            Boolean(
+                status.compareDocumentPosition(this.uuidInput!) &
+                Node.DOCUMENT_POSITION_FOLLOWING
+            ),
+            'Did not show UUID input right of status when disconnected!'
+        )
+    }
+
+    @test('connecting hides UUID input', 'connecting')
+    @test('connected hides UUID input', 'connected')
+    @test('streaming hides UUID input', 'streaming')
+    protected static async hidesUuidInputUnlessDisconnected(state: string) {
+        await this.renderBeforeDeviceStatus()
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqual(
+            this.uuidInput,
+            null,
+            `Did not hide UUID input for ${state} device!`
+        )
+    }
+
+    @test()
+    protected static async showsUuidPassedForDevice() {
+        const uuid = this.generateId()
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            uuids: { [this.deviceName]: uuid },
+        })
+
+        assert.isEqual(
+            (this.uuidInput as HTMLInputElement).value,
+            uuid,
+            'Did not show UUID passed for device!'
+        )
+    }
+
+    @test()
+    protected static async reportsTypedUuidWithDeviceName() {
+        const changes: [string, string][] = []
+        const uuid = this.generateId()
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onUuidChange: (name, typed) => changes.push([name, typed]),
+        })
+
+        fireEvent.change(this.uuidInput!, { target: { value: uuid } })
+
+        assert.isEqualDeep(
+            changes,
+            [[this.deviceName, uuid]],
+            'Did not report typed UUID with device name!'
+        )
+    }
+
+    @test()
+    protected static async showsNoConnectButtonOnDevice() {
+        await this.renderBeforeDeviceStatus()
+
+        assert.isEqual(
+            screen.queryByRole('button', { name: 'Connect' }),
+            null,
+            'Showed a connect button on device!'
         )
     }
 
@@ -912,6 +1055,16 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.deviceStatusUrl
         )
         return FakeWebSocket.instances[index]
+    }
+
+    private static get numDeviceStatusSockets() {
+        return FakeWebSocket.callsToConstructor.filter(
+            (url) => url === this.deviceStatusUrl
+        ).length
+    }
+
+    private static get uuidInput() {
+        return screen.queryByRole('textbox', { name: /UUID \(optional\)/ })
     }
 
     private static get streamSockets() {
