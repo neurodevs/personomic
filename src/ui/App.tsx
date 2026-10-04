@@ -22,6 +22,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const addDevice = (name: string) =>
         setDevices((previous) => [...previous, { name, streams: [] }])
 
+    const removeDevice = (name: string) =>
+        setDevices((previous) =>
+            previous.filter((device) => device.name !== name)
+        )
+
     return (
         <main className="app">
             <header className="app__header">
@@ -32,6 +37,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 downsampling={downsampling}
                 deviceStatusPort={8764}
                 devices={devices}
+                onRemoveDevice={removeDevice}
             />
             {addableNames.length > 0 && (
                 <AddBiosensorButton names={addableNames} onAdd={addDevice} />

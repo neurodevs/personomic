@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 
 import FakeStreamPlot, {
     passedStreamPlotProps,
@@ -394,6 +394,42 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             screen.getByTestId(`device-${this.deviceName}`).textContent,
             this.deviceName,
             'Did not show only name for device without streams!'
+        )
+    }
+
+    @test()
+    protected static async removesDeviceByNameWhenItsRemoveButtonIsClicked() {
+        const removed: string[] = []
+
+        this.setFakeStreamPlot()
+        await render(
+            <StreamMonitor
+                devices={this.twoDevices}
+                onRemoveDevice={(name) => removed.push(name)}
+            />
+        )
+
+        const secondName = this.twoDevices[1].name
+        fireEvent.click(
+            screen.getByRole('button', { name: `Remove ${secondName}` })
+        )
+
+        assert.isEqualDeep(
+            removed,
+            [secondName],
+            'Did not remove device by name when its remove button was clicked!'
+        )
+    }
+
+    @test()
+    protected static async showsNoRemoveButtonWithoutRemoveHandler() {
+        this.setFakeStreamPlot()
+        await render(<StreamMonitor devices={this.twoDevices} />)
+
+        assert.isLength(
+            screen.queryAllByRole('button', { name: /^Remove / }),
+            0,
+            'Showed remove button without remove handler!'
         )
     }
 

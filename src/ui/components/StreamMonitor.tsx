@@ -7,6 +7,7 @@ export interface StreamMonitorProps {
     windowSeconds?: number
     downsampling?: Downsampling
     deviceStatusPort?: number
+    onRemoveDevice?: (name: string) => void
 }
 
 const StreamMonitor: React.FC<StreamMonitorProps> = (
@@ -17,6 +18,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         windowSeconds = 10,
         downsampling,
         deviceStatusPort,
+        onRemoveDevice,
     } = props
 
     const streams = devices.flatMap((device) => device.streams)
@@ -252,6 +254,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             ? deviceStatusFor(device, gatewayDevices)
                             : undefined
                     }
+                    onRemove={onRemoveDevice}
                 >
                     {device.streams.map((stream) => (
                         <StreamPlotComponent
@@ -297,6 +300,7 @@ function sharedNowTimestampFor(
 const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
+    onRemove,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -318,6 +322,17 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                         {device.streams.length} streams
                     </span>
                 )}
+                {onRemove && (
+                    <button
+                        type="button"
+                        className="stream-monitor__device-remove"
+                        aria-label={`Remove ${device.name}`}
+                        title={`Remove ${device.name}`}
+                        onClick={() => onRemove(device.name)}
+                    >
+                        ×
+                    </button>
+                )}
             </header>
             {children}
         </section>
@@ -327,6 +342,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 interface DevicePanelProps {
     device: BiosignalDevice
     status?: DeviceStatus
+    onRemove?: (name: string) => void
     children?: React.ReactNode
 }
 

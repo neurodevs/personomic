@@ -1,6 +1,6 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 
 import FakeStreamMonitor, {
@@ -101,6 +101,33 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async removesDeviceFromMonitor() {
+        render(<App />)
+
+        this.addBiosensor('OpenBCI Cyton')
+        this.removeDevice('Muse S Gen 2')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.devices.map((device) => device.name),
+            ['OpenBCI Cyton'],
+            'Did not remove device from monitor!'
+        )
+    }
+
+    @test()
+    protected static async offersRemovedBiosensorAgain() {
+        render(<App />)
+
+        this.removeDevice('Muse S Gen 2')
+        this.openBiosensorMenu()
+
+        assert.isTrue(
+            this.offeredBiosensors.includes('Muse S Gen 2'),
+            'Did not offer removed biosensor again!'
+        )
+    }
+
+    @test()
     protected static async placesAddBiosensorButtonBelowDevices() {
         render(<App />)
 
@@ -119,6 +146,10 @@ export default class AppTest extends AbstractPackageTest {
     private static addBiosensor(name: string) {
         this.openBiosensorMenu()
         fireEvent.click(screen.getByRole('menuitem', { name }))
+    }
+
+    private static removeDevice(name: string) {
+        act(() => lastStreamMonitorProps?.onRemoveDevice?.(name))
     }
 
     private static openBiosensorMenu() {

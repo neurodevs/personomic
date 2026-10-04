@@ -163,6 +163,28 @@ body {
     letter-spacing: 0.04em;
 }
 
+.stream-monitor__device-remove {
+    margin-left: auto;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.stream-monitor__device-meta + .stream-monitor__device-remove {
+    margin-left: 0;
+}
+
+.stream-monitor__device-remove:hover,
+.stream-monitor__device-remove:focus-visible {
+    color: var(--text-primary);
+    outline: none;
+}
+
 .stream-plot {
     position: relative;
     padding: 16px 18px 12px;
