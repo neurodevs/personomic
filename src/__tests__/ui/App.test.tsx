@@ -37,16 +37,24 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async monitorsEegAndPpgOfMuseDevice() {
+    protected static async monitorsMuseDeviceByDefault() {
         render(<App />)
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.devices.map((device) => ({
-                name: device.name,
-                streams: device.streams.map((stream) => stream.name),
-            })),
-            [{ name: 'Muse S Gen 2', streams: ['EEG', 'PPG'] }],
-            'Did not monitor EEG and PPG of Muse device!'
+            lastStreamMonitorProps?.deviceNames,
+            ['Muse S Gen 2'],
+            'Did not monitor Muse device by default!'
+        )
+    }
+
+    @test()
+    protected static async detectsPeaksOnAmbientAndInfraredPpg() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks,
+            { channels: ['AMBIENT', 'INFRARED'] },
+            'Did not detect peaks on ambient and infrared PPG!'
         )
     }
 
@@ -62,15 +70,15 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async addsChosenBiosensorAsDeviceWithoutStreams() {
+    protected static async monitorsChosenBiosensor() {
         render(<App />)
 
         this.addBiosensor('OpenBCI Cyton')
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.devices.at(-1),
-            { name: 'OpenBCI Cyton', streams: [] },
-            'Did not add chosen biosensor as device without streams!'
+            lastStreamMonitorProps?.deviceNames,
+            ['Muse S Gen 2', 'OpenBCI Cyton'],
+            'Did not monitor chosen biosensor!'
         )
     }
 
@@ -108,7 +116,7 @@ export default class AppTest extends AbstractPackageTest {
         this.removeDevice('Muse S Gen 2')
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.devices.map((device) => device.name),
+            lastStreamMonitorProps?.deviceNames,
             ['OpenBCI Cyton'],
             'Did not remove device from monitor!'
         )

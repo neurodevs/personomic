@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import { LslStreamOutlet, LslWebSocketBridge } from '@neurodevs/node-lsl'
+import { BiosensorWebSocketGateway } from '@neurodevs/node-biosensors'
+import { LslStreamOutlet } from '@neurodevs/node-lsl'
 
 const PUSH_INTERVAL_MS = 10
+const LISTEN_PORT_START = 8765
 
 const STREAMS = [
     {
-        name: 'EEG',
-        wssPort: 8765,
+        type: 'EEG',
         sampleRateHz: 256,
-        channelNames: ['TP10', 'AF8', 'TP9', 'AF7', 'AUX'],
+        channelNames: ['EEG_TP10', 'EEG_AF8', 'EEG_TP9', 'EEG_AF7', 'EEG_AUX'],
         sample: (t) =>
             [1, 2, 3, 4, 5].map(
                 (amplitude, channel) =>
@@ -19,10 +20,9 @@ const STREAMS = [
             ),
     },
     {
-        name: 'PPG',
-        wssPort: 8766,
+        type: 'PPG',
         sampleRateHz: 64,
-        channelNames: ['AMBIENT', 'INFRARED', 'RED'],
+        channelNames: ['PPG_AMBIENT', 'PPG_INFRARED', 'PPG_RED'],
         sample: (t) =>
             [0.1, 1, 0.6].map(
                 (amplitude) =>
@@ -32,27 +32,18 @@ const STREAMS = [
 ]
 
 async function startStream(stream) {
-    const { name, wssPort, sampleRateHz, channelNames, sample } = stream
-    const sourceId = `personomic-fake-${name.toLowerCase()}`
+    const { type, sampleRateHz, channelNames, sample } = stream
 
     const outlet = await LslStreamOutlet.Create({
-        name: `Fake ${name}`,
-        type: name,
-        sourceId,
+        name: `Fake ${type}`,
+        type,
+        sourceId: `personomic-fake-${type.toLowerCase()}`,
         channelNames,
         channelFormat: 'float32',
         sampleRateHz,
         chunkSize: 1,
         waitAfterConstructionMs: 500,
     })
-
-    const bridge = await LslWebSocketBridge.Create({
-        sourceId,
-        chunkSize: 1,
-        listenPort: wssPort,
-    })
-
-    await bridge.activate()
 
     const clock = () => LslStreamOutlet.lsl.localClock()
     const startSec = clock()
@@ -67,25 +58,43 @@ async function startStream(stream) {
         }
     }, PUSH_INTERVAL_MS)
 
-    console.log(
-        `${name}: ${channelNames.length} ch at ${sampleRateHz} Hz on ws://localhost:${wssPort}`
-    )
-
-    // Deactivated, not destroyed: bridge.destroy() panics inside ffi-rs while
-    // freeing the inlet's native pointers (node-lsl 23.1.1). Exiting frees
-    // them anyway.
-    return () => {
+    const stop = () => {
         clearInterval(timer)
-        bridge.deactivate()
         outlet.destroy()
     }
+
+    return { outlet, stop }
 }
 
-const stops = await Promise.all(STREAMS.map(startStream))
+const started = await Promise.all(STREAMS.map(startStream))
 
-console.log('Streaming. Run `yarn web` to see it. Ctrl+C stops.')
+// Only the members the gateway reads: it bridges the outlets and reports the
+// name and state on its status port.
+const fakeMuse = {
+    deviceName: 'Muse S Gen 2',
+    state: 'streaming',
+    outlets: started.map(({ outlet }) => outlet),
+    addStateListener: () => () => {},
+}
 
+const gateway = await BiosensorWebSocketGateway.Create([fakeMuse], {
+    listenPortStart: LISTEN_PORT_START,
+})
+
+gateway.open()
+
+STREAMS.forEach(({ type, sampleRateHz, channelNames }, i) =>
+    console.log(
+        `${type}: ${channelNames.length} ch at ${sampleRateHz} Hz on ws://localhost:${LISTEN_PORT_START + i}`
+    )
+)
+console.log(`Device status on ws://localhost:${LISTEN_PORT_START - 1}`)
+console.log('Streaming. Run `yarn dev` to see it. Ctrl+C stops.')
+
+// Closed, not destroyed: bridge.destroy() panics inside ffi-rs while freeing
+// the inlet's native pointers (node-lsl 23.1.1). Exiting frees them anyway.
 process.on('SIGINT', () => {
-    stops.forEach((stop) => stop())
+    gateway.close()
+    started.forEach(({ stop }) => stop())
     process.exit(0)
 })

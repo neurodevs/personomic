@@ -2,7 +2,7 @@ import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 import React, { useState } from 'react'
 
 import AddBiosensorButton from './components/AddBiosensorButton'
-import StreamMonitor, { BiosignalDevice } from './components/StreamMonitor'
+import StreamMonitor, { StreamOptions } from './components/StreamMonitor'
 import { Downsampling } from './components/StreamPlot'
 
 export interface AppProps {
@@ -12,19 +12,18 @@ export interface AppProps {
 const App: React.FC<AppProps> = (props: AppProps) => {
     const { downsampling } = props
 
-    const [devices, setDevices] = useState<BiosignalDevice[]>([museDevice])
+    const [deviceNames, setDeviceNames] = useState<string[]>(['Muse S Gen 2'])
 
-    const shownNames = devices.map((device) => device.name)
     const addableNames = DEVICE_NAMES.filter(
-        (name) => !shownNames.includes(name)
+        (name) => !deviceNames.includes(name)
     )
 
     const addDevice = (name: string) =>
-        setDevices((previous) => [...previous, { name, streams: [] }])
+        setDeviceNames((previous) => [...previous, name])
 
     const removeDevice = (name: string) =>
-        setDevices((previous) =>
-            previous.filter((device) => device.name !== name)
+        setDeviceNames((previous) =>
+            previous.filter((shownName) => shownName !== name)
         )
 
     return (
@@ -36,7 +35,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             <StreamMonitorComponent
                 downsampling={downsampling}
                 deviceStatusPort={8764}
-                devices={devices}
+                deviceNames={deviceNames}
+                streamOptions={streamOptions}
                 onRemoveDevice={removeDevice}
             />
             {addableNames.length > 0 && (
@@ -48,24 +48,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
 export default App
 
-const museDevice: BiosignalDevice = {
-    name: 'Muse S Gen 2',
-    streams: [
-        {
-            name: 'EEG',
-            wssPort: 8765,
-            channelNames: ['TP10', 'AF8', 'TP9', 'AF7', 'AUX'],
-        },
-        {
-            name: 'PPG',
-            wssPort: 8766,
-            channelNames: ['AMBIENT', 'INFRARED', 'RED'],
-            detectPeaks: {
-                sampleRate: 64,
-                channels: ['AMBIENT', 'INFRARED'],
-            },
-        },
-    ],
+const streamOptions: Record<string, StreamOptions> = {
+    PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
 }
 
 // Test doubles

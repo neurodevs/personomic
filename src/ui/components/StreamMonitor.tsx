@@ -3,10 +3,11 @@ import React, { useEffect, useState } from 'react'
 import StreamPlot, { Downsampling, PeakDetectionOptions } from './StreamPlot'
 
 export interface StreamMonitorProps {
-    devices: BiosignalDevice[]
+    deviceNames: string[]
+    deviceStatusPort: number
+    streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     downsampling?: Downsampling
-    deviceStatusPort?: number
     onRemoveDevice?: (name: string) => void
 }
 
@@ -14,21 +15,26 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     props: StreamMonitorProps
 ) => {
     const {
-        devices,
+        deviceNames,
+        deviceStatusPort,
+        streamOptions = {},
         windowSeconds = 10,
         downsampling,
-        deviceStatusPort,
         onRemoveDevice,
     } = props
-
-    const streams = devices.flatMap((device) => device.streams)
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
     const [arrivalsByPort, setArrivalsByPort] = useState<
         Record<number, LatestArrival>
     >({})
     const [nowMs, setNowMs] = useState(0)
-    const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>()
+    const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
+    const [isGatewayConnected, setIsGatewayConnected] = useState(false)
+
+    const devices = deviceNames.map((name) =>
+        deviceFor(name, gatewayDevices, streamOptions)
+    )
+    const streams = devices.flatMap((device) => device.streams)
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -202,10 +208,6 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     }, [wssPorts])
 
     useEffect(() => {
-        if (deviceStatusPort === undefined) {
-            return
-        }
-
         let socket: WebSocket
         let retryTimerId: unknown
         let isClosed = false
@@ -216,15 +218,17 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 `ws://localhost:${deviceStatusPort}`
             )
 
-            socket.onmessage = (event) =>
+            socket.onmessage = (event) => {
                 setGatewayDevices(JSON.parse(event.data).devices)
+                setIsGatewayConnected(true)
+            }
 
             socket.onclose = () => {
                 if (isClosed) {
                     return
                 }
 
-                setGatewayDevices(undefined)
+                setIsGatewayConnected(false)
                 retryTimerId = retryTimer.set(connect, deviceStatusRetryDelayMs)
             }
         }
@@ -250,9 +254,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     key={device.name}
                     device={device}
                     status={
-                        deviceStatusPort !== undefined
-                            ? deviceStatusFor(device, gatewayDevices)
-                            : undefined
+                        isGatewayConnected
+                            ? deviceStatusFor(device.name, gatewayDevices)
+                            : 'disconnected'
                     }
                     onRemove={onRemoveDevice}
                 >
@@ -314,9 +318,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 <span className="stream-monitor__device-name">
                     {device.name}
                 </span>
-                {hasStreams && status && (
-                    <DeviceStatusIndicator status={status} />
-                )}
+                <DeviceStatusIndicator status={status} />
                 {hasStreams && (
                     <span className="stream-monitor__device-meta">
                         {device.streams.length} streams
@@ -341,7 +343,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
 interface DevicePanelProps {
     device: BiosignalDevice
-    status?: DeviceStatus
+    status: DeviceStatus
     onRemove?: (name: string) => void
     children?: React.ReactNode
 }
@@ -356,19 +358,60 @@ const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({
     />
 )
 
-function deviceStatusFor(
-    device: BiosignalDevice,
-    gatewayDevices: GatewayDevice[] = []
-): DeviceStatus {
-    const ports = device.streams.map((stream) => stream.wssPort)
+function deviceFor(
+    name: string,
+    gatewayDevices: GatewayDevice[],
+    streamOptions: Record<string, StreamOptions>
+): BiosignalDevice {
+    const gatewayStreams = gatewayDeviceNamed(name, gatewayDevices)?.streams
 
-    const gatewayDevice = gatewayDevices.find((candidate) =>
-        candidate.listenPorts.some((port) => ports.includes(port))
-    )
+    return {
+        name,
+        streams: (gatewayStreams ?? []).map((stream) =>
+            streamFor(stream, streamOptions[stream.type])
+        ),
+    }
+}
+
+function streamFor(
+    stream: GatewayStream,
+    options: StreamOptions = {}
+): BiosignalStream {
+    const { type, listenPort, channelNames, sampleRateHz } = stream
+    const { detectPeaks, downsampling } = options
+
+    return {
+        name: type,
+        wssPort: listenPort,
+        channelNames: channelNames.map((channel) =>
+            withoutTypePrefix(channel, type)
+        ),
+        detectPeaks: detectPeaks && {
+            ...detectPeaks,
+            sampleRate: sampleRateHz,
+        },
+        downsampling,
+    }
+}
+
+function withoutTypePrefix(channel: string, type: string) {
+    const prefix = `${type}_`
+    return channel.startsWith(prefix) ? channel.slice(prefix.length) : channel
+}
+
+function deviceStatusFor(
+    name: string,
+    gatewayDevices: GatewayDevice[]
+): DeviceStatus {
+    const gatewayDevice = gatewayDeviceNamed(name, gatewayDevices)
 
     return gatewayDevice
         ? deviceStatusByState[gatewayDevice.state]
         : 'disconnected'
+}
+
+function gatewayDeviceNamed(name: string, gatewayDevices: GatewayDevice[]) {
+    return gatewayDevices.find((device) => device.deviceName === name)
 }
 
 const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
@@ -427,16 +470,29 @@ type GatewayDeviceState =
     'disconnected' | 'connecting' | 'connected' | 'streaming'
 
 interface GatewayDevice {
+    deviceName: string
     state: GatewayDeviceState
-    listenPorts: number[]
+    streams: GatewayStream[]
 }
 
-export interface BiosignalDevice {
+interface GatewayStream {
+    type: string
+    listenPort: number
+    channelNames: string[]
+    sampleRateHz: number
+}
+
+export interface StreamOptions {
+    detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
+    downsampling?: Downsampling
+}
+
+interface BiosignalDevice {
     name: string
     streams: BiosignalStream[]
 }
 
-export interface BiosignalStream {
+interface BiosignalStream {
     name: string
     wssPort: number
     detectPeaks?: PeakDetectionOptions
