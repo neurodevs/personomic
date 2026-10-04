@@ -623,6 +623,123 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesPlotsWhenDeviceCardIsClicked() {
+        await this.renderWithFakePlot()
+
+        this.clickDeviceCard()
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            [],
+            'Did not hide plots when device card was clicked!'
+        )
+    }
+
+    @test()
+    protected static async hidesPlotsWhenDeviceNameIsClicked() {
+        await this.renderWithFakePlot()
+
+        fireEvent.click(screen.getByText(this.deviceName))
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            [],
+            'Did not hide plots when device name was clicked!'
+        )
+    }
+
+    @test()
+    protected static async showsPlotsAgainWhenDeviceCardIsClickedAgain() {
+        await this.renderWithFakePlot()
+
+        this.clickDeviceCard()
+        this.clickDeviceCard()
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not show plots again when device card was clicked again!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsWhenPlotIsClicked() {
+        await this.renderWithFakePlot()
+
+        fireEvent.click(
+            screen.getByTestId(`stream-plot-${this.streams[0].name}`)
+        )
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not keep plots when plot was clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsWhenGapBetweenPlotsIsClicked() {
+        await this.renderWithFakePlot()
+
+        fireEvent.click(
+            screen.getByTestId(`stream-plot-${this.streams[0].name}`)
+                .parentElement!
+        )
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not keep plots when gap between plots was clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsWhenUuidInputIsClicked() {
+        await this.renderWithFakePlot()
+        await this.dropConnection(this.latestDeviceStatusSocket)
+
+        fireEvent.click(this.uuidInput!)
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not keep plots when UUID input was clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsWhenRemoveButtonIsClicked() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            onRemoveDevice: () => {},
+        })
+
+        fireEvent.click(
+            screen.getByRole('button', { name: `Remove ${this.deviceName}` })
+        )
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not keep plots when remove button was clicked!'
+        )
+    }
+
+    @test()
+    protected static async hidesPlotsOfClickedDeviceOnly() {
+        this.setFakeStreamPlot()
+        await this.render(this.twoDevices)
+
+        this.clickDeviceCard(this.twoDevices[0].name)
+
+        assert.isEqualDeep(
+            this.twoDevices.map((device) => this.shownPlotsOf(device.name)),
+            [[], this.plotIdsFor(this.twoDevices[1].streams)],
+            'Did not hide plots of clicked device only!'
+        )
+    }
+
+    @test()
     protected static async groupsStreamsUnderTheirDevice() {
         this.setFakeStreamPlot()
         await this.render(this.twoDevices)
@@ -1061,6 +1178,23 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return FakeWebSocket.callsToConstructor.filter(
             (url) => url === this.deviceStatusUrl
         ).length
+    }
+
+    private static clickDeviceCard(deviceName = this.deviceName) {
+        fireEvent.click(screen.getByTestId(`device-${deviceName}`))
+    }
+
+    private static shownPlotsOf(deviceName: string) {
+        return Array.from(
+            screen
+                .getByTestId(`device-${deviceName}`)
+                .querySelectorAll('[data-testid^="stream-plot-"]'),
+            (plot) => plot.getAttribute('data-testid')
+        )
+    }
+
+    private static plotIdsFor(streams: TestStream[]) {
+        return streams.map((stream) => `stream-plot-${stream.name}`)
     }
 
     private static get uuidInput() {

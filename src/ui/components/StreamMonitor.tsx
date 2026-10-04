@@ -319,10 +319,21 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 }) => {
     const hasStreams = device.streams.length > 0
 
+    const [arePlotsHidden, setArePlotsHidden] = useState(false)
+
+    const togglePlotsUnlessClickedOnContents = (event: React.MouseEvent) => {
+        const clicked = event.target as Element
+
+        if (!clicked.closest(`input, button, .${deviceStreamsClassName}`)) {
+            setArePlotsHidden((wereHidden) => !wereHidden)
+        }
+    }
+
     return (
         <section
             className="stream-monitor__device"
             data-testid={`device-${device.name}`}
+            onClick={togglePlotsUnlessClickedOnContents}
         >
             <header className="stream-monitor__device-header">
                 <span className="stream-monitor__device-name">
@@ -358,10 +369,14 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     </button>
                 )}
             </header>
-            {children}
+            {hasStreams && !arePlotsHidden && (
+                <div className={deviceStreamsClassName}>{children}</div>
+            )}
         </section>
     )
 }
+
+const deviceStreamsClassName = 'stream-monitor__device-streams'
 
 interface DevicePanelProps {
     device: BiosignalDevice
