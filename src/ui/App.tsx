@@ -31,7 +31,7 @@ export interface AppProps {
 const App: React.FC<AppProps> = (props: AppProps) => {
     const { downsampling } = props
 
-    const [deviceNames, setDeviceNames] = useState<string[]>(['Muse S Gen 2'])
+    const [deviceNames, setDeviceNames] = useState<string[]>([])
     const [uuids, setUuids] = useState<Record<string, string>>({})
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()

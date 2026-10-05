@@ -41,13 +41,13 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async monitorsMuseDeviceByDefault() {
+    protected static async monitorsNoDevicesByDefault() {
         render(<App />)
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.deviceNames,
-            ['Muse S Gen 2'],
-            'Did not monitor Muse device by default!'
+            [],
+            'Did not monitor no devices by default!'
         )
     }
 
@@ -81,21 +81,21 @@ export default class AppTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.deviceNames,
-            ['Muse S Gen 2', 'OpenBCI Cyton'],
+            ['OpenBCI Cyton'],
             'Did not monitor chosen biosensor!'
         )
     }
 
     @test()
-    protected static async offersEveryBiosensorNotAlreadyShown() {
+    protected static async offersEveryBiosensorAtFirst() {
         render(<App />)
 
         this.openBiosensorMenu()
 
         assert.isEqualDeep(
             this.offeredBiosensors,
-            DEVICE_NAMES.filter((name) => name !== 'Muse S Gen 2'),
-            'Did not offer every biosensor not already shown!'
+            [...DEVICE_NAMES],
+            'Did not offer every biosensor at first!'
         )
     }
 
@@ -114,7 +114,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async removesDeviceFromMonitor() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.addBiosensor('OpenBCI Cyton')
         this.removeDevice('Muse S Gen 2')
@@ -128,7 +128,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async offersRemovedBiosensorAgain() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.removeDevice('Muse S Gen 2')
         this.openBiosensorMenu()
@@ -141,7 +141,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async removesDeviceWithoutContactingOrchestrator() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.removeDevice('Muse S Gen 2')
 
@@ -170,7 +170,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async passesTypedUuidBackToMonitor() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.typeUuid('Muse S Gen 2', 'typed-uuid')
 
@@ -198,7 +198,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async connectsToOrchestratorOnConnect() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
 
@@ -211,7 +211,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async startsOrchestratorWithSelectedDevicesAndUuids() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.addBiosensor('OpenBCI Cyton')
         this.typeUuid('Muse S Gen 2', ' muse-uuid ')
@@ -239,7 +239,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async showsConnectingUntilOrchestratorReplies() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         const whileWaiting = this.sessionButtonState
@@ -258,7 +258,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async tellsMonitorItIsConnectingUntilOrchestratorReplies() {
-        render(<App />)
+        this.renderWithMuse()
 
         const beforeClick = lastStreamMonitorProps?.isConnecting
         this.clickConnect()
@@ -275,7 +275,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async closesOrchestratorSocketAfterReplyWithoutError() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.receive({}))
@@ -292,7 +292,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async showsErrorFromOrchestrator() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
@@ -306,7 +306,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async showsHowToStartOrchestratorWhenUnreachable() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.dropConnection())
@@ -326,7 +326,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async clearsErrorWhenConnectingAgain() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.dropConnection())
@@ -341,7 +341,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async startsUnlocked() {
-        render(<App />)
+        this.renderWithMuse()
 
         assert.isEqualDeep(
             this.lockState,
@@ -356,7 +356,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async locksProtocolAsSoonAsConnectIsClicked() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
 
@@ -373,7 +373,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async staysLockedWithStopWhenConnectingFails() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
@@ -391,7 +391,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async unlocksWhenOrchestratorIsUnreachableOnConnect() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.clickConnect()
         act(() => this.orchestratorSocket.dropConnection())
@@ -409,7 +409,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async stopsOrchestratorWhenStopIsClicked() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.connect()
         this.clickStop()
@@ -424,7 +424,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async staysLockedWhileStopping() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.connect()
         this.clickStop()
@@ -442,7 +442,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async unlocksOnceOrchestratorHasStopped() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.connect()
         this.clickStop()
@@ -461,7 +461,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async staysLockedAndShowsErrorWhenStoppingFails() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.connect()
         this.clickStop()
@@ -484,7 +484,7 @@ export default class AppTest extends AbstractPackageTest {
 
     @test()
     protected static async unlocksWhenOrchestratorIsUnreachableOnStop() {
-        render(<App />)
+        this.renderWithMuse()
 
         this.connect()
         this.clickStop()
@@ -507,12 +507,28 @@ export default class AppTest extends AbstractPackageTest {
     protected static async disablesConnectWithoutDevices() {
         render(<App />)
 
+        assert.isEqualDeep(
+            this.sessionButtonState,
+            { text: 'Connect', isDisabled: true },
+            'Did not disable connect without devices!'
+        )
+    }
+
+    @test()
+    protected static async disablesConnectAgainOnceLastDeviceIsRemoved() {
+        this.renderWithMuse()
+
         this.removeDevice('Muse S Gen 2')
 
         assert.isTrue(
             this.sessionButtonState.isDisabled,
-            'Did not disable connect without devices!'
+            'Did not disable connect again once last device was removed!'
         )
+    }
+
+    private static renderWithMuse() {
+        render(<App />)
+        this.addBiosensor('Muse S Gen 2')
     }
 
     private static typeUuid(name: string, uuid: string) {
