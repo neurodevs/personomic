@@ -306,6 +306,12 @@ body {
     color: var(--text-muted);
 }
 
+.stream-monitor__device-uuid:read-only {
+    border-style: dashed;
+    color: var(--text-secondary);
+    cursor: default;
+}
+
 .stream-monitor__device-uuid:focus-visible {
     border-color: rgba(255, 255, 255, 0.3);
     outline: none;

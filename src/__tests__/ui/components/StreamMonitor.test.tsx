@@ -532,6 +532,73 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async letsUuidBeEditedWithChangeHandler() {
+        await this.renderBeforeDeviceStatus()
+
+        assert.isFalse(
+            (this.uuidInput as HTMLInputElement).readOnly,
+            'Did not let UUID be edited with change handler!'
+        )
+    }
+
+    @test()
+    protected static async showsFilledUuidAsReadOnlyWithoutChangeHandler() {
+        const uuid = this.generateId()
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onUuidChange: undefined,
+            uuids: { [this.deviceName]: uuid },
+        })
+
+        const input = this.uuidInput as HTMLInputElement
+
+        assert.isEqualDeep(
+            { value: input?.value, isReadOnly: input?.readOnly },
+            { value: uuid, isReadOnly: true },
+            'Did not show filled UUID as read-only without change handler!'
+        )
+    }
+
+    @test('connecting keeps locked UUID', 'connecting')
+    @test('streaming keeps locked UUID', 'streaming')
+    protected static async keepsReadOnlyUuidWhenNotDisconnected(state: string) {
+        const uuid = this.generateId()
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onUuidChange: undefined,
+            uuids: { [this.deviceName]: uuid },
+        })
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqual(
+            (this.uuidInput as HTMLInputElement | null)?.value,
+            uuid,
+            `Did not keep filled UUID when locked and ${state}!`
+        )
+    }
+
+    @test('empty UUID is removed when locked', '')
+    @test('blank UUID is removed when locked', '   ')
+    protected static async removesUnfilledUuidInputWithoutChangeHandler(
+        uuid: string
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onUuidChange: undefined,
+            uuids: { [this.deviceName]: uuid },
+        })
+
+        assert.isEqual(
+            this.uuidInput,
+            null,
+            'Did not remove unfilled UUID input without change handler!'
+        )
+    }
+
+    @test()
     protected static async showsNoConnectButtonOnDevice() {
         await this.renderBeforeDeviceStatus()
 
@@ -1302,6 +1369,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             <StreamMonitor
                 deviceNames={deviceNames}
                 deviceStatusPort={this.deviceStatusPort}
+                onUuidChange={() => {}}
                 {...props}
             />
         )

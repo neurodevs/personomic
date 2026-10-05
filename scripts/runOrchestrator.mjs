@@ -16,8 +16,7 @@ const UUID_OPTION_BY_DEVICE = {
 }
 
 let orchestrator
-let startedSpecifications
-let isStarting = false
+let isBusy = false
 
 function specificationFor({ deviceName, uuid }) {
     const uuidOption = UUID_OPTION_BY_DEVICE[deviceName]
@@ -25,40 +24,43 @@ function specificationFor({ deviceName, uuid }) {
 }
 
 async function start(devices) {
-    if (isStarting) {
-        throw new Error('Already connecting.')
+    if (orchestrator) {
+        throw new Error('A session is already running. Press Stop first.')
     }
 
-    const specifications = JSON.stringify(devices.map(specificationFor))
+    const specifications = devices.map(specificationFor)
+    console.log('Starting', JSON.stringify(specifications))
 
-    // One orchestrator per run: changing devices means stopping it, which
-    // destroys the gateway's bridges, and bridge.destroy() panics inside
-    // ffi-rs while freeing the inlet's native pointers (node-lsl 23.1.1),
-    // aborting this process. Starting it again only retries the connections.
-    if (orchestrator && specifications !== startedSpecifications) {
-        throw new Error(
-            'Restart `yarn run.orchestrator` to change devices or UUIDs.'
-        )
-    }
+    // Kept even if starting fails, so that Stop can clean up whatever was
+    // created before the failure.
+    orchestrator = await BiosensorStreamingOrchestrator.Create({
+        devices: specifications,
+        webSocketPortStart: WEB_SOCKET_PORT_START,
+    })
 
-    isStarting = true
+    await orchestrator.start()
 
-    try {
-        console.log('Starting', specifications)
+    console.log(
+        `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
+    )
+}
 
-        orchestrator ??= await BiosensorStreamingOrchestrator.Create({
-            devices: JSON.parse(specifications),
-            webSocketPortStart: WEB_SOCKET_PORT_START,
-        })
-        startedSpecifications = specifications
+async function stop() {
+    console.log('Stopping')
 
-        await orchestrator.start()
+    const stopping = orchestrator
+    orchestrator = undefined
 
-        console.log(
-            `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
-        )
-    } finally {
-        isStarting = false
+    await stopping?.stop()
+}
+
+async function run(command, devices) {
+    if (command === 'start') {
+        await start(devices)
+    } else if (command === 'stop') {
+        await stop()
+    } else {
+        throw new Error(`Unknown command: ${command}`)
     }
 }
 
@@ -67,13 +69,19 @@ const server = new WebSocketServer({ port: COMMAND_PORT })
 server.on('connection', (client) => {
     client.on('message', async (message) => {
         try {
-            const { command, devices } = JSON.parse(message.toString())
-
-            if (command !== 'start') {
-                throw new Error(`Unknown command: ${command}`)
+            if (isBusy) {
+                throw new Error('Busy with another command.')
             }
 
-            await start(devices)
+            isBusy = true
+
+            try {
+                const { command, devices } = JSON.parse(message.toString())
+                await run(command, devices)
+            } finally {
+                isBusy = false
+            }
+
             client.send(JSON.stringify({}))
         } catch (err) {
             console.error(err)
@@ -85,6 +93,7 @@ server.on('connection', (client) => {
 console.log(`Waiting for Connect on ws://localhost:${COMMAND_PORT}.`)
 console.log('Run `yarn dev`, pick biosensors, and click Connect. Ctrl+C stops.')
 
-// Exits without orchestrator.stop() for the same reason: it would abort
-// mid-shutdown. Exiting drops the device connections anyway.
-process.on('SIGINT', () => process.exit(0))
+process.on('SIGINT', async () => {
+    await stop()
+    process.exit(0)
+})

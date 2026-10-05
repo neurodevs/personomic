@@ -8,6 +8,22 @@ import StreamMonitor, {
 } from './components/StreamMonitor'
 import { Downsampling } from './components/StreamPlot'
 
+const orchestratorPort = 8763
+
+const orchestratorUnreachableMessage =
+    'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
+
+const streamOptions: Record<string, StreamOptions> = {
+    PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
+}
+
+const sessionButtonLabels: Record<SessionState, string> = {
+    unlocked: 'Connect',
+    connecting: 'Connecting…',
+    locked: 'Stop',
+    stopping: 'Stopping…',
+}
+
 export interface AppProps {
     downsampling?: Downsampling
 }
@@ -17,8 +33,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
     const [deviceNames, setDeviceNames] = useState<string[]>(['Muse S Gen 2'])
     const [uuids, setUuids] = useState<Record<string, string>>({})
-    const [isConnecting, setIsConnecting] = useState(false)
-    const [connectError, setConnectError] = useState<string>()
+    const [session, setSession] = useState<SessionState>('unlocked')
+    const [sessionError, setSessionError] = useState<string>()
+
+    const isLocked = session !== 'unlocked'
 
     const addableNames = DEVICE_NAMES.filter(
         (name) => !deviceNames.includes(name)
@@ -36,38 +54,47 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         setUuids((previous) => ({ ...previous, [name]: uuid }))
 
     const connectDevices = () => {
-        const socket = new WebSocketComponent(
-            `ws://localhost:${orchestratorPort}`
-        )
-        let hasReplied = false
+        setSession('connecting')
+        setSessionError(undefined)
 
-        setIsConnecting(true)
-        setConnectError(undefined)
-
-        socket.onopen = () =>
-            socket.send(
-                JSON.stringify({
-                    command: 'start',
-                    devices: deviceNames.map((name) => ({
-                        deviceName: name,
-                        uuid: uuids[name]?.trim() || undefined,
-                    })),
-                })
-            )
-
-        socket.onmessage = (event) => {
-            hasReplied = true
-            setConnectError(JSON.parse(event.data).error)
-            setIsConnecting(false)
-            socket.close()
-        }
-
-        socket.onclose = () => {
-            if (!hasReplied) {
-                setConnectError(orchestratorUnreachableMessage)
-                setIsConnecting(false)
+        sendToOrchestrator(
+            {
+                command: 'start',
+                devices: deviceNames.map((name) => ({
+                    deviceName: name,
+                    uuid: uuids[name]?.trim() || undefined,
+                })),
+            },
+            {
+                onReply: ({ error }) => {
+                    setSessionError(error)
+                    setSession('locked')
+                },
+                onUnreachable: () => {
+                    setSessionError(orchestratorUnreachableMessage)
+                    setSession('unlocked')
+                },
             }
-        }
+        )
+    }
+
+    const stopSession = () => {
+        setSession('stopping')
+        setSessionError(undefined)
+
+        sendToOrchestrator(
+            { command: 'stop' },
+            {
+                onReply: ({ error }) => {
+                    setSessionError(error)
+                    setSession(error ? 'locked' : 'unlocked')
+                },
+                onUnreachable: () => {
+                    setSessionError(orchestratorUnreachableMessage)
+                    setSession('unlocked')
+                },
+            }
+        )
     }
 
     return (
@@ -81,26 +108,30 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceStatusPort={8764}
                 deviceNames={deviceNames}
                 streamOptions={streamOptions}
-                isConnecting={isConnecting}
+                isConnecting={session === 'connecting'}
                 uuids={uuids}
-                onUuidChange={setUuid}
-                onRemoveDevice={removeDevice}
+                onUuidChange={isLocked ? undefined : setUuid}
+                onRemoveDevice={isLocked ? undefined : removeDevice}
             />
-            {addableNames.length > 0 && (
+            {!isLocked && addableNames.length > 0 && (
                 <AddBiosensorButton names={addableNames} onAdd={addDevice} />
             )}
             <div className="connect-devices">
                 <button
                     type="button"
                     className="connect-devices__button"
-                    disabled={isConnecting || deviceNames.length === 0}
-                    onClick={connectDevices}
+                    disabled={
+                        session === 'connecting' ||
+                        session === 'stopping' ||
+                        deviceNames.length === 0
+                    }
+                    onClick={isLocked ? stopSession : connectDevices}
                 >
-                    {isConnecting ? 'Connecting…' : 'Connect'}
+                    {sessionButtonLabels[session]}
                 </button>
-                {connectError && (
+                {sessionError && (
                     <span className="connect-devices__error" role="alert">
-                        {connectError}
+                        {sessionError}
                     </span>
                 )}
             </div>
@@ -110,13 +141,35 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
 export default App
 
-const orchestratorPort = 8763
+type SessionState = 'unlocked' | 'connecting' | 'locked' | 'stopping'
 
-const orchestratorUnreachableMessage =
-    'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
+function sendToOrchestrator(
+    message: object,
+    handlers: OrchestratorReplyHandlers
+) {
+    const { onReply, onUnreachable } = handlers
 
-const streamOptions: Record<string, StreamOptions> = {
-    PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
+    const socket = new WebSocketComponent(`ws://localhost:${orchestratorPort}`)
+    let hasReplied = false
+
+    socket.onopen = () => socket.send(JSON.stringify(message))
+
+    socket.onmessage = (event) => {
+        hasReplied = true
+        onReply(JSON.parse(event.data))
+        socket.close()
+    }
+
+    socket.onclose = () => {
+        if (!hasReplied) {
+            onUnreachable()
+        }
+    }
+}
+
+interface OrchestratorReplyHandlers {
+    onReply: (reply: { error?: string }) => void
+    onUnreachable: () => void
 }
 
 // Test doubles

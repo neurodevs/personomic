@@ -319,6 +319,12 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 }) => {
     const hasStreams = device.streams.length > 0
 
+    const isLocked = onUuidChange === undefined
+
+    const isUuidShown = isLocked
+        ? uuid.trim() !== ''
+        : status === 'disconnected'
+
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
 
     const togglePlotsUnlessClickedOnContents = (event: React.MouseEvent) => {
@@ -340,13 +346,14 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     {device.name}
                 </span>
                 <DeviceStatusIndicator status={status} />
-                {status === 'disconnected' && (
+                {isUuidShown && (
                     <input
                         type="text"
                         className="stream-monitor__device-uuid"
                         aria-label={`${device.name} UUID (optional)`}
                         placeholder="UUID (optional)"
                         value={uuid}
+                        readOnly={isLocked}
                         onChange={(event) =>
                             onUuidChange?.(device.name, event.target.value)
                         }

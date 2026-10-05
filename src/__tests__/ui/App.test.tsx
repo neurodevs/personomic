@@ -140,6 +140,19 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async removesDeviceWithoutContactingOrchestrator() {
+        render(<App />)
+
+        this.removeDevice('Muse S Gen 2')
+
+        assert.isLength(
+            FakeWebSocket.callsToConstructor,
+            0,
+            'Contacted orchestrator when removing a device!'
+        )
+    }
+
+    @test()
     protected static async placesAddBiosensorButtonBelowDevices() {
         render(<App />)
 
@@ -176,7 +189,7 @@ export default class AppTest extends AbstractPackageTest {
 
         assert.isTrue(
             Boolean(
-                addButton.compareDocumentPosition(this.connectButton) &
+                addButton.compareDocumentPosition(this.sessionButton) &
                 Node.DOCUMENT_POSITION_FOLLOWING
             ),
             'Did not place connect button below add biosensor button!'
@@ -229,15 +242,15 @@ export default class AppTest extends AbstractPackageTest {
         render(<App />)
 
         this.clickConnect()
-        const whileWaiting = this.connectButtonState
+        const whileWaiting = this.sessionButtonState
 
         act(() => this.orchestratorSocket.receive({}))
 
         assert.isEqualDeep(
-            [whileWaiting, this.connectButtonState],
+            [whileWaiting, this.sessionButtonState],
             [
                 { text: 'Connecting…', isDisabled: true },
-                { text: 'Connect', isDisabled: false },
+                { text: 'Stop', isDisabled: false },
             ],
             'Did not show connecting until orchestrator replied!'
         )
@@ -301,7 +314,7 @@ export default class AppTest extends AbstractPackageTest {
         assert.isEqualDeep(
             {
                 error: screen.getByRole('alert').textContent,
-                button: this.connectButtonState,
+                button: this.sessionButtonState,
             },
             {
                 error: 'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
@@ -327,13 +340,177 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async startsUnlocked() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not start unlocked!'
+        )
+    }
+
+    @test()
+    protected static async locksProtocolAsSoonAsConnectIsClicked() {
+        render(<App />)
+
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: true,
+                isAddBiosensorButtonShown: false,
+                button: { text: 'Connecting…', isDisabled: true },
+            },
+            'Did not lock protocol as soon as connect was clicked!'
+        )
+    }
+
+    @test()
+    protected static async staysLockedWithStopWhenConnectingFails() {
+        render(<App />)
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: true,
+                isAddBiosensorButtonShown: false,
+                button: { text: 'Stop', isDisabled: false },
+            },
+            'Did not stay locked with stop when connecting failed!'
+        )
+    }
+
+    @test()
+    protected static async unlocksWhenOrchestratorIsUnreachableOnConnect() {
+        render(<App />)
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not unlock when orchestrator was unreachable on connect!'
+        )
+    }
+
+    @test()
+    protected static async stopsOrchestratorWhenStopIsClicked() {
+        render(<App />)
+
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            JSON.parse(FakeWebSocket.callsToSend.at(-1)?.data as string),
+            { command: 'stop' },
+            'Did not stop orchestrator when stop was clicked!'
+        )
+    }
+
+    @test()
+    protected static async staysLockedWhileStopping() {
+        render(<App />)
+
+        this.connect()
+        this.clickStop()
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: true,
+                isAddBiosensorButtonShown: false,
+                button: { text: 'Stopping…', isDisabled: true },
+            },
+            'Did not stay locked while stopping!'
+        )
+    }
+
+    @test()
+    protected static async unlocksOnceOrchestratorHasStopped() {
+        render(<App />)
+
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not unlock once orchestrator had stopped!'
+        )
+    }
+
+    @test()
+    protected static async staysLockedAndShowsErrorWhenStoppingFails() {
+        render(<App />)
+
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({ error: 'Still busy' }))
+
+        assert.isEqualDeep(
+            {
+                isLocked: this.isMonitorLocked,
+                button: this.sessionButtonState,
+                error: screen.getByRole('alert').textContent,
+            },
+            {
+                isLocked: true,
+                button: { text: 'Stop', isDisabled: false },
+                error: 'Still busy',
+            },
+            'Did not stay locked and show error when stopping failed!'
+        )
+    }
+
+    @test()
+    protected static async unlocksWhenOrchestratorIsUnreachableOnStop() {
+        render(<App />)
+
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqualDeep(
+            {
+                isLocked: this.isMonitorLocked,
+                error: screen.getByRole('alert').textContent,
+            },
+            {
+                isLocked: false,
+                error: 'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            },
+            'Did not unlock when orchestrator was unreachable on stop!'
+        )
+    }
+
+    @test()
     protected static async disablesConnectWithoutDevices() {
         render(<App />)
 
         this.removeDevice('Muse S Gen 2')
 
         assert.isTrue(
-            this.connectButtonState.isDisabled,
+            this.sessionButtonState.isDisabled,
             'Did not disable connect without devices!'
         )
     }
@@ -343,15 +520,43 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     private static clickConnect() {
-        fireEvent.click(this.connectButton)
+        fireEvent.click(this.sessionButton)
     }
 
-    private static get connectButton() {
-        return screen.getByRole('button', { name: /^Connect/ })
+    private static connect() {
+        this.clickConnect()
+        act(() => this.orchestratorSocket.receive({}))
     }
 
-    private static get connectButtonState() {
-        const button = this.connectButton as HTMLButtonElement
+    private static clickStop() {
+        fireEvent.click(this.sessionButton)
+    }
+
+    private static get isAddBiosensorButtonShown() {
+        return screen.queryByRole('button', { name: /add biosensor/i }) !== null
+    }
+
+    private static get isMonitorLocked() {
+        return (
+            lastStreamMonitorProps?.onUuidChange === undefined &&
+            lastStreamMonitorProps?.onRemoveDevice === undefined
+        )
+    }
+
+    private static get lockState() {
+        return {
+            isLocked: this.isMonitorLocked,
+            isAddBiosensorButtonShown: this.isAddBiosensorButtonShown,
+            button: this.sessionButtonState,
+        }
+    }
+
+    private static get sessionButton() {
+        return screen.getByRole('button', { name: /^(Connect|Stop)/ })
+    }
+
+    private static get sessionButtonState() {
+        const button = this.sessionButton as HTMLButtonElement
         return { text: button.textContent, isDisabled: button.disabled }
     }
 
