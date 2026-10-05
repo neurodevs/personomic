@@ -182,6 +182,43 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersUuidOnlyForDevicesThatTakeOne() {
+        render(<App />)
+
+        DEVICE_NAMES.forEach((name) => this.addBiosensor(name))
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.uuids,
+            {
+                'Govee Thermohygrometer H5074': '',
+                'Muse S Athena': '',
+                'Muse S Gen 2': '',
+                'Muse S Gen 1': '',
+                'Muse 2': '',
+                'Muse 1 Gen 2': '',
+            },
+            'Did not offer UUID only for devices that take one!'
+        )
+    }
+
+    @test()
+    protected static async sendsNoUuidForDeviceThatDoesNotTakeOne() {
+        render(<App />)
+
+        this.addBiosensor('OpenBCI Cyton')
+        this.typeUuid('OpenBCI Cyton', 'typed-anyway')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            JSON.parse(FakeWebSocket.callsToSend[0]?.data as string).devices,
+            [{ deviceName: 'OpenBCI Cyton' }],
+            'Sent a UUID for a device that does not take one!'
+        )
+    }
+
+    @test()
     protected static async placesConnectButtonBelowAddBiosensorButton() {
         render(<App />)
 

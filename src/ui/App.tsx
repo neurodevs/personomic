@@ -10,6 +10,15 @@ import { Downsampling } from './components/StreamPlot'
 
 const orchestratorPort = 8763
 
+const deviceNamesTakingUuid: readonly string[] = [
+    'Govee Thermohygrometer H5074',
+    'Muse S Athena',
+    'Muse S Gen 2',
+    'Muse S Gen 1',
+    'Muse 2',
+    'Muse 1 Gen 2',
+]
+
 const orchestratorUnreachableMessage =
     'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
 
@@ -53,6 +62,12 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const setUuid = (name: string, uuid: string) =>
         setUuids((previous) => ({ ...previous, [name]: uuid }))
 
+    const uuidsOfDevicesTakingOne = Object.fromEntries(
+        deviceNames
+            .filter((name) => deviceNamesTakingUuid.includes(name))
+            .map((name) => [name, uuids[name] ?? ''])
+    )
+
     const connectDevices = () => {
         setSession('connecting')
         setSessionError(undefined)
@@ -62,7 +77,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 command: 'start',
                 devices: deviceNames.map((name) => ({
                     deviceName: name,
-                    uuid: uuids[name]?.trim() || undefined,
+                    uuid: uuidsOfDevicesTakingOne[name]?.trim() || undefined,
                 })),
             },
             {
@@ -109,7 +124,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceNames={deviceNames}
                 streamOptions={streamOptions}
                 isConnecting={session === 'connecting'}
-                uuids={uuids}
+                uuids={uuidsOfDevicesTakingOne}
                 onUuidChange={isLocked ? undefined : setUuid}
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />

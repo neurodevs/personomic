@@ -599,6 +599,23 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsUuidInputOnlyForDevicesWithUuidEntry() {
+        this.setFakeStreamPlot()
+        await this.mount(
+            this.twoDevices.map((device) => device.name),
+            { uuids: { [this.twoDevices[1].name]: '' } }
+        )
+
+        assert.isEqualDeep(
+            screen
+                .queryAllByRole('textbox')
+                .map((input) => input.getAttribute('aria-label')),
+            [`${this.twoDevices[1].name} UUID (optional)`],
+            'Did not show UUID input only for devices with a UUID entry!'
+        )
+    }
+
+    @test()
     protected static async showsNoConnectButtonOnDevice() {
         await this.renderBeforeDeviceStatus()
 
@@ -1370,6 +1387,9 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 deviceNames={deviceNames}
                 deviceStatusPort={this.deviceStatusPort}
                 onUuidChange={() => {}}
+                uuids={Object.fromEntries(
+                    deviceNames.map((name) => [name, ''])
+                )}
                 {...props}
             />
         )

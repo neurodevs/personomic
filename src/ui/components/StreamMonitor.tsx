@@ -265,7 +265,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             : statusBeforeGatewayReports(isConnecting)
                     }
                     onRemove={onRemoveDevice}
-                    uuid={uuids[device.name] ?? ''}
+                    uuid={uuids[device.name]}
                     onUuidChange={onUuidChange}
                 >
                     {device.streams.map((stream) => (
@@ -321,9 +321,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
     const isLocked = onUuidChange === undefined
 
-    const isUuidShown = isLocked
-        ? uuid.trim() !== ''
-        : status === 'disconnected'
+    const isUuidShown =
+        uuid !== undefined &&
+        (isLocked ? uuid.trim() !== '' : status === 'disconnected')
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
 
@@ -389,7 +389,7 @@ interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
     onRemove?: (name: string) => void
-    uuid: string
+    uuid?: string
     onUuidChange?: (name: string, uuid: string) => void
     children?: React.ReactNode
 }
