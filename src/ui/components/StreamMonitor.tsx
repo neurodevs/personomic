@@ -342,10 +342,10 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
             onClick={togglePlotsUnlessClickedOnContents}
         >
             <header className="stream-monitor__device-header">
+                <DeviceStatusIndicator status={status} />
                 <span className="stream-monitor__device-name">
                     {device.name}
                 </span>
-                <DeviceStatusIndicator status={status} />
                 {isUuidShown && (
                     <input
                         type="text"

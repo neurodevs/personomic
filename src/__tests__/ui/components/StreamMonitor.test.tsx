@@ -465,6 +465,24 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsStatusLeftOfDeviceName() {
+        await this.renderBeforeDeviceStatus()
+
+        const status = screen
+            .getByTestId(`device-${this.deviceName}`)
+            .querySelector('.stream-monitor__device-status')!
+
+        assert.isTrue(
+            Boolean(
+                status.compareDocumentPosition(
+                    screen.getByText(this.deviceName)
+                ) & Node.DOCUMENT_POSITION_FOLLOWING
+            ),
+            'Did not show status left of device name!'
+        )
+    }
+
+    @test()
     protected static async showsUuidInputRightOfStatusWhenDisconnected() {
         await this.renderBeforeDeviceStatus()
 

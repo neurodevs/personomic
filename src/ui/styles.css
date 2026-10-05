@@ -283,6 +283,8 @@ body {
 }
 
 .stream-monitor__device-status {
+    flex: none;
+    align-self: center;
     width: 8px;
     height: 8px;
     border-radius: 50%;
