@@ -140,6 +140,12 @@ body {
     list-style: none;
 }
 
+.add-biosensor__separator {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--border-strong);
+}
+
 .add-biosensor__option {
     display: block;
     width: 100%;

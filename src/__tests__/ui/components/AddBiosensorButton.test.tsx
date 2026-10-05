@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 import AddBiosensorButton from '../../../ui/components/AddBiosensorButton'
 import AbstractPackageTest from '../../AbstractPackageTest'
@@ -63,6 +63,63 @@ export default class AddBiosensorButtonTest extends AbstractPackageTest {
         fireEvent.click(screen.getByText(this.names[0]))
 
         assert.isLength(this.options, 0, 'Did not close menu after choosing!')
+    }
+
+    @test()
+    protected static async separatesFamiliesWithLine() {
+        this.openWithNames([
+            'Cognionics Quick-20r',
+            'Muse S Athena',
+            'Muse 2',
+            'OpenBCI Cyton',
+        ])
+
+        assert.isEqualDeep(
+            this.menuRows,
+            [
+                'Cognionics Quick-20r',
+                '---',
+                'Muse S Athena',
+                'Muse 2',
+                '---',
+                'OpenBCI Cyton',
+            ],
+            'Did not separate families with a line!'
+        )
+    }
+
+    @test()
+    protected static async keepsMuseHeadsetsTogetherWhenNotAdjacent() {
+        this.openWithNames(['Muse 2', 'OpenBCI Cyton', 'Muse S Gen 2'])
+
+        assert.isEqualDeep(
+            this.menuRows,
+            ['Muse 2', 'Muse S Gen 2', '---', 'OpenBCI Cyton'],
+            'Did not keep Muse headsets together when not adjacent!'
+        )
+    }
+
+    @test()
+    protected static async showsNoLineForSingleFamily() {
+        this.openWithNames(['Muse 2', 'Muse S Gen 2'])
+
+        assert.isEqualDeep(
+            this.menuRows,
+            ['Muse 2', 'Muse S Gen 2'],
+            'Showed a line for a single family!'
+        )
+    }
+
+    private static openWithNames(names: string[]) {
+        cleanup()
+        render(<AddBiosensorButton names={names} onAdd={() => {}} />)
+        this.open()
+    }
+
+    private static get menuRows() {
+        return Array.from(screen.getByRole('menu').children, (row) =>
+            row.getAttribute('role') === 'separator' ? '---' : row.textContent
+        )
     }
 
     private static open() {

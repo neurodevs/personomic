@@ -30,17 +30,27 @@ const AddBiosensorButton: React.FC<AddBiosensorButtonProps> = (
             </button>
             {isOpen && (
                 <ul className="add-biosensor__menu" role="menu">
-                    {names.map((name) => (
-                        <li key={name} role="none">
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="add-biosensor__option"
-                                onClick={() => add(name)}
-                            >
-                                {name}
-                            </button>
-                        </li>
+                    {familiesOf(names).map((family, i) => (
+                        <React.Fragment key={family[0]}>
+                            {i > 0 && (
+                                <li
+                                    role="separator"
+                                    className="add-biosensor__separator"
+                                />
+                            )}
+                            {family.map((name) => (
+                                <li key={name} role="none">
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        className="add-biosensor__option"
+                                        onClick={() => add(name)}
+                                    >
+                                        {name}
+                                    </button>
+                                </li>
+                            ))}
+                        </React.Fragment>
                     ))}
                 </ul>
             )}
@@ -49,3 +59,18 @@ const AddBiosensorButton: React.FC<AddBiosensorButtonProps> = (
 }
 
 export default AddBiosensorButton
+
+function familiesOf(names: readonly string[]) {
+    const namesByFamily = new Map<string, string[]>()
+
+    for (const name of names) {
+        const family = familyOf(name)
+        namesByFamily.set(family, [...(namesByFamily.get(family) ?? []), name])
+    }
+
+    return [...namesByFamily.values()]
+}
+
+function familyOf(name: string) {
+    return name.startsWith('Muse ') ? 'Muse' : name
+}
