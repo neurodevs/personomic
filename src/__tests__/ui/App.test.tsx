@@ -169,52 +169,75 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async passesTypedUuidBackToMonitor() {
+    protected static async passesTypedIdentifierBackToMonitor() {
         this.renderWithMuse()
 
-        this.typeUuid('Muse S Gen 2', 'typed-uuid')
+        this.typeIdentifier('Muse S Gen 2', 'typed-uuid')
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.uuids,
-            { 'Muse S Gen 2': 'typed-uuid' },
-            'Did not pass typed UUID back to monitor!'
+            lastStreamMonitorProps?.identifiers,
+            { 'Muse S Gen 2': { label: 'UUID', value: 'typed-uuid' } },
+            'Did not pass typed identifier back to monitor!'
         )
     }
 
     @test()
-    protected static async offersUuidOnlyForDevicesThatTakeOne() {
+    protected static async offersIdentifierLabelledForEachDeviceThatTakesOne() {
         render(<App />)
 
         DEVICE_NAMES.forEach((name) => this.addBiosensor(name))
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.uuids,
+            Object.fromEntries(
+                Object.entries(lastStreamMonitorProps?.identifiers ?? {}).map(
+                    ([name, identifier]) => [name, identifier.label]
+                )
+            ),
             {
-                'Govee Thermohygrometer H5074': '',
-                'Muse S Athena': '',
-                'Muse S Gen 2': '',
-                'Muse S Gen 1': '',
-                'Muse 2': '',
-                'Muse 1 Gen 2': '',
+                'Cognionics Quick-20r': 'Serial number',
+                'Govee Thermohygrometer H5074': 'UUID',
+                'Muse S Athena': 'UUID',
+                'Muse S Gen 2': 'UUID',
+                'Muse S Gen 1': 'UUID',
+                'Muse 2': 'UUID',
+                'Muse 1 Gen 2': 'UUID',
+                'OpenBCI Cyton': 'Serial number',
             },
-            'Did not offer UUID only for devices that take one!'
+            'Did not offer a labelled identifier for each device that takes one!'
         )
     }
 
     @test()
-    protected static async sendsNoUuidForDeviceThatDoesNotTakeOne() {
+    protected static async sendsNoIdentifierForDeviceThatDoesNotTakeOne() {
         render(<App />)
 
-        this.addBiosensor('OpenBCI Cyton')
-        this.typeUuid('OpenBCI Cyton', 'typed-anyway')
+        this.addBiosensor('Zephyr BioHarness 3')
+        this.typeIdentifier('Zephyr BioHarness 3', 'typed-anyway')
 
         this.clickConnect()
         act(() => this.orchestratorSocket.open())
 
         assert.isEqualDeep(
             JSON.parse(FakeWebSocket.callsToSend[0]?.data as string).devices,
-            [{ deviceName: 'OpenBCI Cyton' }],
-            'Sent a UUID for a device that does not take one!'
+            [{ deviceName: 'Zephyr BioHarness 3' }],
+            'Sent an identifier for a device that does not take one!'
+        )
+    }
+
+    @test()
+    protected static async sendsTypedSerialNumberAsIdentifier() {
+        render(<App />)
+
+        this.addBiosensor('OpenBCI Cyton')
+        this.typeIdentifier('OpenBCI Cyton', 'AR4K581H')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            JSON.parse(FakeWebSocket.callsToSend[0]?.data as string).devices,
+            [{ deviceName: 'OpenBCI Cyton', identifier: 'AR4K581H' }],
+            'Did not send typed serial number as identifier!'
         )
     }
 
@@ -247,12 +270,12 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async startsOrchestratorWithSelectedDevicesAndUuids() {
+    protected static async startsOrchestratorWithSelectedDevicesAndIdentifiers() {
         this.renderWithMuse()
 
         this.addBiosensor('OpenBCI Cyton')
-        this.typeUuid('Muse S Gen 2', ' muse-uuid ')
-        this.typeUuid('OpenBCI Cyton', '   ')
+        this.typeIdentifier('Muse S Gen 2', ' muse-uuid ')
+        this.typeIdentifier('OpenBCI Cyton', '   ')
 
         this.clickConnect()
         act(() => this.orchestratorSocket.open())
@@ -265,12 +288,12 @@ export default class AppTest extends AbstractPackageTest {
                 {
                     command: 'start',
                     devices: [
-                        { deviceName: 'Muse S Gen 2', uuid: 'muse-uuid' },
+                        { deviceName: 'Muse S Gen 2', identifier: 'muse-uuid' },
                         { deviceName: 'OpenBCI Cyton' },
                     ],
                 },
             ],
-            'Did not start orchestrator with selected devices and UUIDs!'
+            'Did not start orchestrator with selected devices and identifiers!'
         )
     }
 
@@ -568,8 +591,8 @@ export default class AppTest extends AbstractPackageTest {
         this.addBiosensor('Muse S Gen 2')
     }
 
-    private static typeUuid(name: string, uuid: string) {
-        act(() => lastStreamMonitorProps?.onUuidChange?.(name, uuid))
+    private static typeIdentifier(name: string, value: string) {
+        act(() => lastStreamMonitorProps?.onIdentifierChange?.(name, value))
     }
 
     private static clickConnect() {
@@ -591,7 +614,7 @@ export default class AppTest extends AbstractPackageTest {
 
     private static get isMonitorLocked() {
         return (
-            lastStreamMonitorProps?.onUuidChange === undefined &&
+            lastStreamMonitorProps?.onIdentifierChange === undefined &&
             lastStreamMonitorProps?.onRemoveDevice === undefined
         )
     }

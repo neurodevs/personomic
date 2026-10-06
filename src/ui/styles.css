@@ -298,7 +298,7 @@ body {
     box-shadow: 0 0 8px var(--status-color);
 }
 
-.stream-monitor__device-uuid {
+.stream-monitor__device-identifier {
     align-self: center;
     width: 280px;
     padding: 3px 8px;
@@ -310,17 +310,17 @@ body {
     font-size: 11px;
 }
 
-.stream-monitor__device-uuid::placeholder {
+.stream-monitor__device-identifier::placeholder {
     color: var(--text-muted);
 }
 
-.stream-monitor__device-uuid:read-only {
+.stream-monitor__device-identifier:read-only {
     border-style: dashed;
     color: var(--text-secondary);
     cursor: default;
 }
 
-.stream-monitor__device-uuid:focus-visible {
+.stream-monitor__device-identifier:focus-visible {
     border-color: rgba(255, 255, 255, 0.3);
     outline: none;
 }

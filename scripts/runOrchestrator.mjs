@@ -6,21 +6,25 @@ import { WebSocketServer } from 'ws'
 const COMMAND_PORT = 8763
 const WEB_SOCKET_PORT_START = 8765
 
-const UUID_OPTION_BY_DEVICE = {
+const IDENTIFIER_OPTION_BY_DEVICE = {
+    'Cognionics Quick-20r': 'serialNumber',
     'Govee Thermohygrometer H5074': 'deviceUuid',
     'Muse S Athena': 'bleUuid',
     'Muse S Gen 2': 'bleUuid',
     'Muse S Gen 1': 'bleUuid',
     'Muse 2': 'bleUuid',
     'Muse 1 Gen 2': 'bleUuid',
+    'OpenBCI Cyton': 'serialNumber',
 }
 
 let orchestrator
 let isBusy = false
 
-function specificationFor({ deviceName, uuid }) {
-    const uuidOption = UUID_OPTION_BY_DEVICE[deviceName]
-    return uuid && uuidOption ? { deviceName, [uuidOption]: uuid } : deviceName
+function specificationFor({ deviceName, identifier }) {
+    const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
+    return identifier && option
+        ? { deviceName, [option]: identifier }
+        : deviceName
 }
 
 async function start(devices) {

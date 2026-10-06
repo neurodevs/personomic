@@ -2,6 +2,17 @@ import React, { useEffect, useState } from 'react'
 
 import StreamPlot, { Downsampling, PeakDetectionOptions } from './StreamPlot'
 
+export const streamColors = [
+    '#3987e5',
+    '#d95926',
+    '#199e70',
+    '#c98500',
+    '#d55181',
+    '#008300',
+    '#9085e9',
+    '#e66767',
+] as const
+
 export interface StreamMonitorProps {
     deviceNames: string[]
     deviceStatusPort: number
@@ -9,8 +20,8 @@ export interface StreamMonitorProps {
     windowSeconds?: number
     downsampling?: Downsampling
     isConnecting?: boolean
-    uuids?: Record<string, string>
-    onUuidChange?: (name: string, uuid: string) => void
+    identifiers?: Record<string, DeviceIdentifier>
+    onIdentifierChange?: (name: string, value: string) => void
     onRemoveDevice?: (name: string) => void
 }
 
@@ -25,8 +36,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         downsampling,
         onRemoveDevice,
         isConnecting = false,
-        uuids = {},
-        onUuidChange,
+        identifiers = {},
+        onIdentifierChange,
     } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
@@ -265,8 +276,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             : statusBeforeGatewayReports(isConnecting)
                     }
                     onRemove={onRemoveDevice}
-                    uuid={uuids[device.name]}
-                    onUuidChange={onUuidChange}
+                    identifier={identifiers[device.name]}
+                    onIdentifierChange={onIdentifierChange}
                 >
                     {device.streams.map((stream) => (
                         <StreamPlotComponent
@@ -287,17 +298,6 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
 export default StreamMonitor
 
-export const streamColors = [
-    '#3987e5',
-    '#d95926',
-    '#199e70',
-    '#c98500',
-    '#d55181',
-    '#008300',
-    '#9085e9',
-    '#e66767',
-] as const
-
 function sharedNowTimestampFor(
     arrivalsByPort: Record<number, LatestArrival>,
     nowMs: number
@@ -313,17 +313,17 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
     onRemove,
-    uuid,
-    onUuidChange,
+    identifier,
+    onIdentifierChange,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
 
-    const isLocked = onUuidChange === undefined
+    const isLocked = onIdentifierChange === undefined
 
-    const isUuidShown =
-        uuid !== undefined &&
-        (isLocked ? uuid.trim() !== '' : status === 'disconnected')
+    const isIdentifierShown =
+        identifier !== undefined &&
+        (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
 
@@ -346,16 +346,19 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 <span className="stream-monitor__device-name">
                     {device.name}
                 </span>
-                {isUuidShown && (
+                {identifier && isIdentifierShown && (
                     <input
                         type="text"
-                        className="stream-monitor__device-uuid"
-                        aria-label={`${device.name} UUID (optional)`}
-                        placeholder="UUID (optional)"
-                        value={uuid}
+                        className="stream-monitor__device-identifier"
+                        aria-label={`${device.name} ${identifier.label} (optional)`}
+                        placeholder={`${identifier.label} (optional)`}
+                        value={identifier.value}
                         readOnly={isLocked}
                         onChange={(event) =>
-                            onUuidChange?.(device.name, event.target.value)
+                            onIdentifierChange?.(
+                                device.name,
+                                event.target.value
+                            )
                         }
                     />
                 )}
@@ -389,8 +392,8 @@ interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
     onRemove?: (name: string) => void
-    uuid?: string
-    onUuidChange?: (name: string, uuid: string) => void
+    identifier?: DeviceIdentifier
+    onIdentifierChange?: (name: string, value: string) => void
     children?: React.ReactNode
 }
 
@@ -530,6 +533,11 @@ interface GatewayStream {
     listenPort: number
     channelNames: string[]
     sampleRateHz: number
+}
+
+export interface DeviceIdentifier {
+    label: string
+    value: string
 }
 
 export interface StreamOptions {

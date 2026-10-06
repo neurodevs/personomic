@@ -483,7 +483,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsUuidInputRightOfStatusWhenDisconnected() {
+    protected static async showsIdentifierInputRightOfStatusWhenDisconnected() {
         await this.renderBeforeDeviceStatus()
 
         const status = screen
@@ -492,136 +492,152 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         assert.isTrue(
             Boolean(
-                status.compareDocumentPosition(this.uuidInput!) &
+                status.compareDocumentPosition(this.identifierInput!) &
                 Node.DOCUMENT_POSITION_FOLLOWING
             ),
-            'Did not show UUID input right of status when disconnected!'
+            'Did not show identifier input right of status when disconnected!'
         )
     }
 
-    @test('connecting hides UUID input', 'connecting')
-    @test('connected hides UUID input', 'connected')
-    @test('streaming hides UUID input', 'streaming')
-    protected static async hidesUuidInputUnlessDisconnected(state: string) {
+    @test('connecting hides identifier input', 'connecting')
+    @test('connected hides identifier input', 'connected')
+    @test('streaming hides identifier input', 'streaming')
+    protected static async hidesIdentifierInputUnlessDisconnected(
+        state: string
+    ) {
         await this.renderBeforeDeviceStatus()
 
         this.receiveDeviceStatus(this.devicesFor(this.streams), state)
 
         assert.isEqual(
-            this.uuidInput,
+            this.identifierInput,
             null,
-            `Did not hide UUID input for ${state} device!`
+            `Did not hide identifier input for ${state} device!`
         )
     }
 
     @test()
-    protected static async showsUuidPassedForDevice() {
+    protected static async showsIdentifierPassedForDevice() {
         const uuid = this.generateId()
 
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
-            uuids: { [this.deviceName]: uuid },
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: uuid },
+            },
         })
 
         assert.isEqual(
-            (this.uuidInput as HTMLInputElement).value,
+            (this.identifierInput as HTMLInputElement).value,
             uuid,
-            'Did not show UUID passed for device!'
+            'Did not show identifier passed for device!'
         )
     }
 
     @test()
-    protected static async reportsTypedUuidWithDeviceName() {
+    protected static async reportsTypedIdentifierWithDeviceName() {
         const changes: [string, string][] = []
         const uuid = this.generateId()
 
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
-            onUuidChange: (name, typed) => changes.push([name, typed]),
+            onIdentifierChange: (name, typed) => changes.push([name, typed]),
         })
 
-        fireEvent.change(this.uuidInput!, { target: { value: uuid } })
+        fireEvent.change(this.identifierInput!, { target: { value: uuid } })
 
         assert.isEqualDeep(
             changes,
             [[this.deviceName, uuid]],
-            'Did not report typed UUID with device name!'
+            'Did not report typed identifier with device name!'
         )
     }
 
     @test()
-    protected static async letsUuidBeEditedWithChangeHandler() {
+    protected static async letsIdentifierBeEditedWithChangeHandler() {
         await this.renderBeforeDeviceStatus()
 
         assert.isFalse(
-            (this.uuidInput as HTMLInputElement).readOnly,
-            'Did not let UUID be edited with change handler!'
+            (this.identifierInput as HTMLInputElement).readOnly,
+            'Did not let identifier be edited with change handler!'
         )
     }
 
     @test()
-    protected static async showsFilledUuidAsReadOnlyWithoutChangeHandler() {
+    protected static async showsFilledIdentifierAsReadOnlyWithoutChangeHandler() {
         const uuid = this.generateId()
 
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
-            onUuidChange: undefined,
-            uuids: { [this.deviceName]: uuid },
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: uuid },
+            },
         })
 
-        const input = this.uuidInput as HTMLInputElement
+        const input = this.identifierInput as HTMLInputElement
 
         assert.isEqualDeep(
             { value: input?.value, isReadOnly: input?.readOnly },
             { value: uuid, isReadOnly: true },
-            'Did not show filled UUID as read-only without change handler!'
+            'Did not show filled identifier as read-only without change handler!'
         )
     }
 
-    @test('connecting keeps locked UUID', 'connecting')
-    @test('streaming keeps locked UUID', 'streaming')
-    protected static async keepsReadOnlyUuidWhenNotDisconnected(state: string) {
+    @test('connecting keeps locked identifier', 'connecting')
+    @test('streaming keeps locked identifier', 'streaming')
+    protected static async keepsReadOnlyIdentifierWhenNotDisconnected(
+        state: string
+    ) {
         const uuid = this.generateId()
 
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
-            onUuidChange: undefined,
-            uuids: { [this.deviceName]: uuid },
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: uuid },
+            },
         })
 
         this.receiveDeviceStatus(this.devicesFor(this.streams), state)
 
         assert.isEqual(
-            (this.uuidInput as HTMLInputElement | null)?.value,
+            (this.identifierInput as HTMLInputElement | null)?.value,
             uuid,
-            `Did not keep filled UUID when locked and ${state}!`
+            `Did not keep filled identifier when locked and ${state}!`
         )
     }
 
-    @test('empty UUID is removed when locked', '')
-    @test('blank UUID is removed when locked', '   ')
-    protected static async removesUnfilledUuidInputWithoutChangeHandler(
+    @test('empty identifier is removed when locked', '')
+    @test('blank identifier is removed when locked', '   ')
+    protected static async removesUnfilledIdentifierInputWithoutChangeHandler(
         uuid: string
     ) {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
-            onUuidChange: undefined,
-            uuids: { [this.deviceName]: uuid },
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: uuid },
+            },
         })
 
         assert.isEqual(
-            this.uuidInput,
+            this.identifierInput,
             null,
-            'Did not remove unfilled UUID input without change handler!'
+            'Did not remove unfilled identifier input without change handler!'
         )
     }
 
     @test()
-    protected static async showsUuidInputOnlyForDevicesWithUuidEntry() {
+    protected static async showsIdentifierInputOnlyForDevicesWithIdentifierEntry() {
         this.setFakeStreamPlot()
         await this.mount(
             this.twoDevices.map((device) => device.name),
-            { uuids: { [this.twoDevices[1].name]: '' } }
+            {
+                identifiers: {
+                    [this.twoDevices[1].name]: { label: 'UUID', value: '' },
+                },
+            }
         )
 
         assert.isEqualDeep(
@@ -629,7 +645,31 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 .queryAllByRole('textbox')
                 .map((input) => input.getAttribute('aria-label')),
             [`${this.twoDevices[1].name} UUID (optional)`],
-            'Did not show UUID input only for devices with a UUID entry!'
+            'Did not show identifier input only for devices with a identifier entry!'
+        )
+    }
+
+    @test()
+    protected static async labelsIdentifierInputWithGivenLabel() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            identifiers: {
+                [this.deviceName]: { label: 'Serial number', value: '' },
+            },
+        })
+
+        const input = this.identifierInput as HTMLInputElement
+
+        assert.isEqualDeep(
+            {
+                name: input?.getAttribute('aria-label'),
+                placeholder: input?.placeholder,
+            },
+            {
+                name: `${this.deviceName} Serial number (optional)`,
+                placeholder: 'Serial number (optional)',
+            },
+            'Did not label identifier input with given label!'
         )
     }
 
@@ -796,16 +836,16 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async keepsPlotsWhenUuidInputIsClicked() {
+    protected static async keepsPlotsWhenIdentifierInputIsClicked() {
         await this.renderWithFakePlot()
         await this.dropConnection(this.latestDeviceStatusSocket)
 
-        fireEvent.click(this.uuidInput!)
+        fireEvent.click(this.identifierInput!)
 
         assert.isEqualDeep(
             this.shownPlotsOf(this.deviceName),
             this.plotIdsFor(this.streams),
-            'Did not keep plots when UUID input was clicked!'
+            'Did not keep plots when identifier input was clicked!'
         )
     }
 
@@ -1299,8 +1339,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return streams.map((stream) => `stream-plot-${stream.name}`)
     }
 
-    private static get uuidInput() {
-        return screen.queryByRole('textbox', { name: /UUID \(optional\)/ })
+    private static get identifierInput() {
+        return screen.queryByRole('textbox', {
+            name: /\(optional\)$/,
+        })
     }
 
     private static get streamSockets() {
@@ -1404,9 +1446,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             <StreamMonitor
                 deviceNames={deviceNames}
                 deviceStatusPort={this.deviceStatusPort}
-                onUuidChange={() => {}}
-                uuids={Object.fromEntries(
-                    deviceNames.map((name) => [name, ''])
+                onIdentifierChange={() => {}}
+                identifiers={Object.fromEntries(
+                    deviceNames.map((name) => [
+                        name,
+                        { label: 'UUID', value: '' },
+                    ])
                 )}
                 {...props}
             />

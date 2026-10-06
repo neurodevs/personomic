@@ -10,14 +10,16 @@ import { Downsampling } from './components/StreamPlot'
 
 const orchestratorPort = 8763
 
-const deviceNamesTakingUuid: readonly string[] = [
-    'Govee Thermohygrometer H5074',
-    'Muse S Athena',
-    'Muse S Gen 2',
-    'Muse S Gen 1',
-    'Muse 2',
-    'Muse 1 Gen 2',
-]
+const identifierLabels: Record<string, string> = {
+    'Cognionics Quick-20r': 'Serial number',
+    'Govee Thermohygrometer H5074': 'UUID',
+    'Muse S Athena': 'UUID',
+    'Muse S Gen 2': 'UUID',
+    'Muse S Gen 1': 'UUID',
+    'Muse 2': 'UUID',
+    'Muse 1 Gen 2': 'UUID',
+    'OpenBCI Cyton': 'Serial number',
+}
 
 const orchestratorUnreachableMessage =
     'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
@@ -41,7 +43,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const { downsampling } = props
 
     const [deviceNames, setDeviceNames] = useState<string[]>([])
-    const [uuids, setUuids] = useState<Record<string, string>>({})
+    const [identifierValues, setIdentifierValues] = useState<
+        Record<string, string>
+    >({})
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
 
@@ -59,13 +63,19 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             previous.filter((shownName) => shownName !== name)
         )
 
-    const setUuid = (name: string, uuid: string) =>
-        setUuids((previous) => ({ ...previous, [name]: uuid }))
+    const setIdentifierValue = (name: string, value: string) =>
+        setIdentifierValues((previous) => ({ ...previous, [name]: value }))
 
-    const uuidsOfDevicesTakingOne = Object.fromEntries(
+    const identifiers = Object.fromEntries(
         deviceNames
-            .filter((name) => deviceNamesTakingUuid.includes(name))
-            .map((name) => [name, uuids[name] ?? ''])
+            .filter((name) => name in identifierLabels)
+            .map((name) => [
+                name,
+                {
+                    label: identifierLabels[name],
+                    value: identifierValues[name] ?? '',
+                },
+            ])
     )
 
     const connectDevices = () => {
@@ -77,7 +87,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 command: 'start',
                 devices: deviceNames.map((name) => ({
                     deviceName: name,
-                    uuid: uuidsOfDevicesTakingOne[name]?.trim() || undefined,
+                    identifier: identifiers[name]?.value.trim() || undefined,
                 })),
             },
             {
@@ -124,8 +134,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceNames={deviceNames}
                 streamOptions={streamOptions}
                 isConnecting={session === 'connecting'}
-                uuids={uuidsOfDevicesTakingOne}
-                onUuidChange={isLocked ? undefined : setUuid}
+                identifiers={identifiers}
+                onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />
             {!isLocked && addableNames.length > 0 && (

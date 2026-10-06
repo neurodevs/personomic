@@ -26,14 +26,16 @@ VITE_DOWNSAMPLING=medium yarn dev
 yarn run.orchestrator   # waits on ws://localhost:8763 for Connect
 ```
 
-Pick biosensors in the app, optionally type each one's UUID for a faster
-connection, and click Connect. The script starts a
+Pick biosensors in the app and click Connect. Each one's identifier is
+optional: a UUID for the Muse headsets and the Govee, which makes connecting
+faster, or a serial number for the Cyton and the Cognionics, which is only
+needed when more than one USB serial device is plugged in. The script starts a
 `BiosensorStreamingOrchestrator` with them, which serves device status on
 `ws://localhost:8764` and streams from `ws://localhost:8765`. Each status dot
 follows its own device: yellow while it connects, green once it has.
 
 Connect locks the protocol: biosensors can no longer be added or removed, and
-the UUIDs you typed stay visible but read-only. Click Stop to end the session
+the identifiers you typed stay visible but read-only. Click Stop to end the session
 and unlock it, then make your changes and Connect again.
 
 ## Fake streams
