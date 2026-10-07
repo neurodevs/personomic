@@ -24,6 +24,12 @@ const identifierLabels: Record<string, string> = {
 const orchestratorUnreachableMessage =
     'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
 
+const defaultRecordDirectory = '~/Documents/Personomic'
+const recordDirectoryLabel = 'Recordings folder'
+const defaultRecordName = 'session'
+const recordNameLabel = 'Recording name'
+const recordDirectoryStorageKey = 'personomic.recordDirectory'
+
 const streamOptions: Record<string, StreamOptions> = {
     PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
 }
@@ -46,6 +52,16 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [identifierValues, setIdentifierValues] = useState<
         Record<string, string>
     >({})
+    const [isRecordEnabled, setIsRecordEnabled] = useState(false)
+    const [recordDirectory, setRecordDirectory] = useState(
+        () =>
+            localStorage.getItem(recordDirectoryStorageKey) ??
+            defaultRecordDirectory
+    )
+    const [recordName, setRecordName] = useState(defaultRecordName)
+    const [recordStartedAt, setRecordStartedAt] = useState<Date>()
+    const [recordingPath, setRecordingPath] = useState<string>()
+    const [isBrowsing, setIsBrowsing] = useState(false)
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
 
@@ -78,7 +94,37 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             ])
     )
 
-    const restoreRunningSession = (devices: DeviceRequest[]) => {
+    const rememberRecordDirectory = (directory: string) => {
+        setRecordDirectory(directory)
+        localStorage.setItem(recordDirectoryStorageKey, directory)
+    }
+
+    const chooseRecordDirectory = () => {
+        setIsBrowsing(true)
+        setSessionError(undefined)
+
+        sendToOrchestrator(
+            { command: 'chooseDirectory' },
+            {
+                onReply: ({ error, directory }) => {
+                    setIsBrowsing(false)
+                    setSessionError(error)
+
+                    if (directory) {
+                        rememberRecordDirectory(directory)
+                    }
+                },
+                onUnreachable: () => {
+                    setIsBrowsing(false)
+                    setSessionError(orchestratorUnreachableMessage)
+                },
+            }
+        )
+    }
+
+    const restoreRunningSession = (running: RunningSession) => {
+        const { devices, xdfRecordPath } = running
+
         setDeviceNames(devices.map(({ deviceName }) => deviceName))
         setIdentifierValues(
             Object.fromEntries(
@@ -88,6 +134,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 ])
             )
         )
+        setIsRecordEnabled(xdfRecordPath !== undefined)
+        setRecordingPath(xdfRecordPath)
         setSession('locked')
     }
 
@@ -95,9 +143,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         sendToOrchestrator(
             { command: 'status' },
             {
-                onReply: ({ devices }) => {
+                onReply: ({ devices, xdfRecordPath }) => {
                     if (devices) {
-                        restoreRunningSession(devices)
+                        restoreRunningSession({ devices, xdfRecordPath })
                     }
                 },
                 onUnreachable: () => {},
@@ -106,8 +154,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     }, [])
 
     const connectDevices = () => {
+        const startedAt = now()
+
         setSession('connecting')
         setSessionError(undefined)
+        setRecordStartedAt(startedAt)
 
         sendToOrchestrator(
             {
@@ -116,10 +167,14 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     deviceName: name,
                     identifier: identifiers[name]?.value.trim() || undefined,
                 })),
+                xdfRecordPath: isRecordEnabled
+                    ? recordPathFor(recordDirectory, recordName, startedAt)
+                    : undefined,
             },
             {
-                onReply: ({ error }) => {
+                onReply: ({ error, xdfRecordPath }) => {
                     setSessionError(error)
+                    setRecordingPath(xdfRecordPath)
                     setSession(error ? 'unlocked' : 'locked')
                 },
                 onUnreachable: () => {
@@ -139,10 +194,12 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             {
                 onReply: ({ error }) => {
                     setSessionError(error)
+                    setRecordingPath(undefined)
                     setSession('unlocked')
                 },
                 onUnreachable: () => {
                     setSessionError(orchestratorUnreachableMessage)
+                    setRecordingPath(undefined)
                     setSession('unlocked')
                 },
             }
@@ -181,6 +238,67 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 >
                     {sessionButtonLabels[session]}
                 </button>
+                <label className="connect-devices__record-toggle">
+                    <input
+                        type="checkbox"
+                        checked={isRecordEnabled}
+                        disabled={isLocked}
+                        onChange={(event) =>
+                            setIsRecordEnabled(event.target.checked)
+                        }
+                    />
+                    Record
+                </label>
+                {isRecordEnabled && !recordingPath && (
+                    <>
+                        <input
+                            type="text"
+                            className="connect-devices__record-directory"
+                            aria-label={recordDirectoryLabel}
+                            placeholder={defaultRecordDirectory}
+                            value={recordDirectory}
+                            readOnly={isLocked}
+                            onChange={(event) =>
+                                rememberRecordDirectory(event.target.value)
+                            }
+                        />
+                        {!isLocked && (
+                            <button
+                                type="button"
+                                className="connect-devices__browse"
+                                disabled={isBrowsing}
+                                onClick={chooseRecordDirectory}
+                            >
+                                Browse…
+                            </button>
+                        )}
+                        <span className="connect-devices__record-file">
+                            <input
+                                type="text"
+                                className="connect-devices__record-name"
+                                aria-label={recordNameLabel}
+                                placeholder={defaultRecordName}
+                                value={recordName}
+                                readOnly={isLocked}
+                                onChange={(event) =>
+                                    setRecordName(event.target.value)
+                                }
+                            />
+                            <RecordTimestamp
+                                frozenAt={
+                                    session === 'connecting'
+                                        ? recordStartedAt
+                                        : undefined
+                                }
+                            />
+                        </span>
+                    </>
+                )}
+                {recordingPath && (
+                    <span className="connect-devices__recording">
+                        Recording to {recordingPath}
+                    </span>
+                )}
                 {sessionError && (
                     <span className="connect-devices__error" role="alert">
                         {sessionError}
@@ -194,6 +312,57 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 export default App
 
 type SessionState = 'unlocked' | 'connecting' | 'locked' | 'stopping'
+
+interface RecordTimestampProps {
+    frozenAt?: Date
+}
+
+const RecordTimestamp: React.FC<RecordTimestampProps> = (
+    props: RecordTimestampProps
+) => {
+    const { frozenAt } = props
+
+    const [tickedAt, setTickedAt] = useState(now)
+
+    useEffect(() => {
+        if (frozenAt) {
+            return undefined
+        }
+
+        return everySecond(() => setTickedAt(now()))
+    }, [frozenAt])
+
+    return (
+        <span className="connect-devices__record-timestamp">
+            {recordFileSuffixFor(frozenAt ?? tickedAt)}
+        </span>
+    )
+}
+
+function recordPathFor(directory: string, name: string, startedAt: Date) {
+    const folder =
+        directory.trim().replace(/\/+$/, '') || defaultRecordDirectory
+    const prefix = withoutIllegalFileNameCharacters(name) || defaultRecordName
+
+    return `${folder}/${prefix}${recordFileSuffixFor(startedAt)}`
+}
+
+function recordFileSuffixFor(date: Date) {
+    return `_${timestampFor(date)}.xdf`
+}
+
+function withoutIllegalFileNameCharacters(name: string) {
+    return name.trim().replace(/[\\/:*?"<>|]/g, '-')
+}
+
+function timestampFor(date: Date) {
+    const padded = (value: number) => String(value).padStart(2, '0')
+
+    const day = [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    const time = [date.getHours(), date.getMinutes(), date.getSeconds()]
+
+    return `${day.map(padded).join('-')}_${time.map(padded).join('-')}`
+}
 
 function sendToOrchestrator(
     message: object,
@@ -220,8 +389,18 @@ function sendToOrchestrator(
 }
 
 interface OrchestratorReplyHandlers {
-    onReply: (reply: { error?: string; devices?: DeviceRequest[] }) => void
+    onReply: (reply: OrchestratorReply) => void
     onUnreachable: () => void
+}
+
+type OrchestratorReply = Partial<RunningSession> & {
+    error?: string
+    directory?: string
+}
+
+interface RunningSession {
+    devices: DeviceRequest[]
+    xdfRecordPath?: string
 }
 
 interface DeviceRequest {
@@ -235,4 +414,19 @@ export let StreamMonitorComponent = StreamMonitor
 
 export function setStreamMonitorComponent(component: typeof StreamMonitor) {
     StreamMonitorComponent = component
+}
+
+export let now = () => new Date()
+
+export function setNow(nextNow: typeof now) {
+    now = nextNow
+}
+
+export let everySecond = (callback: () => void) => {
+    const id = setInterval(callback, 1000)
+    return () => clearInterval(id)
+}
+
+export function setEverySecond(nextEverySecond: typeof everySecond) {
+    everySecond = nextEverySecond
 }

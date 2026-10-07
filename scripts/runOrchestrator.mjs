@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 
+import { execFile } from 'node:child_process'
+import os from 'node:os'
+import path from 'node:path'
+import { promisify } from 'node:util'
+
 import { BiosensorStreamingOrchestrator } from '@neurodevs/node-biosensors'
 import { WebSocketServer } from 'ws'
 
@@ -17,9 +22,16 @@ const IDENTIFIER_OPTION_BY_DEVICE = {
     'OpenBCI Cyton': 'serialNumber',
 }
 
+const CHOOSE_FOLDER_SCRIPT =
+    'tell application (path to frontmost application as text) to POSIX path of (choose folder with prompt "Choose a folder for recordings")'
+
+const APPLESCRIPT_USER_CANCELLED = '-128'
+const APPLESCRIPT_NOT_AUTHORIZED = '-1743'
+
 let orchestrator
-let sessionDevices
+let sessionRequest
 let commandInFlight
+let directoryChoiceInFlight
 
 function specificationFor({ deviceName, identifier }) {
     const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
@@ -28,19 +40,71 @@ function specificationFor({ deviceName, identifier }) {
         : deviceName
 }
 
-async function start(devices) {
+function absolutePathFor(typedPath) {
+    return path.resolve(typedPath.replace(/^~(?=$|\/)/, os.homedir()))
+}
+
+async function chooseDirectory() {
+    if (process.platform !== 'darwin') {
+        throw new Error(
+            'Browsing for a folder only works on macOS. Type the path instead.'
+        )
+    }
+
+    directoryChoiceInFlight ??= showFolderPanel().finally(() => {
+        directoryChoiceInFlight = undefined
+    })
+
+    return await directoryChoiceInFlight
+}
+
+async function showFolderPanel() {
+    try {
+        const { stdout } = await promisify(execFile)('osascript', [
+            '-e',
+            CHOOSE_FOLDER_SCRIPT,
+        ])
+        return stdout.trim().replace(/\/+$/, '') || '/'
+    } catch (err) {
+        const stderr = err.stderr ?? ''
+
+        if (stderr.includes(APPLESCRIPT_USER_CANCELLED)) {
+            return undefined
+        }
+
+        if (stderr.includes(APPLESCRIPT_NOT_AUTHORIZED)) {
+            throw new Error(
+                'macOS blocked the folder dialog. Allow your terminal to control the browser in System Settings › Privacy & Security › Automation, or type the path instead.'
+            )
+        }
+
+        throw err
+    }
+}
+
+async function start(request) {
+    const { devices } = request
+    const xdfRecordPath = request.xdfRecordPath
+        ? absolutePathFor(request.xdfRecordPath)
+        : undefined
+
     if (orchestrator) {
         throw new Error('A session is already running. Press Stop first.')
     }
 
     const specifications = devices.map(specificationFor)
-    console.log('Starting', JSON.stringify(specifications))
+    console.log(
+        'Starting',
+        JSON.stringify(specifications),
+        xdfRecordPath ? `recording to ${xdfRecordPath}` : 'without recording'
+    )
 
     orchestrator = await BiosensorStreamingOrchestrator.Create({
         devices: specifications,
+        xdfRecordPath,
         webSocketPortStart: WEB_SOCKET_PORT_START,
     })
-    sessionDevices = devices
+    sessionRequest = { devices, xdfRecordPath }
 
     try {
         await orchestrator.start()
@@ -52,6 +116,8 @@ async function start(devices) {
     console.log(
         `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
     )
+
+    return { xdfRecordPath }
 }
 
 async function cleanUpFailedStart() {
@@ -65,46 +131,46 @@ async function cleanUpFailedStart() {
 async function stop() {
     console.log('Stopping')
 
-    // Forgotten even if stopping reports an error: the orchestrator cleans up
-    // everything it can regardless, so the session is over either way.
     try {
         await orchestrator?.stop()
     } finally {
         orchestrator = undefined
-        sessionDevices = undefined
+        sessionRequest = undefined
     }
 }
 
 async function statusOnceIdle() {
     await commandInFlight?.catch(() => {})
-    return { devices: sessionDevices }
+    return sessionRequest ?? {}
 }
 
 async function handle(message) {
-    const { command, devices } = JSON.parse(message.toString())
+    const { command, ...request } = JSON.parse(message.toString())
 
     if (command === 'status') {
         return await statusOnceIdle()
+    }
+
+    if (command === 'chooseDirectory') {
+        return { directory: await chooseDirectory() }
     }
 
     if (commandInFlight) {
         throw new Error('Busy with another command.')
     }
 
-    commandInFlight = run(command, devices)
+    commandInFlight = run(command, request)
 
     try {
-        await commandInFlight
+        return (await commandInFlight) ?? {}
     } finally {
         commandInFlight = undefined
     }
-
-    return {}
 }
 
-async function run(command, devices) {
+async function run(command, request) {
     if (command === 'start') {
-        await start(devices)
+        return await start(request)
     } else if (command === 'stop') {
         await stop()
     } else {

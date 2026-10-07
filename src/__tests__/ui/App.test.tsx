@@ -7,12 +7,17 @@ import FakeStreamMonitor, {
     lastStreamMonitorProps,
 } from '../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
-import App, { setStreamMonitorComponent } from '../../ui/App'
+import App, {
+    setEverySecond,
+    setNow,
+    setStreamMonitorComponent,
+} from '../../ui/App'
 import { setWebSocketComponent } from '../../ui/components/StreamMonitor'
 import AbstractPackageTest from '../AbstractPackageTest'
 
 export default class AppTest extends AbstractPackageTest {
     private static element: React.ReactElement
+    private static secondCallbacks: Set<() => void>
 
     protected static async beforeEach() {
         await super.beforeEach()
@@ -20,6 +25,16 @@ export default class AppTest extends AbstractPackageTest {
         setStreamMonitorComponent(FakeStreamMonitor)
         setWebSocketComponent(FakeWebSocket as any)
         FakeWebSocket.resetTestDouble()
+
+        setNow(() => new Date(2026, 9, 7, 14, 32, 5))
+
+        this.secondCallbacks = new Set()
+        setEverySecond((callback) => {
+            this.secondCallbacks.add(callback)
+            return () => this.secondCallbacks.delete(callback)
+        })
+
+        localStorage.clear()
 
         this.element = this.renderApp()
     }
@@ -654,6 +669,449 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async sendsNoRecordPathWhenRecordIsOff() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isFalse(
+            'xdfRecordPath' in this.lastSentMessage,
+            'Sent a record path when record was off!'
+        )
+    }
+
+    @test()
+    protected static async hidesRecordingsFolderUntilRecordIsOn() {
+        render(<App />)
+
+        const wasShownBefore = this.isRecordDirectoryShown
+        this.turnRecordOn()
+
+        assert.isEqualDeep(
+            { wasShownBefore, isShown: this.isRecordDirectoryShown },
+            { wasShownBefore: false, isShown: true },
+            'Did not hide recordings folder until record was on!'
+        )
+    }
+
+    @test()
+    protected static async offersDefaultRecordingsFolder() {
+        render(<App />)
+
+        this.turnRecordOn()
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '~/Documents/Personomic',
+            'Did not offer default recordings folder!'
+        )
+    }
+
+    @test()
+    protected static async sendsTimestampedRecordPathInTypedFolder() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.typeRecordDirectory(' /data/recordings/ ')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.xdfRecordPath,
+            '/data/recordings/session_2026-10-07_14-32-05.xdf',
+            'Did not send timestamped record path in typed folder!'
+        )
+    }
+
+    @test()
+    protected static async recordsToDefaultFolderWhenFolderIsBlank() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.typeRecordDirectory('   ')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.xdfRecordPath,
+            '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+            'Did not record to default folder when folder was blank!'
+        )
+    }
+
+    @test()
+    protected static async showsDefaultRecordingNameBeforeCurrentTimestamp() {
+        render(<App />)
+
+        this.turnRecordOn()
+
+        assert.isEqualDeep(
+            {
+                name: this.recordNameInput.value,
+                timestamp: this.shownRecordTimestamp,
+            },
+            { name: 'session', timestamp: '_2026-10-07_14-32-05.xdf' },
+            'Did not show default recording name before current timestamp!'
+        )
+    }
+
+    @test()
+    protected static async updatesShownTimestampEverySecond() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.passOneSecondUntil(new Date(2026, 9, 7, 14, 32, 6))
+
+        assert.isEqual(
+            this.shownRecordTimestamp,
+            '_2026-10-07_14-32-06.xdf',
+            'Did not update shown timestamp every second!'
+        )
+    }
+
+    @test()
+    protected static async freezesShownTimestampAtSentOneWhileConnecting() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+        this.passOneSecondUntil(new Date(2026, 9, 7, 14, 32, 9))
+
+        assert.isEqualDeep(
+            {
+                sent: this.lastSentMessage.xdfRecordPath,
+                shown: this.shownRecordTimestamp,
+            },
+            {
+                sent: '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+                shown: '_2026-10-07_14-32-05.xdf',
+            },
+            'Did not freeze shown timestamp at sent one while connecting!'
+        )
+    }
+
+    @test()
+    protected static async resumesShownTimestampWhenConnectingFails() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
+        this.passOneSecondUntil(new Date(2026, 9, 7, 14, 32, 9))
+
+        assert.isEqual(
+            this.shownRecordTimestamp,
+            '_2026-10-07_14-32-09.xdf',
+            'Did not resume shown timestamp when connecting failed!'
+        )
+    }
+
+    @test()
+    protected static async stopsTickingOnceRecordIsTurnedOff() {
+        render(<App />)
+
+        this.turnRecordOn()
+        const numTickingWhileOn = this.secondCallbacks.size
+        fireEvent.click(this.recordToggle)
+
+        assert.isEqualDeep(
+            { numTickingWhileOn, numTicking: this.secondCallbacks.size },
+            { numTickingWhileOn: 1, numTicking: 0 },
+            'Did not stop ticking once record was turned off!'
+        )
+    }
+
+    @test()
+    protected static async putsTypedRecordingNameBeforeTimestamp() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.typeRecordName(' resting baseline ')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.xdfRecordPath,
+            '~/Documents/Personomic/resting baseline_2026-10-07_14-32-05.xdf',
+            'Did not put typed recording name before timestamp!'
+        )
+    }
+
+    @test()
+    protected static async replacesIllegalFileNameCharactersInRecordingName() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.typeRecordName('sub/01:run*2')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.xdfRecordPath,
+            '~/Documents/Personomic/sub-01-run-2_2026-10-07_14-32-05.xdf',
+            'Did not replace illegal file name characters in recording name!'
+        )
+    }
+
+    @test()
+    protected static async usesDefaultRecordingNameWhenNameIsBlank() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.typeRecordName('   ')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.xdfRecordPath,
+            '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+            'Did not use default recording name when name was blank!'
+        )
+    }
+
+    @test()
+    protected static async doesNotRememberRecordingNameAcrossReloads() {
+        const { unmount } = render(<App />)
+
+        this.turnRecordOn()
+        this.typeRecordName('resting-baseline')
+        unmount()
+
+        render(<App />)
+        this.turnRecordOn()
+
+        assert.isEqual(
+            this.recordNameInput.value,
+            'session',
+            'Remembered recording name across reloads!'
+        )
+    }
+
+    @test()
+    protected static async remembersRecordingsFolderAcrossReloads() {
+        const { unmount } = render(<App />)
+
+        this.turnRecordOn()
+        this.typeRecordDirectory('/data/recordings')
+        unmount()
+
+        render(<App />)
+        this.turnRecordOn()
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '/data/recordings',
+            'Did not remember recordings folder across reloads!'
+        )
+    }
+
+    @test()
+    protected static async asksOrchestratorToChooseFolderOnBrowse() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            { command: 'chooseDirectory' },
+            'Did not ask orchestrator to choose folder on browse!'
+        )
+    }
+
+    @test()
+    protected static async usesAndRemembersFolderChosenOnBrowse() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.receive({ directory: '/chosen' }))
+
+        assert.isEqualDeep(
+            {
+                shown: this.recordDirectoryInput.value,
+                remembered: localStorage.getItem('personomic.recordDirectory'),
+            },
+            { shown: '/chosen', remembered: '/chosen' },
+            'Did not use and remember folder chosen on browse!'
+        )
+    }
+
+    @test()
+    protected static async disablesBrowseUntilOrchestratorReplies() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        const wasDisabledWhileChoosing = this.browseButton.disabled
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            {
+                wasDisabledWhileChoosing,
+                isDisabled: this.browseButton.disabled,
+            },
+            { wasDisabledWhileChoosing: true, isDisabled: false },
+            'Did not disable browse until orchestrator replied!'
+        )
+    }
+
+    @test()
+    protected static async enablesBrowseAgainWhenOrchestratorIsUnreachable() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isFalse(
+            this.browseButton.disabled,
+            'Did not enable browse again when orchestrator was unreachable!'
+        )
+    }
+
+    @test()
+    protected static async keepsFolderWhenBrowseIsCancelled() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.typeRecordDirectory('/data/recordings')
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '/data/recordings',
+            'Did not keep folder when browse was cancelled!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorWhenBrowseFails() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.receive({ error: 'macOS only' }))
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'macOS only',
+            'Did not show error when browse failed!'
+        )
+    }
+
+    @test()
+    protected static async showsHowToStartOrchestratorWhenUnreachableOnBrowse() {
+        render(<App />)
+
+        this.turnRecordOn()
+        this.clickBrowse()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            'Did not show how to start orchestrator when unreachable on browse!'
+        )
+    }
+
+    @test()
+    protected static async locksRecordControlsWhileConnecting() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            {
+                isToggleDisabled: this.recordToggle.disabled,
+                isFolderReadOnly: this.recordDirectoryInput.readOnly,
+                isNameReadOnly: this.recordNameInput.readOnly,
+                isBrowseShown: this.isBrowseShown,
+            },
+            {
+                isToggleDisabled: true,
+                isFolderReadOnly: true,
+                isNameReadOnly: true,
+                isBrowseShown: false,
+            },
+            'Did not lock record controls while connecting!'
+        )
+    }
+
+    @test()
+    protected static async showsRecordingPathReportedByOrchestrator() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() =>
+            this.orchestratorSocket.receive({ xdfRecordPath: '/data/a.xdf' })
+        )
+
+        assert.isEqualDeep(
+            {
+                isRecordingShown: this.isRecordingShownFor('/data/a.xdf'),
+                isFolderShown: this.isRecordDirectoryShown,
+            },
+            { isRecordingShown: true, isFolderShown: false },
+            'Did not show recording path reported by orchestrator!'
+        )
+    }
+
+    @test()
+    protected static async restoresRecordingPathOfSessionRunningOnLoad() {
+        render(<App />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [{ deviceName: 'Muse S Gen 2' }],
+                xdfRecordPath: '/data/a.xdf',
+            })
+        )
+
+        assert.isEqualDeep(
+            {
+                isRecordOn: this.recordToggle.checked,
+                isRecordingShown: this.isRecordingShownFor('/data/a.xdf'),
+            },
+            { isRecordOn: true, isRecordingShown: true },
+            'Did not restore recording path of session running on load!'
+        )
+    }
+
+    @test()
+    protected static async offersRecordingsFolderAgainAfterStop() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() =>
+            this.orchestratorSocket.receive({ xdfRecordPath: '/data/a.xdf' })
+        )
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            {
+                isRecordingShown: this.isRecordingShownFor('/data/a.xdf'),
+                isFolderShown: this.isRecordDirectoryShown,
+                isBrowseShown: this.isBrowseShown,
+            },
+            {
+                isRecordingShown: false,
+                isFolderShown: true,
+                isBrowseShown: true,
+            },
+            'Did not offer recordings folder again after stop!'
+        )
+    }
+
+    @test()
     protected static async disablesConnectWithoutDevices() {
         render(<App />)
 
@@ -683,6 +1141,74 @@ export default class AppTest extends AbstractPackageTest {
 
     private static typeIdentifier(name: string, value: string) {
         act(() => lastStreamMonitorProps?.onIdentifierChange?.(name, value))
+    }
+
+    private static turnRecordOn() {
+        fireEvent.click(this.recordToggle)
+    }
+
+    private static get recordToggle() {
+        return screen.getByRole('checkbox', {
+            name: /record/i,
+        }) as HTMLInputElement
+    }
+
+    private static typeRecordDirectory(value: string) {
+        fireEvent.change(this.recordDirectoryInput, { target: { value } })
+    }
+
+    private static get recordDirectoryInput() {
+        return screen.getByRole('textbox', {
+            name: /recordings folder/i,
+        }) as HTMLInputElement
+    }
+
+    private static get shownRecordTimestamp() {
+        return screen.getByText(/^_\d{4}-.*\.xdf$/).textContent
+    }
+
+    private static passOneSecondUntil(date: Date) {
+        setNow(() => date)
+        act(() => this.secondCallbacks.forEach((callback) => callback()))
+    }
+
+    private static typeRecordName(value: string) {
+        fireEvent.change(this.recordNameInput, { target: { value } })
+    }
+
+    private static get recordNameInput() {
+        return screen.getByRole('textbox', {
+            name: /recording name/i,
+        }) as HTMLInputElement
+    }
+
+    private static get isRecordDirectoryShown() {
+        return (
+            screen.queryByRole('textbox', { name: /recordings folder/i }) !==
+            null
+        )
+    }
+
+    private static isRecordingShownFor(path: string) {
+        return screen.queryByText(`Recording to ${path}`) !== null
+    }
+
+    private static clickBrowse() {
+        fireEvent.click(this.browseButton)
+    }
+
+    private static get browseButton() {
+        return screen.getByRole('button', {
+            name: /browse/i,
+        }) as HTMLButtonElement
+    }
+
+    private static get isBrowseShown() {
+        return screen.queryByRole('button', { name: /browse/i }) !== null
+    }
+
+    private static get lastSentMessage() {
+        return JSON.parse(FakeWebSocket.callsToSend.at(-1)?.data as string)
     }
 
     private static clickConnect() {

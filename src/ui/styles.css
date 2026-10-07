@@ -90,6 +90,7 @@ body {
 
 .connect-devices {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 14px;
     margin-top: 20px;
@@ -118,6 +119,108 @@ body {
 .connect-devices__button:disabled {
     color: var(--text-muted);
     cursor: default;
+}
+
+.connect-devices__record-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.connect-devices__record-directory {
+    width: 320px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.connect-devices__record-directory::placeholder {
+    color: var(--text-muted);
+}
+
+.connect-devices__record-directory:read-only {
+    border-style: dashed;
+    color: var(--text-secondary);
+    cursor: default;
+}
+
+.connect-devices__record-directory:focus-visible {
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+}
+
+.connect-devices__record-file {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.connect-devices__record-name {
+    width: 160px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.connect-devices__record-name::placeholder {
+    color: var(--text-muted);
+}
+
+.connect-devices__record-name:read-only {
+    border-style: dashed;
+    color: var(--text-secondary);
+    cursor: default;
+}
+
+.connect-devices__record-name:focus-visible {
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+}
+
+.connect-devices__record-timestamp {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    user-select: none;
+}
+
+.connect-devices__browse {
+    padding: 6px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.connect-devices__browse:disabled {
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.connect-devices__browse:hover:not(:disabled),
+.connect-devices__browse:focus-visible {
+    border-color: rgba(255, 255, 255, 0.3);
+    outline: none;
+}
+
+.connect-devices__recording {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
 }
 
 .connect-devices__error {
