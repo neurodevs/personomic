@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -82,6 +83,24 @@ async function showFolderPanel() {
     }
 }
 
+async function revealRecording() {
+    const xdfRecordPath = sessionRequest?.xdfRecordPath
+
+    if (!xdfRecordPath) {
+        throw new Error('Nothing is being recorded right now.')
+    }
+
+    if (process.platform !== 'darwin') {
+        throw new Error('Showing the recording only works on macOS.')
+    }
+
+    const args = existsSync(xdfRecordPath)
+        ? ['-R', xdfRecordPath]
+        : [path.dirname(xdfRecordPath)]
+
+    await promisify(execFile)('open', args)
+}
+
 async function start(request) {
     const { devices } = request
     const xdfRecordPath = request.xdfRecordPath
@@ -153,6 +172,11 @@ async function handle(message) {
 
     if (command === 'chooseDirectory') {
         return { directory: await chooseDirectory() }
+    }
+
+    if (command === 'revealRecording') {
+        await revealRecording()
+        return {}
     }
 
     if (commandInFlight) {

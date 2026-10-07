@@ -1064,6 +1064,42 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async asksOrchestratorToRevealRecordingOnClick() {
+        this.showRecordingThroughOrchestrator()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            { command: 'revealRecording' },
+            'Did not ask orchestrator to reveal recording on click!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorWhenRevealingRecordingFails() {
+        this.showRecordingThroughOrchestrator()
+        act(() => this.orchestratorSocket.receive({ error: 'macOS only' }))
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'macOS only',
+            'Did not show error when revealing recording failed!'
+        )
+    }
+
+    @test()
+    protected static async showsHowToStartOrchestratorWhenUnreachableOnReveal() {
+        this.showRecordingThroughOrchestrator()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            'Did not show how to start orchestrator when unreachable on reveal!'
+        )
+    }
+
+    @test()
     protected static async restoresRecordingPathOfSessionRunningOnLoad() {
         render(<App />)
 
@@ -1190,7 +1226,18 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     private static isRecordingShownFor(path: string) {
-        return screen.queryByText(`Recording to ${path}`) !== null
+        return screen.queryByRole('button', { name: path }) !== null
+    }
+
+    private static showRecordingThroughOrchestrator() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() =>
+            this.orchestratorSocket.receive({ xdfRecordPath: '/data/a.xdf' })
+        )
+        fireEvent.click(screen.getByRole('button', { name: '/data/a.xdf' }))
     }
 
     private static clickBrowse() {

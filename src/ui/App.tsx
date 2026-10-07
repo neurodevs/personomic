@@ -122,6 +122,19 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         )
     }
 
+    const revealRecording = () => {
+        setSessionError(undefined)
+
+        sendToOrchestrator(
+            { command: 'revealRecording' },
+            {
+                onReply: ({ error }) => setSessionError(error),
+                onUnreachable: () =>
+                    setSessionError(orchestratorUnreachableMessage),
+            }
+        )
+    }
+
     const restoreRunningSession = (running: RunningSession) => {
         const { devices, xdfRecordPath } = running
 
@@ -296,7 +309,15 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 )}
                 {recordingPath && (
                     <span className="connect-devices__recording">
-                        Recording to {recordingPath}
+                        Recording to{' '}
+                        <button
+                            type="button"
+                            className="connect-devices__recording-path"
+                            title="Show in Finder"
+                            onClick={revealRecording}
+                        >
+                            {recordingPath}
+                        </button>
                     </span>
                 )}
                 {sessionError && (

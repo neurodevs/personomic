@@ -223,6 +223,23 @@ body {
     font-size: 11px;
 }
 
+.connect-devices__recording-path {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.connect-devices__recording-path:hover,
+.connect-devices__recording-path:focus-visible {
+    text-decoration-style: solid;
+    outline: none;
+}
+
 .connect-devices__error {
     color: #e5484d;
     font-size: 12px;
