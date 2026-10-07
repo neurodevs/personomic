@@ -1458,6 +1458,72 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async forgetsOnlyTheChosenIdentifier() {
+        this.renderWithMuse()
+
+        this.connectAndStopWithIdentifier('first-uuid')
+        this.connectAndStopWithIdentifier('second-uuid')
+        this.forgetIdentifier('Muse S Gen 2', 'first-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['second-uuid'] },
+            'Did not forget only the chosen identifier!'
+        )
+    }
+
+    @test()
+    protected static async forgetsIdentifierOnlyForItsOwnDevice() {
+        this.renderWithMuse()
+        this.addBiosensor('Muse 2')
+
+        this.typeIdentifier('Muse S Gen 2', 'shared-uuid')
+        this.typeIdentifier('Muse 2', 'shared-uuid')
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+        this.forgetIdentifier('Muse S Gen 2', 'shared-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse 2': ['shared-uuid'] },
+            'Did not forget identifier only for its own device!'
+        )
+    }
+
+    @test()
+    protected static async keepsIdentifierForgottenAcrossReloads() {
+        const { unmount } = render(<App />)
+
+        this.addBiosensor('Muse S Gen 2')
+        this.connectAndStopWithIdentifier('muse-uuid')
+        this.forgetIdentifier('Muse S Gen 2', 'muse-uuid')
+        unmount()
+
+        this.renderWithMuse()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            {},
+            'Did not keep identifier forgotten across reloads!'
+        )
+    }
+
+    @test()
+    protected static async doesNotLetIdentifiersBeForgottenWhileLocked() {
+        this.renderWithMuse()
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+        this.clickConnect()
+
+        assert.isEqual(
+            lastStreamMonitorProps?.onForgetIdentifier,
+            undefined,
+            'Let identifiers be forgotten while locked!'
+        )
+    }
+
+    @test()
     protected static async remembersIdentifiersAcrossReloads() {
         const { unmount } = render(<App />)
 
@@ -1545,6 +1611,12 @@ export default class AppTest extends AbstractPackageTest {
         this.connect()
         this.clickStop()
         act(() => this.orchestratorSocket.receive({}))
+    }
+
+    private static forgetIdentifier(name: string, identifier: string) {
+        act(() =>
+            lastStreamMonitorProps?.onForgetIdentifier?.(name, identifier)
+        )
     }
 
     private static typeIdentifier(name: string, value: string) {

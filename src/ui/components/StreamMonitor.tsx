@@ -22,6 +22,7 @@ export interface StreamMonitorProps {
     isConnecting?: boolean
     identifiers?: Record<string, DeviceIdentifier>
     rememberedIdentifiers?: Record<string, readonly string[]>
+    onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     onRemoveDevice?: (name: string) => void
 }
@@ -39,6 +40,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         isConnecting = false,
         identifiers = {},
         rememberedIdentifiers = {},
+        onForgetIdentifier,
         onIdentifierChange,
     } = props
 
@@ -290,6 +292,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     onRemove={onRemoveDevice}
                     identifier={identifiers[device.key]}
                     rememberedIdentifiers={rememberedIdentifiers[device.name]}
+                    onForgetIdentifier={onForgetIdentifier}
                     onIdentifierChange={onIdentifierChange}
                 >
                     {device.streams.map((stream) => (
@@ -330,6 +333,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onRemove,
     identifier,
     rememberedIdentifiers,
+    onForgetIdentifier,
     onIdentifierChange,
     children,
 }) => {
@@ -371,6 +375,10 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                             onIdentifierChange &&
                             ((value) => onIdentifierChange(device.key, value))
                         }
+                        onForget={
+                            onForgetIdentifier &&
+                            ((value) => onForgetIdentifier(device.name, value))
+                        }
                     />
                 )}
                 {hasStreams && (
@@ -405,6 +413,7 @@ interface DevicePanelProps {
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier
     rememberedIdentifiers?: readonly string[]
+    onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     children?: React.ReactNode
 }
@@ -414,6 +423,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
     identifier,
     remembered = [],
     onChange,
+    onForget,
 }) => {
     const [isOpen, setIsOpen] = useState(false)
 
@@ -445,7 +455,11 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                     aria-label={`Previous ${deviceLabel} ${identifier.label} values`}
                 >
                     {remembered.map((value) => (
-                        <li key={value} role="none">
+                        <li
+                            key={value}
+                            role="none"
+                            className="stream-monitor__device-identifier-row"
+                        >
                             <button
                                 type="button"
                                 role="option"
@@ -456,6 +470,18 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                             >
                                 {value}
                             </button>
+                            {onForget && (
+                                <button
+                                    type="button"
+                                    className="stream-monitor__device-identifier-forget"
+                                    aria-label={`Forget ${value}`}
+                                    title={`Forget ${value}`}
+                                    onMouseDown={keepInputFocused}
+                                    onClick={() => onForget(value)}
+                                >
+                                    ×
+                                </button>
+                            )}
                         </li>
                     ))}
                 </ul>
@@ -473,6 +499,7 @@ interface IdentifierInputProps {
     identifier: DeviceIdentifier
     remembered?: readonly string[]
     onChange?: (value: string) => void
+    onForget?: (value: string) => void
 }
 
 const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({

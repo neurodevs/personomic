@@ -973,6 +973,95 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async reportsForgottenIdentifierWithDeviceName() {
+        const forgotten: [string, string][] = []
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName, this.deviceName], {
+            identifiers: {
+                [this.secondTwinKey]: { label: 'UUID', value: '' },
+            },
+            rememberedIdentifiers: { [this.deviceName]: this.remembered },
+            onForgetIdentifier: (name, identifier) =>
+                forgotten.push([name, identifier]),
+        })
+
+        fireEvent.focus(this.identifierInput!)
+        fireEvent.click(this.forgetButtonFor(this.remembered[1])!)
+
+        assert.isEqualDeep(
+            forgotten,
+            [[this.deviceName, this.remembered[1]]],
+            'Did not report forgotten identifier with device name!'
+        )
+    }
+
+    @test()
+    protected static async placesForgetButtonRightOfItsIdentifier() {
+        await this.mountWithRememberedIdentifiers({
+            onForgetIdentifier: () => {},
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            Array.from(screen.getByRole('listbox').children, (row) =>
+                Array.from(row.children, (control) =>
+                    control.getAttribute('role')
+                )
+            ),
+            this.remembered.map(() => ['option', null]),
+            'Did not place forget button right of its identifier!'
+        )
+    }
+
+    @test()
+    protected static async keepsDropdownOpenAndValueWhenForgetting() {
+        const changes: string[] = []
+
+        await this.mountWithRememberedIdentifiers({
+            onForgetIdentifier: () => {},
+            onIdentifierChange: (_, value) => changes.push(value),
+        })
+
+        fireEvent.focus(this.identifierInput!)
+        fireEvent.click(this.forgetButtonFor(this.remembered[0])!)
+
+        assert.isEqualDeep(
+            { offered: this.offeredIdentifiers, changes },
+            { offered: this.remembered, changes: [] },
+            'Did not keep dropdown open and value when forgetting!'
+        )
+    }
+
+    @test()
+    protected static async keepsInputFocusedWhilePressingForgetButton() {
+        await this.mountWithRememberedIdentifiers({
+            onForgetIdentifier: () => {},
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isFalse(
+            fireEvent.mouseDown(this.forgetButtonFor(this.remembered[0])!),
+            'Did not keep input focused while pressing forget button!'
+        )
+    }
+
+    @test()
+    protected static async showsNoForgetButtonWithoutForgetHandler() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqual(
+            this.forgetButtonFor(this.remembered[0]),
+            null,
+            'Showed a forget button without forget handler!'
+        )
+    }
+
+    @test()
     protected static async showsRememberedIdentifiersOfDeviceNameToEachRepeat() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName, this.deviceName], {
@@ -1770,6 +1859,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     private static chooseRememberedIdentifier(identifier: string) {
         fireEvent.focus(this.identifierInput!)
         fireEvent.click(screen.getByRole('option', { name: identifier }))
+    }
+
+    private static forgetButtonFor(identifier: string) {
+        return screen.queryByRole('button', { name: `Forget ${identifier}` })
     }
 
     private static get offeredIdentifiers() {

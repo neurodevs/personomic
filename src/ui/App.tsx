@@ -110,15 +110,23 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
     }))
 
-    const rememberIdentifiersOf = (requests: DeviceRequest[]) => {
-        const remembered = withIdentifiersOf(requests, rememberedIdentifiers)
-
+    const saveRememberedIdentifiers = (remembered: RememberedIdentifiers) => {
         setRememberedIdentifiers(remembered)
         localStorage.setItem(
             rememberedIdentifiersStorageKey,
             JSON.stringify(remembered)
         )
     }
+
+    const rememberIdentifiersOf = (requests: DeviceRequest[]) =>
+        saveRememberedIdentifiers(
+            withIdentifiersOf(requests, rememberedIdentifiers)
+        )
+
+    const forgetIdentifier = (name: string, identifier: string) =>
+        saveRememberedIdentifiers(
+            withoutIdentifier(name, identifier, rememberedIdentifiers)
+        )
 
     const rememberRecordDirectory = (directory: string) => {
         setRecordDirectory(directory)
@@ -271,6 +279,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 isConnecting={session === 'connecting'}
                 identifiers={identifiers}
                 rememberedIdentifiers={rememberedIdentifiers}
+                onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />
@@ -444,6 +453,19 @@ function withIdentifiersOf(
     }
 
     return next
+}
+
+function withoutIdentifier(
+    name: string,
+    identifier: string,
+    remembered: RememberedIdentifiers
+) {
+    const { [name]: ofDevice = [], ...ofOtherDevices } = remembered
+    const kept = ofDevice.filter((other) => other !== identifier)
+
+    return kept.length > 0
+        ? { ...ofOtherDevices, [name]: kept }
+        : ofOtherDevices
 }
 
 function recordPathFor(directory: string, name: string, startedAt: Date) {
