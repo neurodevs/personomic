@@ -17,6 +17,7 @@ export interface StreamPlotProps {
     channelNames?: string[]
     downsampling?: Downsampling
     yRange?: YRangeBounds
+    units?: string
 }
 
 export interface YRangeBounds {
@@ -48,6 +49,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         channelNames,
         downsampling,
         yRange,
+        units,
     } = props
 
     const yMinBound = yRange?.min
@@ -343,6 +345,16 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             <header className="stream-plot__header">
                 <span className="stream-plot__indicator" />
                 <span className="stream-plot__name">{name}</span>
+                {units !== undefined && channelCount > 0 && (
+                    <Readout
+                        kind="latest"
+                        label="Latest"
+                        value={latestValuesWithUnits(
+                            samples.slice(-channelCount),
+                            units
+                        )}
+                    />
+                )}
                 {heartRateStatus && (
                     <Readout
                         kind="heart-rate"
@@ -750,6 +762,14 @@ const Readout: React.FC<ReadoutProps> = ({ kind, label, value, note }) => (
         {note && <span className="stream-plot__readout-note">{note}</span>}
     </span>
 )
+
+function latestValuesWithUnits(values: number[], units: string) {
+    const separator = units === '%' ? '' : ' '
+
+    return values
+        .map((value) => `${Number(value.toFixed(1))}${separator}${units}`)
+        .join(', ')
+}
 
 interface ReceivedSpan {
     first: number

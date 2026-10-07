@@ -41,8 +41,9 @@ const streamOptions: Record<string, StreamOptions> = {
             hrvProvisionalAfterSeconds: 30,
         },
     },
-    Battery: { yRange: { min: 0, max: 100 } },
-    Humidity: { yRange: { min: 0, max: 100 } },
+    Temperature: { units: '°C' },
+    Humidity: { yRange: { min: 0, max: 100 }, units: '%' },
+    Battery: { yRange: { min: 0, max: 100 }, units: '%' },
 }
 
 const sessionButtonLabels: Record<SessionState, string> = {

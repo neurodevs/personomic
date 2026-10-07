@@ -114,6 +114,22 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test('shows latest temperature in celsius', 'Temperature', '°C')
+    @test('shows latest humidity in percent', 'Humidity', '%')
+    @test('shows latest battery in percent', 'Battery', '%')
+    protected static async showsLatestValueOfIntermittentStreamWithUnits(
+        streamType: string,
+        units: string
+    ) {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.streamOptions?.[streamType]?.units,
+            units,
+            `Did not show latest ${streamType} with units!`
+        )
+    }
+
     @test('scales battery from zero to hundred', 'Battery')
     @test('scales humidity from zero to hundred', 'Humidity')
     protected static async scalesPercentageStreamFromZeroToHundred(

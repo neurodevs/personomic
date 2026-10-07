@@ -543,7 +543,7 @@ function streamFor(
     options: StreamOptions = {}
 ): BiosignalStream {
     const { type, listenPort, channelNames, sampleRateHz } = stream
-    const { detectPeaks, downsampling, yRange } = options
+    const { detectPeaks, downsampling, yRange, units } = options
 
     return {
         name: type,
@@ -557,6 +557,7 @@ function streamFor(
         },
         downsampling,
         yRange,
+        units,
     }
 }
 
@@ -696,6 +697,7 @@ export interface StreamOptions {
     detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
     downsampling?: Downsampling
     yRange?: YRangeBounds
+    units?: string
 }
 
 interface ShownDevice {
@@ -715,6 +717,7 @@ interface BiosignalStream {
     channelNames?: string[]
     downsampling?: Downsampling
     yRange?: YRangeBounds
+    units?: string
 }
 
 // Test doubles

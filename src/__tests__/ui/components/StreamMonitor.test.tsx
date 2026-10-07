@@ -1503,6 +1503,25 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesUnitsForStreamTypeToItsPlot() {
+        this.setFakeStreamPlot()
+
+        await this.render(this.devicesFor(this.streams), {
+            streamOptions: {
+                [this.streams[0].name]: { units: '°C' },
+            },
+        })
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.units
+            ),
+            ['°C', undefined],
+            'Did not pass units for stream type to its plot!'
+        )
+    }
+
+    @test()
     protected static async passesYRangeForStreamTypeToItsPlot() {
         this.setFakeStreamPlot()
         await this.render(this.devicesFor(this.streams), {

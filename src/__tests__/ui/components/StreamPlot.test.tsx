@@ -629,6 +629,69 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNoLatestValueWithoutUnits() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            this.readoutValue('latest'),
+            undefined,
+            'Showed latest value without units!'
+        )
+    }
+
+    @test()
+    protected static async showsNoLatestValueBeforeFirstData() {
+        await this.render({ units: '°C' })
+
+        assert.isEqual(
+            this.readoutValue('latest'),
+            undefined,
+            'Showed latest value before first data!'
+        )
+    }
+
+    @test('shows latest sample with spaced units', [20, 21.5], '°C', '21.5 °C')
+    @test('shows percent without a space', [40, 45], '%', '45%')
+    @test('rounds to one decimal', [22.46], '°C', '22.5 °C')
+    @test('drops trailing zero decimal', [99.98], '%', '100%')
+    protected static async showsLatestValueWithUnits(
+        samples: number[],
+        latestValueUnits: string,
+        expected: string
+    ) {
+        await this.render({
+            samples,
+            timestamps: samples.map((_, i) => i),
+            units: latestValueUnits,
+        })
+
+        assert.isEqual(
+            this.readoutValue('latest'),
+            expected,
+            'Did not show latest value with units!'
+        )
+    }
+
+    @test()
+    protected static async showsLabelledLatestValueRightOfStreamName() {
+        await this.render({ ...this.twoChannels, units: '%' })
+
+        const latest = this.plot.querySelector('.stream-plot__readout--latest')
+
+        assert.isEqualDeep(
+            {
+                label: latest?.firstElementChild?.textContent,
+                isRightOfName:
+                    latest?.previousElementSibling ===
+                    this.plot.querySelector('.stream-plot__name'),
+                value: this.readoutValue('latest'),
+            },
+            { label: 'Latest', isRightOfName: true, value: '3%, 30%' },
+            'Did not show labelled latest value right of stream name!'
+        )
+    }
+
+    @test()
     protected static async showsNoHeartRateWithoutHeartRateWindow() {
         await this.render({
             ...this.twoChannels,
