@@ -337,7 +337,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
     return (
         <section
-            className="stream-monitor__device"
+            className={`stream-monitor__device stream-monitor__device--${status}`}
             data-testid={`device-${device.name}`}
             onClick={togglePlotsUnlessClickedOnContents}
         >

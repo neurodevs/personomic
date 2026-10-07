@@ -291,6 +291,40 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test(
+        'disconnected marks card disconnected',
+        'disconnected',
+        'disconnected'
+    )
+    @test('connecting marks card connecting', 'connecting', 'connecting')
+    @test('connected marks card connected', 'connected', 'connected')
+    @test('streaming marks card connected', 'streaming', 'connected')
+    protected static async marksDeviceCardWithItsStatus(
+        state: string,
+        expectedStatus: string
+    ) {
+        await this.renderBeforeDeviceStatus()
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqualDeep(
+            this.statusClassesOf(this.deviceName),
+            [`stream-monitor__device--${expectedStatus}`],
+            `Did not mark device card as ${expectedStatus} for ${state} device!`
+        )
+    }
+
+    @test()
+    protected static async marksDeviceCardDisconnectedUntilDeviceStatusArrives() {
+        await this.renderBeforeDeviceStatus()
+
+        assert.isEqualDeep(
+            this.statusClassesOf(this.deviceName),
+            ['stream-monitor__device--disconnected'],
+            'Did not mark device card disconnected until device status arrived!'
+        )
+    }
+
     @test()
     protected static async matchesEachDeviceByName() {
         await this.renderBeforeDeviceStatus(this.twoDevices)
@@ -1391,6 +1425,14 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 sampleRateHz: this.sampleRateHz,
             })),
         }
+    }
+
+    private static statusClassesOf(deviceName: string) {
+        return Array.from(
+            screen.getByTestId(`device-${deviceName}`).classList
+        ).filter((className) =>
+            className.startsWith('stream-monitor__device--')
+        )
     }
 
     private static deviceStatusOf(deviceName: string) {

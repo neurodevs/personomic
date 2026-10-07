@@ -281,6 +281,12 @@ body {
     box-shadow: 0 0 10px var(--stream-color);
 }
 
+.stream-monitor__device:not(.stream-monitor__device--connected)
+    .stream-plot__indicator {
+    background: var(--text-muted);
+    box-shadow: none;
+}
+
 .stream-plot__name {
     font-size: 13px;
     font-weight: 600;
