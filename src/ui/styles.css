@@ -565,7 +565,8 @@ body {
 }
 
 .stream-plot__channels {
-    margin-left: -12px;
+    --channels-overhang: 12px;
+    margin-left: calc(-1 * var(--channels-overhang));
 }
 
 .stream-plot__channel {
@@ -580,6 +581,19 @@ body {
     z-index: -1;
     background-image: linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size: 10% 100%;
+}
+
+.stream-plot__channel + .stream-plot__channel {
+    margin-top: 12px;
+}
+
+.stream-plot__channel + .stream-plot__channel::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: var(--channels-overhang);
+    right: 0;
+    border-top: 1px dashed var(--border-strong);
 }
 
 @media (max-width: 600px) {
@@ -597,6 +611,6 @@ body {
     }
 
     .stream-plot__channels {
-        margin-left: -8px;
+        --channels-overhang: 8px;
     }
 }
