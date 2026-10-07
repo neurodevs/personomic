@@ -1,5 +1,5 @@
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import AddBiosensorButton from './components/AddBiosensorButton'
 import StreamMonitor, {
@@ -77,6 +77,33 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 },
             ])
     )
+
+    const restoreRunningSession = (devices: DeviceRequest[]) => {
+        setDeviceNames(devices.map(({ deviceName }) => deviceName))
+        setIdentifierValues(
+            Object.fromEntries(
+                devices.map(({ deviceName, identifier }) => [
+                    deviceName,
+                    identifier ?? '',
+                ])
+            )
+        )
+        setSession('locked')
+    }
+
+    useEffect(() => {
+        sendToOrchestrator(
+            { command: 'status' },
+            {
+                onReply: ({ devices }) => {
+                    if (devices) {
+                        restoreRunningSession(devices)
+                    }
+                },
+                onUnreachable: () => {},
+            }
+        )
+    }, [])
 
     const connectDevices = () => {
         setSession('connecting')
@@ -193,8 +220,13 @@ function sendToOrchestrator(
 }
 
 interface OrchestratorReplyHandlers {
-    onReply: (reply: { error?: string }) => void
+    onReply: (reply: { error?: string; devices?: DeviceRequest[] }) => void
     onUnreachable: () => void
+}
+
+interface DeviceRequest {
+    deviceName: string
+    identifier?: string
 }
 
 // Test doubles

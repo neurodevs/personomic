@@ -18,7 +18,8 @@ const IDENTIFIER_OPTION_BY_DEVICE = {
 }
 
 let orchestrator
-let isBusy = false
+let sessionDevices
+let commandInFlight
 
 function specificationFor({ deviceName, identifier }) {
     const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
@@ -39,6 +40,7 @@ async function start(devices) {
         devices: specifications,
         webSocketPortStart: WEB_SOCKET_PORT_START,
     })
+    sessionDevices = devices
 
     try {
         await orchestrator.start()
@@ -69,7 +71,35 @@ async function stop() {
         await orchestrator?.stop()
     } finally {
         orchestrator = undefined
+        sessionDevices = undefined
     }
+}
+
+async function statusOnceIdle() {
+    await commandInFlight?.catch(() => {})
+    return { devices: sessionDevices }
+}
+
+async function handle(message) {
+    const { command, devices } = JSON.parse(message.toString())
+
+    if (command === 'status') {
+        return await statusOnceIdle()
+    }
+
+    if (commandInFlight) {
+        throw new Error('Busy with another command.')
+    }
+
+    commandInFlight = run(command, devices)
+
+    try {
+        await commandInFlight
+    } finally {
+        commandInFlight = undefined
+    }
+
+    return {}
 }
 
 async function run(command, devices) {
@@ -87,20 +117,7 @@ const server = new WebSocketServer({ port: COMMAND_PORT })
 server.on('connection', (client) => {
     client.on('message', async (message) => {
         try {
-            if (isBusy) {
-                throw new Error('Busy with another command.')
-            }
-
-            isBusy = true
-
-            try {
-                const { command, devices } = JSON.parse(message.toString())
-                await run(command, devices)
-            } finally {
-                isBusy = false
-            }
-
-            client.send(JSON.stringify({}))
+            client.send(JSON.stringify(await handle(message)))
         } catch (err) {
             console.error(err)
             client.send(JSON.stringify({ error: err.message.trim() }))

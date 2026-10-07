@@ -143,11 +143,12 @@ export default class AppTest extends AbstractPackageTest {
     protected static async removesDeviceWithoutContactingOrchestrator() {
         this.renderWithMuse()
 
+        const numContactsBefore = FakeWebSocket.callsToConstructor.length
         this.removeDevice('Muse S Gen 2')
 
         assert.isLength(
             FakeWebSocket.callsToConstructor,
-            0,
+            numContactsBefore,
             'Contacted orchestrator when removing a device!'
         )
     }
@@ -260,6 +261,7 @@ export default class AppTest extends AbstractPackageTest {
     protected static async connectsToOrchestratorOnConnect() {
         this.renderWithMuse()
 
+        FakeWebSocket.resetTestDouble()
         this.clickConnect()
 
         assert.isEqualDeep(
@@ -560,6 +562,94 @@ export default class AppTest extends AbstractPackageTest {
                 error: 'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
             },
             'Did not unlock when orchestrator was unreachable on stop!'
+        )
+    }
+
+    @test()
+    protected static async asksOrchestratorForStatusOnLoad() {
+        render(<App />)
+
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            {
+                urls: FakeWebSocket.callsToConstructor,
+                sent: FakeWebSocket.callsToSend.map(({ data }) =>
+                    JSON.parse(data as string)
+                ),
+            },
+            { urls: ['ws://localhost:8763'], sent: [{ command: 'status' }] },
+            'Did not ask orchestrator for status on load!'
+        )
+    }
+
+    @test()
+    protected static async restoresSessionAlreadyRunningOnLoad() {
+        render(<App />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [
+                    { deviceName: 'Muse S Gen 2', identifier: 'muse-uuid' },
+                    { deviceName: 'Zephyr BioHarness 3' },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            {
+                lockState: this.lockState,
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                museUuid:
+                    lastStreamMonitorProps?.identifiers?.['Muse S Gen 2']
+                        ?.value,
+            },
+            {
+                lockState: {
+                    isLocked: true,
+                    isAddBiosensorButtonShown: false,
+                    button: { text: 'Stop', isDisabled: false },
+                },
+                deviceNames: ['Muse S Gen 2', 'Zephyr BioHarness 3'],
+                museUuid: 'muse-uuid',
+            },
+            'Did not restore session already running on load!'
+        )
+    }
+
+    @test()
+    protected static async staysUnlockedWhenNoSessionIsRunningOnLoad() {
+        this.renderWithMuse()
+
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            {
+                lockState: this.lockState,
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+            },
+            {
+                lockState: {
+                    isLocked: false,
+                    isAddBiosensorButtonShown: true,
+                    button: { text: 'Connect', isDisabled: false },
+                },
+                deviceNames: ['Muse S Gen 2'],
+            },
+            'Did not stay unlocked when no session was running on load!'
+        )
+    }
+
+    @test()
+    protected static async showsNoErrorWhenOrchestratorIsUnreachableOnLoad() {
+        render(<App />)
+
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            screen.queryByRole('alert'),
+            null,
+            'Showed an error when orchestrator was unreachable on load!'
         )
     }
 
