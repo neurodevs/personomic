@@ -97,6 +97,220 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsYAxisOnLeftOfEachChannelWithoutXAxis() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) =>
+                plot.options.axes?.map((axis) => ({
+                    isShown: axis.show !== false,
+                    side: axis.side,
+                }))
+            ),
+            Array.from({ length: 2 }, () => [
+                { isShown: false, side: undefined },
+                { isShown: true, side: 3 },
+            ]),
+            'Did not show y-axis on left of each channel without x-axis!'
+        )
+    }
+
+    @test()
+    protected static async givesEachChannelSameYAxisWidthToKeepTimeAligned() {
+        await this.render(this.twoChannels)
+
+        const sizes = FakeUPlot.instances.map(
+            (plot) => plot.options.axes?.[1].size
+        )
+
+        assert.isEqualDeep(
+            {
+                areNumbers: sizes.every((size) => typeof size === 'number'),
+                numDistinct: new Set(sizes).size,
+            },
+            { areNumbers: true, numDistinct: 1 },
+            'Did not give each channel the same y-axis width!'
+        )
+    }
+
+    @test()
+    protected static async tellsStylesTheYAxisWidthToKeepItOutsidePlotWindow() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            this.plot.style.getPropertyValue('--y-axis-width'),
+            `${FakeUPlot.latest.options.axes?.[1].size}px`,
+            'Did not tell styles the y-axis width!'
+        )
+    }
+
+    @test('labels whole tick', 250, '250')
+    @test('labels negative fractional tick', -0.25, '-0.25')
+    @test('labels large tick without separators', 251200, '251200')
+    @test('labels tick too long to fit in exponent form', 123456789, '1.23e+8')
+    @test(
+        'labels negative tick with fewer digits to fit',
+        -123456789,
+        '-1.2e+8'
+    )
+    @test(
+        'labels tiny tick too long to fit in exponent form',
+        0.00000125,
+        '1.25e-6'
+    )
+    protected static async labelsYAxisTicksToFitAxis(
+        tick: number,
+        expected: string
+    ) {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.yTickLabelsFor([tick]),
+            [expected],
+            'Did not label y-axis tick to fit axis!'
+        )
+    }
+
+    @test('bars at ones', 21.3, 23.9, [21, 22, 23, 24])
+    @test('bars at fifths', 0.02, 0.37, [0, 0.2, 0.4, 0.6])
+    @test('bars around zero', -50, 50, [-50, 0, 50, 100])
+    @test('bars at fifties', 0, 100, [0, 50, 100, 150])
+    @test(
+        'bars at hundreds on an offset range',
+        251210,
+        251390,
+        [251200, 251300, 251400, 251500]
+    )
+    @test('bars above a flat signal', 100, 100, [100, 110, 120, 130])
+    @test(
+        'bars stay put when range is already on bars',
+        0,
+        0.6,
+        [0, 0.2, 0.4, 0.6]
+    )
+    protected static async putsFourRoundYBarsAroundRange(
+        min: number,
+        max: number,
+        expected: number[]
+    ) {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.yBarsBetween(min, max),
+            expected,
+            'Did not put four round y-bars around range!'
+        )
+    }
+
+    @test()
+    protected static async scalesYFromLowestBarToHighestBar() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.yRangeFor(21.3, 23.9),
+            [21, 24],
+            'Did not scale y from lowest bar to highest bar!'
+        )
+    }
+
+    @test()
+    protected static async scalesYBeforeAnyDataArrives() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.yRangeFor(null, null),
+            [0, 0.3],
+            'Did not scale y before any data arrived!'
+        )
+    }
+
+    @test()
+    protected static async keepsYScaleWhenSignalNarrows() {
+        await this.render(this.twoChannels)
+
+        this.yRangeFor(0, 100)
+
+        assert.isEqualDeep(
+            this.yRangeFor(40, 60),
+            [0, 150],
+            'Did not keep y-scale when signal narrowed!'
+        )
+    }
+
+    @test()
+    protected static async widensYScaleUpwardKeepingLowerBound() {
+        await this.render(this.twoChannels)
+
+        this.yRangeFor(21.3, 23.9)
+
+        assert.isEqualDeep(
+            this.yRangeFor(22, 31),
+            [20, 35],
+            'Did not widen y-scale upward keeping lower bound covered!'
+        )
+    }
+
+    @test()
+    protected static async widensYScaleDownwardKeepingUpperBound() {
+        await this.render(this.twoChannels)
+
+        this.yRangeFor(0, 100)
+
+        assert.isEqualDeep(
+            this.yRangeFor(-20, 10),
+            [-100, 200],
+            'Did not widen y-scale downward keeping upper bound covered!'
+        )
+    }
+
+    @test()
+    protected static async keepsYScaleWhenDataGoesMissing() {
+        await this.render(this.twoChannels)
+
+        this.yRangeFor(0, 100)
+
+        assert.isEqualDeep(
+            this.yRangeFor(null, null),
+            [0, 150],
+            'Did not keep y-scale when data went missing!'
+        )
+    }
+
+    @test()
+    protected static async widensYScaleOfEachChannelSeparately() {
+        await this.render(this.twoChannels)
+
+        this.yRangeFor(0, 100, FakeUPlot.instances[0])
+
+        assert.isEqualDeep(
+            this.yRangeFor(40, 60, FakeUPlot.instances[1]),
+            [40, 70],
+            'Did not widen y-scale of each channel separately!'
+        )
+    }
+
+    @test()
+    protected static async drawsBarAtEveryYTick() {
+        await this.render(this.twoChannels)
+
+        assert.isTrue(
+            FakeUPlot.latest.options.axes?.[1].grid?.show !== false,
+            'Did not draw a bar at every y-tick!'
+        )
+    }
+
+    @test()
+    protected static async tellsStylesTheYPaddingToEndTimeBarsAtOuterYBars() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            this.plot.style.getPropertyValue('--y-padding'),
+            `${(FakeUPlot.latest.options.padding as number[])[0]}px`,
+            'Did not tell styles the y-padding!'
+        )
+    }
+
+    @test()
     protected static async drawsEachChannelInGivenColor() {
         await this.render({ ...this.twoChannels, color: '#abcdef' })
 
@@ -108,32 +322,13 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async labelsEachChannel() {
-        await this.render(this.twoChannels)
-
-        assert.isTruthy(
-            screen.getByText('CH 1') && screen.getByText('CH 2'),
-            'Did not label each channel!'
-        )
-    }
-
-    @test()
-    protected static async labelsChannelsByName() {
+    protected static async showsNoChannelNameInsidePlotWindow() {
         await this.render({ ...this.twoChannels, channelNames: ['TP9', 'AF7'] })
 
-        assert.isTruthy(
-            screen.getByText('TP9') && screen.getByText('AF7'),
-            'Did not label channels by name!'
-        )
-    }
-
-    @test()
-    protected static async numbersChannelsWhenNamesDoNotMatchChannelCount() {
-        await this.render({ ...this.twoChannels, channelNames: ['PPG'] })
-
-        assert.isTruthy(
-            screen.getByText('CH 1') && screen.getByText('CH 2'),
-            'Did not number channels when names did not match!'
+        assert.isEqualDeep(
+            [screen.queryByText('TP9'), screen.queryByText('AF7')],
+            [null, null],
+            'Showed a channel name inside plot window!'
         )
     }
 
@@ -476,15 +671,13 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             {
-                labels: [
-                    screen.queryByText('CH 1'),
-                    screen.queryByText('CH 2'),
-                ],
+                numChannels: this.plot.querySelectorAll('.stream-plot__channel')
+                    .length,
                 arePlotsDestroyed: FakeUPlot.instances.map(
                     (plot) => plot.isDestroyed
                 ),
             },
-            { labels: [null, null], arePlotsDestroyed: [true, true] },
+            { numChannels: 0, arePlotsDestroyed: [true, true] },
             'Did not hide channels when clicked!'
         )
     }
@@ -605,6 +798,19 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async measuresWidthOfChannelsRatherThanWholeCard() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            FakeResizeObserver.latest.observed.map(
+                (element) => element.className
+            ),
+            ['stream-plot__channels'],
+            'Did not measure width of channels!'
+        )
+    }
+
+    @test()
     protected static async fillsContainerWidthByDefault() {
         await this.render(this.twoChannels)
 
@@ -660,6 +866,40 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static get plot() {
         return screen.getByTestId(`stream-plot-${this.plotName}`)
+    }
+
+    private static yBarsBetween(min: number, max: number) {
+        const barsFor = FakeUPlot.latest.options.axes?.[1]
+            .splits as unknown as (
+            plot: unknown,
+            axisIdx: number,
+            min: number,
+            max: number
+        ) => number[]
+
+        return barsFor(FakeUPlot.latest, 1, min, max)
+    }
+
+    private static yRangeFor(
+        min: number | null,
+        max: number | null,
+        plot = FakeUPlot.latest
+    ) {
+        const rangeFor = FakeUPlot.latest.options.scales?.y
+            ?.range as unknown as (
+            plot: unknown,
+            min: number | null,
+            max: number | null
+        ) => number[]
+
+        return rangeFor(plot, min, max)
+    }
+
+    private static yTickLabelsFor(ticks: number[]) {
+        const formatTicks = FakeUPlot.latest.options.axes?.[1]
+            .values as unknown as (plot: unknown, ticks: number[]) => string[]
+
+        return formatTicks(FakeUPlot.latest, ticks)
     }
 
     private static get xScales() {

@@ -40,7 +40,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         downsampling,
     } = props
 
-    const rootRef = useRef<HTMLDivElement>(null)
+    const channelsRef = useRef<HTMLDivElement>(null)
     const containerRefs = useRef<(HTMLDivElement | null)[]>([])
     const plotsRef = useRef<uPlot[]>([])
 
@@ -122,7 +122,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             setContainerWidth(entry.contentRect.width)
         )
 
-        observer.observe(rootRef.current!)
+        observer.observe(channelsRef.current!)
 
         return () => observer.disconnect()
     }, [width])
@@ -209,13 +209,16 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plottedChannelCount,
     ])
 
-    const streamColorStyle: StreamColorStyle = { '--stream-color': color }
+    const plotStyle: PlotStyle = {
+        '--stream-color': color,
+        '--y-axis-width': `${yAxisWidth}px`,
+        '--y-padding': `${yPadding}px`,
+    }
 
     return (
         <section
-            ref={rootRef}
             className="stream-plot"
-            style={streamColorStyle}
+            style={plotStyle}
             data-testid={`stream-plot-${name}`}
             onClick={() => setIsHidden((wasHidden) => !wasHidden)}
         >
@@ -226,18 +229,17 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                     {metaFor(channelCount, windowSeconds, isHidden)}
                 </span>
             </header>
-            {Array.from({ length: plottedChannelCount }, (_, channel) => (
-                <div key={channel} className="stream-plot__channel">
-                    <span className="stream-plot__channel-label">
-                        {labelFor(channel)}
-                    </span>
+            <div ref={channelsRef} className="stream-plot__channels">
+                {Array.from({ length: plottedChannelCount }, (_, channel) => (
                     <div
+                        key={channel}
                         ref={(container) => {
                             containerRefs.current[channel] = container
                         }}
+                        className="stream-plot__channel"
                     />
-                </div>
-            ))}
+                ))}
+            </div>
         </section>
     )
 }
@@ -264,7 +266,11 @@ function metaFor(
         : `${channelCount} ch · ${windowSeconds}s window`
 }
 
-type StreamColorStyle = React.CSSProperties & { '--stream-color': string }
+type PlotStyle = React.CSSProperties & {
+    '--stream-color': string
+    '--y-axis-width': string
+    '--y-padding': string
+}
 
 const peakDetectionIntervalSeconds = 0.5
 
@@ -289,11 +295,14 @@ function optionsFor(
     return {
         width,
         height,
-        padding: [6, 0, 6, 0],
+        padding: [yPadding, 0, yPadding, 0],
         legend: { show: false },
         cursor: { show: false },
-        scales: { x: { time: false } },
-        axes: [{ show: false }, { show: false }],
+        scales: {
+            x: { time: false },
+            y: { range: widenedYRangeFor },
+        },
+        axes: [{ show: false }, yAxis],
         series: [
             {},
             {
@@ -305,6 +314,106 @@ function optionsFor(
             ...(hasPeakMarkers ? [peakMarkerSeriesFor(color)] : []),
         ],
     }
+}
+
+const leftSide = 3
+const yAxisWidth = 48
+const yPadding = 6
+const numYBars = 4
+const maxYTickLabelLength = 7
+
+const yAxis: uPlot.Axis = {
+    side: leftSide,
+    size: yAxisWidth,
+    gap: 3,
+    stroke: '#5f6878',
+    font: '10px ui-monospace, "SF Mono", Menlo, monospace',
+    ticks: { size: 3, width: 1, stroke: 'rgba(255, 255, 255, 0.12)' },
+    grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
+    splits: (_, __, min, max) => yBarsCovering(min, max),
+    values: (_, ticks) => ticks.map(yTickLabelFor),
+}
+
+const widestYRangeByPlot = new WeakMap<uPlot, YRange>()
+
+function widenedYRangeFor(plot: uPlot, min: number | null, max: number | null) {
+    const widest = widestYRangeByPlot.get(plot)
+
+    const widened =
+        min === null || max === null
+            ? (widest ?? yRangeCovering(0, 0))
+            : yRangeCovering(
+                  Math.min(min, widest?.[0] ?? min),
+                  Math.max(max, widest?.[1] ?? max)
+              )
+
+    widestYRangeByPlot.set(plot, widened)
+
+    return widened
+}
+
+function yRangeCovering(min: number, max: number): YRange {
+    const bars = yBarsCovering(min, max)
+    return [bars[0], bars[numYBars - 1]]
+}
+
+type YRange = [number, number]
+
+function yBarsCovering(min: number, max: number) {
+    const span = max > min ? max - min : Math.abs(min) || 1
+    const reachesMax = (bars: number[]) =>
+        bars[numYBars - 1] >= max - span * floatTolerance
+
+    let exponent = Math.floor(Math.log10(span / (numYBars - 1)))
+
+    for (;;) {
+        for (const mantissa of [1, 2, 5]) {
+            const bars = yBarsFrom(min, mantissa, exponent)
+
+            if (reachesMax(bars)) {
+                return bars
+            }
+        }
+
+        exponent++
+    }
+}
+
+function yBarsFrom(min: number, mantissa: number, exponent: number) {
+    const unit = 10 ** Math.abs(exponent)
+    const inUnits = (value: number) =>
+        exponent >= 0 ? value / unit : value * unit
+    const fromUnits = (units: number) =>
+        exponent >= 0 ? units * unit : units / unit
+
+    const lowest =
+        Math.floor(inUnits(min) / mantissa + floatTolerance) * mantissa
+
+    return Array.from(
+        { length: numYBars },
+        (_, bar) => fromUnits(lowest + bar * mantissa) + 0
+    )
+}
+
+const floatTolerance = 1e-9
+
+function yTickLabelFor(value: number) {
+    const plain = String(value)
+
+    return plain.length <= maxYTickLabelLength
+        ? plain
+        : shortestFittingExponentFor(value)
+}
+
+function shortestFittingExponentFor(value: number) {
+    const mostPreciseFirst = [2, 1, 0].map((digits) =>
+        value.toExponential(digits)
+    )
+
+    return (
+        mostPreciseFirst.find((label) => label.length <= maxYTickLabelLength) ??
+        mostPreciseFirst[2]
+    )
 }
 
 function peakMarkerSeriesFor(color: string): uPlot.Series {
