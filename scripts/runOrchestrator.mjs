@@ -52,10 +52,13 @@ async function start(devices) {
 async function stop() {
     console.log('Stopping')
 
-    const stopping = orchestrator
-    orchestrator = undefined
-
-    await stopping?.stop()
+    // Forgotten even if stopping reports an error: the orchestrator cleans up
+    // everything it can regardless, so the session is over either way.
+    try {
+        await orchestrator?.stop()
+    } finally {
+        orchestrator = undefined
+    }
 }
 
 async function run(command, devices) {

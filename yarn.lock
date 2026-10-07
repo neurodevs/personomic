@@ -2267,12 +2267,12 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/node-biosensors@^9.1.1":
-  version "9.1.1"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.1.1.tgz#da0b8448d4b27706a0fff4a9c2965b0960fa9ff8"
-  integrity sha512-BxAGbP5rddUR+axElnP7BabcHkmjLLo6x/e4hm+sdj79Xk2z9UaDnCzgEArHe/up9xZ14YhY66mswFvd+Jv4Hg==
+"@neurodevs/node-biosensors@^9.1.2":
+  version "9.1.2"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.1.2.tgz#e9e7eceb2536b0f9ba7833a88312b6baaf7a5ebb"
+  integrity sha512-IVneJQeTSLPSCYL/m8JEGcqpcaec64xluzTSGlmOTsO0kOBZ25P+3dK+tELlFhJs4EIR4bfHM3fXv+ea6u+npQ==
   dependencies:
-    "@neurodevs/node-lsl" "^23.3.0"
+    "@neurodevs/node-lsl" "^23.3.1"
     "@neurodevs/node-xdf" "^5.0.1"
     ftdi-d2xx "^1.3.1"
     koffi "^3.0.2"
@@ -2323,10 +2323,10 @@
     "@neurodevs/ndx-native" "^10.0.0"
     ws "^8.18.3"
 
-"@neurodevs/node-lsl@^23.3.0":
-  version "23.3.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.3.0.tgz#ffc33ec0208395949131b10001c8b97b19b2948a"
-  integrity sha512-Z76p+imlVjqmrSb1ba0H+CWIw7kwAugoao4e21gzSggEmn7hegDYcfsvv2ro1EaOeyuLoyPiv28g42dUzm9Vpg==
+"@neurodevs/node-lsl@^23.3.1":
+  version "23.3.1"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.3.1.tgz#67d928c85d83daa4e877c997ee8f131be578d092"
+  integrity sha512-lo4PoAh2PCwAQNn5bMjW0mhsGJv/svlev0dafYR0Z+WHDxabPjqsJmaXgmRXhcAZKtCjpN9N/PDuAKtONBwMWQ==
   dependencies:
     "@neurodevs/generate-id" "^1.1.3"
     "@neurodevs/ndx-native" "^10.1.0"

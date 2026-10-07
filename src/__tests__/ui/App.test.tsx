@@ -520,7 +520,7 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async staysLockedAndShowsErrorWhenStoppingFails() {
+    protected static async unlocksAndShowsErrorWhenStoppingReportsError() {
         this.renderWithMuse()
 
         this.connect()
@@ -534,11 +534,11 @@ export default class AppTest extends AbstractPackageTest {
                 error: screen.getByRole('alert').textContent,
             },
             {
-                isLocked: true,
-                button: { text: 'Stop', isDisabled: false },
+                isLocked: false,
+                button: { text: 'Connect', isDisabled: false },
                 error: 'Still busy',
             },
-            'Did not stay locked and show error when stopping failed!'
+            'Did not unlock and show error when stopping reported an error!'
         )
     }
 
