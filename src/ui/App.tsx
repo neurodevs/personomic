@@ -64,8 +64,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [isBrowsing, setIsBrowsing] = useState(false)
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
+    const [numMonitorResets, setNumMonitorResets] = useState(0)
 
     const isLocked = session !== 'unlocked'
+
+    const resetMonitor = () => setNumMonitorResets((previous) => previous + 1)
 
     const addableNames = DEVICE_NAMES.filter(
         (name) => !deviceNames.includes(name)
@@ -189,6 +192,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     setSessionError(error)
                     setRecordingPath(xdfRecordPath)
                     setSession(error ? 'unlocked' : 'locked')
+
+                    if (error) {
+                        resetMonitor()
+                    }
                 },
                 onUnreachable: () => {
                     setSessionError(orchestratorUnreachableMessage)
@@ -209,11 +216,13 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     setSessionError(error)
                     setRecordingPath(undefined)
                     setSession('unlocked')
+                    resetMonitor()
                 },
                 onUnreachable: () => {
                     setSessionError(orchestratorUnreachableMessage)
                     setRecordingPath(undefined)
                     setSession('unlocked')
+                    resetMonitor()
                 },
             }
         )
@@ -226,6 +235,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 <span className="app__tagline">Live biosignal monitor</span>
             </header>
             <StreamMonitorComponent
+                key={numMonitorResets}
                 downsampling={downsampling}
                 deviceStatusPort={8764}
                 deviceNames={deviceNames}

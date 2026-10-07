@@ -5,6 +5,7 @@ import React from 'react'
 
 import FakeStreamMonitor, {
     lastStreamMonitorProps,
+    numStreamMonitorMounts,
 } from '../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
 import App, {
@@ -1144,6 +1145,103 @@ export default class AppTest extends AbstractPackageTest {
                 isBrowseShown: true,
             },
             'Did not offer recordings folder again after stop!'
+        )
+    }
+
+    @test()
+    protected static async resetsMonitorToBeforeConnectOnceStopped() {
+        this.renderWithMuse()
+
+        this.connect()
+        const numMountsWhileStreaming = numStreamMonitorMounts
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsWhileStreaming + 1,
+            'Did not reset monitor to before connect once stopped!'
+        )
+    }
+
+    @test()
+    protected static async resetsMonitorWhenStoppingReportsError() {
+        this.renderWithMuse()
+
+        this.connect()
+        const numMountsWhileStreaming = numStreamMonitorMounts
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({ error: 'Still busy' }))
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsWhileStreaming + 1,
+            'Did not reset monitor when stopping reported an error!'
+        )
+    }
+
+    @test()
+    protected static async resetsMonitorWhenOrchestratorIsUnreachableOnStop() {
+        this.renderWithMuse()
+
+        this.connect()
+        const numMountsWhileStreaming = numStreamMonitorMounts
+        this.clickStop()
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsWhileStreaming + 1,
+            'Did not reset monitor when orchestrator was unreachable on stop!'
+        )
+    }
+
+    @test()
+    protected static async resetsMonitorWhenConnectingFails() {
+        this.renderWithMuse()
+
+        const numMountsBefore = numStreamMonitorMounts
+        this.clickConnect()
+        act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore + 1,
+            'Did not reset monitor when connecting failed!'
+        )
+    }
+
+    @test()
+    protected static async keepsMonitorWhileSessionStarts() {
+        this.renderWithMuse()
+
+        const numMountsBefore = numStreamMonitorMounts
+        this.connect()
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore,
+            'Reset monitor while session started!'
+        )
+    }
+
+    @test()
+    protected static async keepsSelectedDevicesAndIdentifiersOnceStopped() {
+        this.renderWithMuse()
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                uuid: lastStreamMonitorProps?.identifiers?.['Muse S Gen 2']
+                    ?.value,
+            },
+            { deviceNames: ['Muse S Gen 2'], uuid: 'muse-uuid' },
+            'Did not keep selected devices and identifiers once stopped!'
         )
     }
 
