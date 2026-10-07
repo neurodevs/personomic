@@ -432,7 +432,7 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async staysLockedWithStopWhenConnectingFails() {
+    protected static async unlocksWithConnectWhenConnectingFails() {
         this.renderWithMuse()
 
         this.clickConnect()
@@ -441,11 +441,11 @@ export default class AppTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.lockState,
             {
-                isLocked: true,
-                isAddBiosensorButtonShown: false,
-                button: { text: 'Stop', isDisabled: false },
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
             },
-            'Did not stay locked with stop when connecting failed!'
+            'Did not unlock with connect when connecting failed!'
         )
     }
 

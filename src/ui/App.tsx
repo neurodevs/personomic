@@ -93,7 +93,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             {
                 onReply: ({ error }) => {
                     setSessionError(error)
-                    setSession('locked')
+                    setSession(error ? 'unlocked' : 'locked')
                 },
                 onUnreachable: () => {
                     setSessionError(orchestratorUnreachableMessage)

@@ -35,18 +35,29 @@ async function start(devices) {
     const specifications = devices.map(specificationFor)
     console.log('Starting', JSON.stringify(specifications))
 
-    // Kept even if starting fails, so that Stop can clean up whatever was
-    // created before the failure.
     orchestrator = await BiosensorStreamingOrchestrator.Create({
         devices: specifications,
         webSocketPortStart: WEB_SOCKET_PORT_START,
     })
 
-    await orchestrator.start()
+    try {
+        await orchestrator.start()
+    } catch (err) {
+        await cleanUpFailedStart()
+        throw err
+    }
 
     console.log(
         `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
     )
+}
+
+async function cleanUpFailedStart() {
+    try {
+        await stop()
+    } catch (err) {
+        console.error(err)
+    }
 }
 
 async function stop() {
