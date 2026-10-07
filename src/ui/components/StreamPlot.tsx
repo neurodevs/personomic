@@ -16,6 +16,12 @@ export interface StreamPlotProps {
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
     downsampling?: Downsampling
+    yRange?: YRangeBounds
+}
+
+export interface YRangeBounds {
+    min?: number
+    max?: number
 }
 
 export type Downsampling = 'light' | 'medium' | 'heavy'
@@ -38,7 +44,11 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         detectPeaks,
         channelNames,
         downsampling,
+        yRange,
     } = props
+
+    const yMinBound = yRange?.min
+    const yMaxBound = yRange?.max
 
     const channelsRef = useRef<HTMLDivElement>(null)
     const containerRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -132,7 +142,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             { length: plottedChannelCount },
             (_, channel) =>
                 new uPlot(
-                    optionsFor(plotWidth, height, color, hasPeakMarkers),
+                    optionsFor({
+                        width: plotWidth,
+                        height,
+                        color,
+                        hasPeakMarkers,
+                        yBounds: { min: yMinBound, max: yMaxBound },
+                    }),
                     hasPeakMarkers ? [[], [], []] : [[], []],
                     containerRefs.current[channel]!
                 )
@@ -141,7 +157,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [plottedChannelCount, color, hasPeakMarkers])
+    }, [plottedChannelCount, color, hasPeakMarkers, yMinBound, yMaxBound])
 
     useEffect(() => {
         plotsRef.current.forEach((plot) =>
@@ -286,12 +302,17 @@ interface ChannelSeries {
     peakMarkers?: (number | null)[]
 }
 
-function optionsFor(
-    width: number,
-    height: number,
-    color: string,
+interface PlotAppearance {
+    width: number
+    height: number
+    color: string
     hasPeakMarkers: boolean
-): uPlot.Options {
+    yBounds: YRangeBounds
+}
+
+function optionsFor(appearance: PlotAppearance): uPlot.Options {
+    const { width, height, color, hasPeakMarkers, yBounds } = appearance
+
     return {
         width,
         height,
@@ -300,7 +321,15 @@ function optionsFor(
         cursor: { show: false },
         scales: {
             x: { time: false },
-            y: { range: widenedYRangeFor },
+            y: {
+                range: (plot, min, max) =>
+                    widenedYRangeFor(plot, [
+                        min,
+                        max,
+                        yBounds.min,
+                        yBounds.max,
+                    ]),
+            },
         },
         axes: [{ show: false }, yAxis],
         series: [
@@ -319,7 +348,7 @@ function optionsFor(
 const leftSide = 3
 const yAxisWidth = 48
 const yPadding = 6
-const numYBars = 4
+const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
 
 const yAxis: uPlot.Axis = {
@@ -330,45 +359,56 @@ const yAxis: uPlot.Axis = {
     font: '10px ui-monospace, "SF Mono", Menlo, monospace',
     ticks: { size: 3, width: 1, stroke: 'rgba(255, 255, 255, 0.12)' },
     grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
-    splits: (_, __, min, max) => yBarsCovering(min, max),
+    splits: (_, __, min, max) => tightestYBarsCovering(min, max),
     values: (_, ticks) => ticks.map(yTickLabelFor),
 }
 
 const widestYRangeByPlot = new WeakMap<uPlot, YRange>()
 
-function widenedYRangeFor(plot: uPlot, min: number | null, max: number | null) {
-    const widest = widestYRangeByPlot.get(plot)
+function widenedYRangeFor(
+    plot: uPlot,
+    valuesToCover: (number | null | undefined)[]
+) {
+    const widest = widestYRangeByPlot.get(plot) ?? []
+    const covered = [...valuesToCover, ...widest].filter(
+        (value) => value != null
+    )
 
-    const widened =
-        min === null || max === null
-            ? (widest ?? yRangeCovering(0, 0))
-            : yRangeCovering(
-                  Math.min(min, widest?.[0] ?? min),
-                  Math.max(max, widest?.[1] ?? max)
-              )
+    const bars = tightestYBarsCovering(
+        covered.length > 0 ? Math.min(...covered) : 0,
+        covered.length > 0 ? Math.max(...covered) : 0
+    )
 
+    const widened: YRange = [bars[0], bars[bars.length - 1]]
     widestYRangeByPlot.set(plot, widened)
 
     return widened
 }
 
-function yRangeCovering(min: number, max: number): YRange {
-    const bars = yBarsCovering(min, max)
-    return [bars[0], bars[numYBars - 1]]
-}
-
 type YRange = [number, number]
 
-function yBarsCovering(min: number, max: number) {
+function tightestYBarsCovering(min: number, max: number) {
+    const spanOf = (bars: number[]) => bars[bars.length - 1] - bars[0]
+
+    return numYBarsByPreference
+        .map((numBars) => yBarsCovering(min, max, numBars))
+        .reduce((tightest, bars) =>
+            spanOf(bars) < spanOf(tightest) * (1 - floatTolerance)
+                ? bars
+                : tightest
+        )
+}
+
+function yBarsCovering(min: number, max: number, numBars: number) {
     const span = max > min ? max - min : Math.abs(min) || 1
     const reachesMax = (bars: number[]) =>
-        bars[numYBars - 1] >= max - span * floatTolerance
+        bars[numBars - 1] >= max - span * floatTolerance
 
-    let exponent = Math.floor(Math.log10(span / (numYBars - 1)))
+    let exponent = Math.floor(Math.log10(span / (numBars - 1)))
 
     for (;;) {
         for (const mantissa of [1, 2, 5]) {
-            const bars = yBarsFrom(min, mantissa, exponent)
+            const bars = yBarsFrom(min, mantissa, exponent, numBars)
 
             if (reachesMax(bars)) {
                 return bars
@@ -379,7 +419,12 @@ function yBarsCovering(min: number, max: number) {
     }
 }
 
-function yBarsFrom(min: number, mantissa: number, exponent: number) {
+function yBarsFrom(
+    min: number,
+    mantissa: number,
+    exponent: number,
+    numBars: number
+) {
     const unit = 10 ** Math.abs(exponent)
     const inUnits = (value: number) =>
         exponent >= 0 ? value / unit : value * unit
@@ -390,7 +435,7 @@ function yBarsFrom(min: number, mantissa: number, exponent: number) {
         Math.floor(inUnits(min) / mantissa + floatTolerance) * mantissa
 
     return Array.from(
-        { length: numYBars },
+        { length: numBars },
         (_, bar) => fromUnits(lowest + bar * mantissa) + 0
     )
 }

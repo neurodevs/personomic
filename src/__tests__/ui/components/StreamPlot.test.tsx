@@ -171,24 +171,24 @@ export default class StreamPlotTest extends AbstractPackageTest {
         )
     }
 
-    @test('bars at ones', 21.3, 23.9, [21, 22, 23, 24])
-    @test('bars at fifths', 0.02, 0.37, [0, 0.2, 0.4, 0.6])
-    @test('bars around zero', -50, 50, [-50, 0, 50, 100])
-    @test('bars at fifties', 0, 100, [0, 50, 100, 150])
+    @test('four bars at ones', 21.3, 23.9, [21, 22, 23, 24])
+    @test('three bars at fifths when tighter', 0.02, 0.37, [0, 0.2, 0.4])
+    @test('three bars around zero when tighter', -50, 50, [-50, 0, 50])
+    @test('three bars at fifties when tighter', 0, 100, [0, 50, 100])
     @test(
         'bars at hundreds on an offset range',
         251210,
         251390,
-        [251200, 251300, 251400, 251500]
+        [251200, 251300, 251400]
     )
-    @test('bars above a flat signal', 100, 100, [100, 110, 120, 130])
+    @test('bars above a flat signal', 100, 100, [100, 110, 120])
     @test(
         'bars stay put when range is already on bars',
         0,
         0.6,
         [0, 0.2, 0.4, 0.6]
     )
-    protected static async putsFourRoundYBarsAroundRange(
+    protected static async putsTightestRoundYBarsAroundRange(
         min: number,
         max: number,
         expected: number[]
@@ -198,7 +198,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.yBarsBetween(min, max),
             expected,
-            'Did not put four round y-bars around range!'
+            'Did not put tightest round y-bars around range!'
         )
     }
 
@@ -219,7 +219,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.yRangeFor(null, null),
-            [0, 0.3],
+            [0, 0.2],
             'Did not scale y before any data arrived!'
         )
     }
@@ -232,7 +232,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.yRangeFor(40, 60),
-            [0, 150],
+            [0, 100],
             'Did not keep y-scale when signal narrowed!'
         )
     }
@@ -258,7 +258,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.yRangeFor(-20, 10),
-            [-100, 200],
+            [-50, 100],
             'Did not widen y-scale downward keeping upper bound covered!'
         )
     }
@@ -271,7 +271,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.yRangeFor(null, null),
-            [0, 150],
+            [0, 100],
             'Did not keep y-scale when data went missing!'
         )
     }
@@ -284,8 +284,98 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.yRangeFor(40, 60, FakeUPlot.instances[1]),
-            [40, 70],
+            [40, 60],
             'Did not widen y-scale of each channel separately!'
+        )
+    }
+
+    @test()
+    protected static async scalesYAcrossGivenRangeFromFirstSample() {
+        await this.render({
+            ...this.twoChannels,
+            yRange: { min: 0, max: 100 },
+        })
+
+        assert.isEqualDeep(
+            this.yRangeFor(87, 88),
+            [0, 100],
+            'Did not scale y across given range from first sample!'
+        )
+    }
+
+    @test()
+    protected static async scalesYAcrossGivenRangeBeforeAnyDataArrives() {
+        await this.render({
+            ...this.twoChannels,
+            yRange: { min: 0, max: 100 },
+        })
+
+        assert.isEqualDeep(
+            this.yRangeFor(null, null),
+            [0, 100],
+            'Did not scale y across given range before any data arrived!'
+        )
+    }
+
+    @test('given min only', { min: 0 }, 40, 60, [0, 60])
+    @test('given max only', { max: 100 }, 87, 88, [85, 100])
+    protected static async scalesYToIncludeTheOneGivenBound(
+        yRange: StreamPlotProps['yRange'],
+        min: number,
+        max: number,
+        expected: number[]
+    ) {
+        await this.render({ ...this.twoChannels, yRange })
+
+        assert.isEqualDeep(
+            this.yRangeFor(min, max),
+            expected,
+            'Did not scale y to include the one given bound!'
+        )
+    }
+
+    @test()
+    protected static async widensYScalePastGivenRangeWhenDataExceedsIt() {
+        await this.render({
+            ...this.twoChannels,
+            yRange: { min: 0, max: 100 },
+        })
+
+        assert.isEqualDeep(
+            this.yRangeFor(-5, 120),
+            [-100, 200],
+            'Did not widen y-scale past given range when data exceeded it!'
+        )
+    }
+
+    @test()
+    protected static async recreatesPlotsWhenGivenYRangeChanges() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, yRange: { min: 0 } },
+            { ...this.twoChannels, yRange: { min: 0, max: 100 } }
+        )
+
+        assert.isEqualDeep(
+            {
+                numPlots: FakeUPlot.instances.length,
+                range: this.yRangeFor(87, 88),
+            },
+            { numPlots: 4, range: [0, 100] },
+            'Did not recreate plots when given y-range changed!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlotsWhenGivenYRangeIsSameValues() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, yRange: { min: 0, max: 100 } },
+            { ...this.twoChannels, yRange: { min: 0, max: 100 } }
+        )
+
+        assert.isEqual(
+            FakeUPlot.instances.length,
+            2,
+            'Recreated plots for a y-range with the same values!'
         )
     }
 

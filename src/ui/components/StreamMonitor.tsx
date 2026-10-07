@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react'
 
-import StreamPlot, { Downsampling, PeakDetectionOptions } from './StreamPlot'
+import StreamPlot, {
+    Downsampling,
+    PeakDetectionOptions,
+    YRangeBounds,
+} from './StreamPlot'
 
 export const streamColors = [
     '#3987e5',
@@ -532,7 +536,7 @@ function streamFor(
     options: StreamOptions = {}
 ): BiosignalStream {
     const { type, listenPort, channelNames, sampleRateHz } = stream
-    const { detectPeaks, downsampling } = options
+    const { detectPeaks, downsampling, yRange } = options
 
     return {
         name: type,
@@ -545,6 +549,7 @@ function streamFor(
             sampleRate: sampleRateHz,
         },
         downsampling,
+        yRange,
     }
 }
 
@@ -683,6 +688,7 @@ export interface DeviceIdentifier {
 export interface StreamOptions {
     detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
     downsampling?: Downsampling
+    yRange?: YRangeBounds
 }
 
 interface ShownDevice {
@@ -701,6 +707,7 @@ interface BiosignalStream {
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
     downsampling?: Downsampling
+    yRange?: YRangeBounds
 }
 
 // Test doubles

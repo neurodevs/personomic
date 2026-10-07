@@ -78,6 +78,20 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test('scales battery from zero to hundred', 'Battery')
+    @test('scales humidity from zero to hundred', 'Humidity')
+    protected static async scalesPercentageStreamFromZeroToHundred(
+        streamType: string
+    ) {
+        render(<App />)
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.streamOptions?.[streamType]?.yRange,
+            { min: 0, max: 100 },
+            `Did not scale ${streamType} from zero to hundred!`
+        )
+    }
+
     @test()
     protected static async watchesGatewayDeviceStatusPort() {
         render(<App />)

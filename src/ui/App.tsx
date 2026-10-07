@@ -34,6 +34,8 @@ const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
     PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
+    Battery: { yRange: { min: 0, max: 100 } },
+    Humidity: { yRange: { min: 0, max: 100 } },
 }
 
 const sessionButtonLabels: Record<SessionState, string> = {
