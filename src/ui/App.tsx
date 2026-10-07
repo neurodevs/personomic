@@ -30,6 +30,7 @@ const recordDirectoryLabel = 'Recordings folder'
 const defaultRecordName = 'session'
 const recordNameLabel = 'Recording name'
 const recordDirectoryStorageKey = 'personomic.recordDirectory'
+const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
     PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
@@ -60,6 +61,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [recordStartedAt, setRecordStartedAt] = useState<Date>()
     const [recordingPath, setRecordingPath] = useState<string>()
     const [isBrowsing, setIsBrowsing] = useState(false)
+    const [rememberedIdentifiers, setRememberedIdentifiers] = useState(
+        readRememberedIdentifiers
+    )
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
@@ -105,6 +109,16 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         deviceName: name,
         identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
     }))
+
+    const rememberIdentifiersOf = (requests: DeviceRequest[]) => {
+        const remembered = withIdentifiersOf(requests, rememberedIdentifiers)
+
+        setRememberedIdentifiers(remembered)
+        localStorage.setItem(
+            rememberedIdentifiersStorageKey,
+            JSON.stringify(remembered)
+        )
+    }
 
     const rememberRecordDirectory = (directory: string) => {
         setRecordDirectory(directory)
@@ -188,6 +202,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
         const startedAt = now()
 
+        rememberIdentifiersOf(deviceRequests)
         setSession('connecting')
         setSessionError(undefined)
         setRecordStartedAt(startedAt)
@@ -255,6 +270,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 streamOptions={streamOptions}
                 isConnecting={session === 'connecting'}
                 identifiers={identifiers}
+                rememberedIdentifiers={rememberedIdentifiers}
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />
@@ -402,6 +418,34 @@ function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {
     return undefined
 }
 
+function readRememberedIdentifiers(): RememberedIdentifiers {
+    try {
+        return JSON.parse(
+            localStorage.getItem(rememberedIdentifiersStorageKey) ?? '{}'
+        )
+    } catch {
+        return {}
+    }
+}
+
+function withIdentifiersOf(
+    requests: DeviceRequest[],
+    remembered: RememberedIdentifiers
+) {
+    const next = { ...remembered }
+
+    for (const { deviceName, identifier } of requests) {
+        if (identifier) {
+            const others = (next[deviceName] ?? []).filter(
+                (other) => other !== identifier
+            )
+            next[deviceName] = [identifier, ...others]
+        }
+    }
+
+    return next
+}
+
 function recordPathFor(directory: string, name: string, startedAt: Date) {
     const folder =
         directory.trim().replace(/\/+$/, '') || defaultRecordDirectory
@@ -465,6 +509,8 @@ interface RunningSession {
     devices: DeviceRequest[]
     xdfRecordPath?: string
 }
+
+type RememberedIdentifiers = Record<string, string[]>
 
 interface SelectedDevice {
     name: string

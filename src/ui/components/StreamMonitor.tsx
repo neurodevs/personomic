@@ -21,6 +21,7 @@ export interface StreamMonitorProps {
     downsampling?: Downsampling
     isConnecting?: boolean
     identifiers?: Record<string, DeviceIdentifier>
+    rememberedIdentifiers?: Record<string, readonly string[]>
     onIdentifierChange?: (name: string, value: string) => void
     onRemoveDevice?: (name: string) => void
 }
@@ -37,6 +38,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         onRemoveDevice,
         isConnecting = false,
         identifiers = {},
+        rememberedIdentifiers = {},
         onIdentifierChange,
     } = props
 
@@ -287,6 +289,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     }
                     onRemove={onRemoveDevice}
                     identifier={identifiers[device.key]}
+                    rememberedIdentifiers={rememberedIdentifiers[device.name]}
                     onIdentifierChange={onIdentifierChange}
                 >
                     {device.streams.map((stream) => (
@@ -326,6 +329,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     status,
     onRemove,
     identifier,
+    rememberedIdentifiers,
     onIdentifierChange,
     children,
 }) => {
@@ -359,15 +363,13 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     {device.label}
                 </span>
                 {identifier && isIdentifierShown && (
-                    <input
-                        type="text"
-                        className="stream-monitor__device-identifier"
-                        aria-label={`${device.label} ${identifier.label} (optional)`}
-                        placeholder={`${identifier.label} (optional)`}
-                        value={identifier.value}
-                        readOnly={isLocked}
-                        onChange={(event) =>
-                            onIdentifierChange?.(device.key, event.target.value)
+                    <IdentifierInput
+                        deviceLabel={device.label}
+                        identifier={identifier}
+                        remembered={rememberedIdentifiers}
+                        onChange={
+                            onIdentifierChange &&
+                            ((value) => onIdentifierChange(device.key, value))
                         }
                     />
                 )}
@@ -402,8 +404,75 @@ interface DevicePanelProps {
     status: DeviceStatus
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier
+    rememberedIdentifiers?: readonly string[]
     onIdentifierChange?: (name: string, value: string) => void
     children?: React.ReactNode
+}
+
+const IdentifierInput: React.FC<IdentifierInputProps> = ({
+    deviceLabel,
+    identifier,
+    remembered = [],
+    onChange,
+}) => {
+    const [isOpen, setIsOpen] = useState(false)
+
+    const isLocked = onChange === undefined
+
+    const choose = (value: string) => {
+        onChange?.(value)
+        setIsOpen(false)
+    }
+
+    return (
+        <span className="stream-monitor__device-identifier-field">
+            <input
+                type="text"
+                className="stream-monitor__device-identifier"
+                aria-label={`${deviceLabel} ${identifier.label} (optional)`}
+                placeholder={`${identifier.label} (optional)`}
+                value={identifier.value}
+                readOnly={isLocked}
+                onChange={(event) => onChange?.(event.target.value)}
+                onFocus={() => setIsOpen(true)}
+                onClick={() => setIsOpen(true)}
+                onBlur={() => setIsOpen(false)}
+            />
+            {isOpen && !isLocked && remembered.length > 0 && (
+                <ul
+                    className="stream-monitor__device-identifier-menu"
+                    role="listbox"
+                    aria-label={`Previous ${deviceLabel} ${identifier.label} values`}
+                >
+                    {remembered.map((value) => (
+                        <li key={value} role="none">
+                            <button
+                                type="button"
+                                role="option"
+                                aria-selected={value === identifier.value}
+                                className="stream-monitor__device-identifier-option"
+                                onMouseDown={keepInputFocused}
+                                onClick={() => choose(value)}
+                            >
+                                {value}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </span>
+    )
+}
+
+function keepInputFocused(event: React.MouseEvent) {
+    event.preventDefault()
+}
+
+interface IdentifierInputProps {
+    deviceLabel: string
+    identifier: DeviceIdentifier
+    remembered?: readonly string[]
+    onChange?: (value: string) => void
 }
 
 const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({

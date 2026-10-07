@@ -801,6 +801,206 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesRememberedIdentifiersUntilInputIsFocused() {
+        await this.mountWithRememberedIdentifiers()
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [],
+            'Showed remembered identifiers before input was focused!'
+        )
+    }
+
+    @test()
+    protected static async showsRememberedIdentifiersWhenInputIsFocused() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            this.remembered,
+            'Did not show remembered identifiers when input was focused!'
+        )
+    }
+
+    @test()
+    protected static async showsRememberedIdentifiersWhenFocusedInputIsClicked() {
+        await this.mountWithRememberedIdentifiers()
+
+        this.chooseRememberedIdentifier(this.remembered[0])
+        fireEvent.click(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            this.remembered,
+            'Did not show remembered identifiers when focused input was clicked!'
+        )
+    }
+
+    @test()
+    protected static async showsNoDropdownWithoutRememberedIdentifiers() {
+        await this.renderBeforeDeviceStatus()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqual(
+            screen.queryByRole('listbox'),
+            null,
+            'Showed a dropdown without remembered identifiers!'
+        )
+    }
+
+    @test()
+    protected static async keepsShowingEveryRememberedIdentifierWhileTyping() {
+        await this.mountWithRememberedIdentifiers({
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: 'unrelated' },
+            },
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            this.remembered,
+            'Did not keep showing every remembered identifier while typing!'
+        )
+    }
+
+    @test()
+    protected static async reportsChosenRememberedIdentifierWithDeviceKey() {
+        const changes: [string, string][] = []
+
+        await this.mountWithRememberedIdentifiers({
+            onIdentifierChange: (key, chosen) => changes.push([key, chosen]),
+        })
+
+        this.chooseRememberedIdentifier(this.remembered[1])
+
+        assert.isEqualDeep(
+            changes,
+            [[this.deviceName, this.remembered[1]]],
+            'Did not report chosen remembered identifier with device key!'
+        )
+    }
+
+    @test()
+    protected static async hidesRememberedIdentifiersOnceOneIsChosen() {
+        await this.mountWithRememberedIdentifiers()
+
+        this.chooseRememberedIdentifier(this.remembered[0])
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [],
+            'Did not hide remembered identifiers once one was chosen!'
+        )
+    }
+
+    @test()
+    protected static async hidesRememberedIdentifiersWhenInputLosesFocus() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+        fireEvent.blur(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [],
+            'Did not hide remembered identifiers when input lost focus!'
+        )
+    }
+
+    @test()
+    protected static async keepsInputFocusedWhilePressingRememberedIdentifier() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        const wasAllowedToBlur = fireEvent.mouseDown(
+            screen.getByRole('option', { name: this.remembered[0] })
+        )
+
+        assert.isFalse(
+            wasAllowedToBlur,
+            'Did not keep input focused while pressing remembered identifier!'
+        )
+    }
+
+    @test()
+    protected static async showsNoRememberedIdentifiersWithoutChangeHandler() {
+        await this.mountWithRememberedIdentifiers({
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: this.generateId() },
+            },
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [],
+            'Showed remembered identifiers without change handler!'
+        )
+    }
+
+    @test()
+    protected static async showsRememberedIdentifiersOnlyForTheirOwnDevice() {
+        this.setFakeStreamPlot()
+        await this.mount(
+            this.twoDevices.map((device) => device.name),
+            {
+                rememberedIdentifiers: {
+                    [this.twoDevices[1].name]: this.remembered,
+                },
+            }
+        )
+
+        const [first, second] = screen.getAllByRole('textbox')
+
+        fireEvent.focus(first)
+        const offeredToFirst = this.offeredIdentifiers
+        fireEvent.blur(first)
+        fireEvent.focus(second)
+
+        assert.isEqualDeep(
+            { offeredToFirst, offeredToSecond: this.offeredIdentifiers },
+            { offeredToFirst: [], offeredToSecond: this.remembered },
+            'Did not show remembered identifiers only for their own device!'
+        )
+    }
+
+    @test()
+    protected static async showsRememberedIdentifiersOfDeviceNameToEachRepeat() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName, this.deviceName], {
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: '' },
+                [this.secondTwinKey]: { label: 'UUID', value: '' },
+            },
+            rememberedIdentifiers: { [this.deviceName]: this.remembered },
+        })
+
+        const [first, second] = screen.getAllByRole('textbox')
+
+        fireEvent.focus(first)
+        const offeredToFirst = this.offeredIdentifiers
+        fireEvent.blur(first)
+        fireEvent.focus(second)
+
+        assert.isEqualDeep(
+            { offeredToFirst, offeredToSecond: this.offeredIdentifiers },
+            {
+                offeredToFirst: this.remembered,
+                offeredToSecond: this.remembered,
+            },
+            'Did not show remembered identifiers of device name to each repeat!'
+        )
+    }
+
+    @test()
     protected static async showsIdentifierInputOnlyForDevicesWithIdentifierEntry() {
         this.setFakeStreamPlot()
         await this.mount(
@@ -1553,6 +1753,29 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
     private static plotIdsFor(streams: TestStream[]) {
         return streams.map((stream) => `stream-plot-${stream.name}`)
+    }
+
+    private static readonly remembered = [this.generateId(), this.generateId()]
+
+    private static async mountWithRememberedIdentifiers(
+        props: Partial<StreamMonitorProps> = {}
+    ) {
+        this.setFakeStreamPlot()
+        return await this.mount([this.deviceName], {
+            rememberedIdentifiers: { [this.deviceName]: this.remembered },
+            ...props,
+        })
+    }
+
+    private static chooseRememberedIdentifier(identifier: string) {
+        fireEvent.focus(this.identifierInput!)
+        fireEvent.click(screen.getByRole('option', { name: identifier }))
+    }
+
+    private static get offeredIdentifiers() {
+        return screen
+            .queryAllByRole('option')
+            .map((option) => option.textContent)
     }
 
     private static get identifierInput() {

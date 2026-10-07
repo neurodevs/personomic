@@ -1360,6 +1360,135 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async remembersNoIdentifiersAtFirst() {
+        this.renderWithMuse()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            {},
+            'Remembered identifiers before any were passed!'
+        )
+    }
+
+    @test()
+    protected static async remembersIdentifierPassedOnConnect() {
+        this.renderWithMuse()
+
+        this.typeIdentifier('Muse S Gen 2', ' muse-uuid ')
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['muse-uuid'] },
+            'Did not remember identifier passed on connect!'
+        )
+    }
+
+    @test()
+    protected static async doesNotRememberIdentifierThatWasOnlyTyped() {
+        this.renderWithMuse()
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            {},
+            'Remembered identifier that was only typed!'
+        )
+    }
+
+    @test()
+    protected static async remembersMostRecentIdentifierFirstWithoutRepeats() {
+        this.renderWithMuse()
+
+        this.connectAndStopWithIdentifier('first-uuid')
+        this.connectAndStopWithIdentifier('second-uuid')
+        this.connectAndStopWithIdentifier('first-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['first-uuid', 'second-uuid'] },
+            'Did not remember most recent identifier first without repeats!'
+        )
+    }
+
+    @test()
+    protected static async remembersIdentifiersSeparatelyForEachDevice() {
+        this.renderWithMuse()
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+        this.typeIdentifier('OpenBCI Cyton', 'AR4K581H')
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['muse-uuid'], 'OpenBCI Cyton': ['AR4K581H'] },
+            'Did not remember identifiers separately for each device!'
+        )
+    }
+
+    @test()
+    protected static async remembersIdentifiersOfRepeatsUnderOneDeviceName() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.typeIdentifier('Muse S Gen 2 #2', 'second-uuid')
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['second-uuid', 'first-uuid'] },
+            'Did not remember identifiers of repeats under one device name!'
+        )
+    }
+
+    @test()
+    protected static async doesNotRememberIdentifiersWhenRefusingToConnect() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            {},
+            'Remembered identifiers when refusing to connect!'
+        )
+    }
+
+    @test()
+    protected static async remembersIdentifiersAcrossReloads() {
+        const { unmount } = render(<App />)
+
+        this.addBiosensor('Muse S Gen 2')
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+        this.clickConnect()
+        unmount()
+
+        this.renderWithMuse()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            { 'Muse S Gen 2': ['muse-uuid'] },
+            'Did not remember identifiers across reloads!'
+        )
+    }
+
+    @test()
+    protected static async remembersNoIdentifiersWhenStoredOnesAreUnreadable() {
+        localStorage.setItem('personomic.rememberedIdentifiers', 'not json')
+
+        this.renderWithMuse()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.rememberedIdentifiers,
+            {},
+            'Did not fall back to no identifiers when stored ones were unreadable!'
+        )
+    }
+
+    @test()
     protected static async disablesConnectWithoutDevices() {
         render(<App />)
 
@@ -1409,6 +1538,13 @@ export default class AppTest extends AbstractPackageTest {
             },
             'Did not refuse to connect repeats!'
         )
+    }
+
+    private static connectAndStopWithIdentifier(identifier: string) {
+        this.typeIdentifier('Muse S Gen 2', identifier)
+        this.connect()
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
     }
 
     private static typeIdentifier(name: string, value: string) {
