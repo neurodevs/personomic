@@ -556,6 +556,24 @@ body {
     }
 }
 
+.stream-plot__heart-rate {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-left: 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+}
+
+.stream-plot__heart-rate-label {
+    color: var(--text-muted);
+}
+
+.stream-plot__heart-rate-value {
+    color: var(--text-secondary);
+}
+
 .stream-plot__meta {
     margin-left: auto;
     color: var(--text-muted);

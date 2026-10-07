@@ -29,6 +29,7 @@ export type Downsampling = 'light' | 'medium' | 'heavy'
 export interface PeakDetectionOptions {
     sampleRate: number
     channels?: string[]
+    heartRateWindowSeconds?: number
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -153,6 +154,27 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     const hasPeakMarkers = peakDetector !== undefined
 
+    const latestTimestamp = timestamps[timestamps.length - 1]
+    const [firstTimestamp, setFirstTimestamp] = useState<number>()
+
+    if (
+        timestamps.length > 0 &&
+        (firstTimestamp === undefined || latestTimestamp < firstTimestamp)
+    ) {
+        setFirstTimestamp(timestamps[0])
+    }
+
+    const heartRateWindowSeconds = detectPeaks?.heartRateWindowSeconds
+
+    const heartRateStatus =
+        heartRateWindowSeconds !== undefined && firstTimestamp !== undefined
+            ? heartRateStatusFor(
+                  peakTimestampsByChannel ?? [],
+                  heartRateWindowSeconds,
+                  { first: firstTimestamp, latest: latestTimestamp }
+              )
+            : undefined
+
     useEffect(() => {
         if (width !== undefined) {
             return
@@ -272,6 +294,16 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             <header className="stream-plot__header">
                 <span className="stream-plot__indicator" />
                 <span className="stream-plot__name">{name}</span>
+                {heartRateStatus && (
+                    <span className="stream-plot__heart-rate">
+                        <span className="stream-plot__heart-rate-label">
+                            Heart rate
+                        </span>
+                        <span className="stream-plot__heart-rate-value">
+                            {heartRateStatus}
+                        </span>
+                    </span>
+                )}
                 <span className="stream-plot__meta">
                     {metaFor(channelCount, windowSeconds, isHidden)}
                 </span>
@@ -653,6 +685,54 @@ function verticalLinesAtPeaks(
     }
 
     return { stroke: lines }
+}
+
+function heartRateStatusFor(
+    peakTimestampsByChannel: Set<number>[],
+    windowSeconds: number,
+    received: { first: number; latest: number }
+) {
+    const secondsUntilReady = Math.ceil(
+        windowSeconds - (received.latest - received.first)
+    )
+
+    if (secondsUntilReady > 0) {
+        return `Ready in ${secondsUntilReady}s`
+    }
+
+    const beatsPerMinute = beatsPerMinuteFor(
+        peakTimestampsByChannel,
+        received.latest - windowSeconds
+    )
+
+    return `${beatsPerMinute ?? '--'} bpm`
+}
+
+function beatsPerMinuteFor(
+    peakTimestampsByChannel: Set<number>[],
+    earliestTimestamp: number
+) {
+    const secondsBetweenBeats = peakTimestampsByChannel
+        .flatMap((peakTimestamps) => {
+            const recent = [...peakTimestamps]
+                .filter((timestamp) => timestamp >= earliestTimestamp)
+                .sort((a, b) => a - b)
+
+            return recent.slice(1).map((timestamp, i) => timestamp - recent[i])
+        })
+        .sort((a, b) => a - b)
+
+    return secondsBetweenBeats.length > 0
+        ? Math.round(60 / medianOfSorted(secondsBetweenBeats))
+        : undefined
+}
+
+function medianOfSorted(values: number[]) {
+    const middle = Math.floor(values.length / 2)
+
+    return values.length % 2 === 1
+        ? values[middle]
+        : (values[middle - 1] + values[middle]) / 2
 }
 
 function peakTimestampsFor(

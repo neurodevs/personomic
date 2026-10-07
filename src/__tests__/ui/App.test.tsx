@@ -72,9 +72,21 @@ export default class AppTest extends AbstractPackageTest {
         render(<App />)
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks,
-            { channels: ['AMBIENT', 'INFRARED'] },
+            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks?.channels,
+            ['AMBIENT', 'INFRARED'],
             'Did not detect peaks on ambient and infrared PPG!'
+        )
+    }
+
+    @test()
+    protected static async derivesHeartRateFromThirtySecondsOfPpg() {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks
+                ?.heartRateWindowSeconds,
+            30,
+            'Did not derive heart rate from thirty seconds of PPG!'
         )
     }
 

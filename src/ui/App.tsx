@@ -33,7 +33,12 @@ const recordDirectoryStorageKey = 'personomic.recordDirectory'
 const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
-    PPG: { detectPeaks: { channels: ['AMBIENT', 'INFRARED'] } },
+    PPG: {
+        detectPeaks: {
+            channels: ['AMBIENT', 'INFRARED'],
+            heartRateWindowSeconds: 30,
+        },
+    },
     Battery: { yRange: { min: 0, max: 100 } },
     Humidity: { yRange: { min: 0, max: 100 } },
 }

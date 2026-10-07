@@ -629,6 +629,184 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNoHeartRateWithoutHeartRateWindow() {
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64 },
+        })
+
+        assert.isEqual(
+            this.heartRate,
+            undefined,
+            'Showed heart rate without heart rate window!'
+        )
+    }
+
+    @test()
+    protected static async showsNoHeartRateBeforeFirstData() {
+        await this.render({ detectPeaks: this.heartRateOverThirtySeconds })
+
+        assert.isEqual(
+            this.heartRate,
+            undefined,
+            'Showed heart rate before first data!'
+        )
+    }
+
+    @test()
+    protected static async showsHeartRateRightOfStreamName() {
+        await this.renderOneChannelAt([0], this.heartRateOverThirtySeconds)
+
+        const name = this.plot.querySelector('.stream-plot__name')
+        const heartRate = this.plot.querySelector('.stream-plot__heart-rate')
+
+        assert.isEqual(
+            name?.nextElementSibling,
+            heartRate,
+            'Did not show heart rate right of stream name!'
+        )
+    }
+
+    @test('labels countdown as heart rate', [5])
+    @test('labels beats per minute as heart rate', [0, 30])
+    protected static async labelsHeartRateWhateverItShows(
+        timestamps: number[]
+    ) {
+        await this.renderOneChannelAt(
+            timestamps,
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.plot.querySelector('.stream-plot__heart-rate')
+                ?.firstElementChild?.textContent,
+            'Heart rate',
+            'Did not label heart rate!'
+        )
+    }
+
+    @test('counts down from full window at first data', [5], 'Ready in 30s')
+    @test('counts down whole seconds received', [5, 6, 7], 'Ready in 28s')
+    @test('rounds partial seconds up', [5, 6.5], 'Ready in 29s')
+    @test('counts down to last second', [5, 34.5], 'Ready in 1s')
+    protected static async countsDownUntilHeartRateWindowIsFilled(
+        timestamps: number[],
+        expected: string
+    ) {
+        await this.renderOneChannelAt(
+            timestamps,
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            expected,
+            'Did not count down until heart rate window was filled!'
+        )
+    }
+
+    @test()
+    protected static async countsDownFromFirstDataAfterItLeavesTheWindow() {
+        const detectPeaks = this.heartRateOverThirtySeconds
+
+        await this.renderThenUpdate(
+            { samples: [1, 1], timestamps: [100, 101], detectPeaks },
+            { samples: [1, 1], timestamps: [110.5, 111], detectPeaks }
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            'Ready in 19s',
+            'Did not count down from first data after it left the window!'
+        )
+    }
+
+    @test()
+    protected static async showsBeatsPerMinuteOnceWindowIsFilled() {
+        FakePpgDetector.peakTimestamps = [10, 10.8, 11.6]
+
+        await this.renderOneChannelAt(
+            [0, 10, 10.8, 11.6, 30],
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            '75 bpm',
+            'Did not show beats per minute once window was filled!'
+        )
+    }
+
+    @test()
+    protected static async derivesHeartRateOnlyFromPeaksInsideWindow() {
+        FakePpgDetector.peakTimestamps = [1, 1.5, 2, 20, 21]
+
+        await this.renderOneChannelAt(
+            [0, 1, 1.5, 2, 20, 21, 40],
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            '60 bpm',
+            'Did not derive heart rate only from peaks inside window!'
+        )
+    }
+
+    @test()
+    protected static async derivesHeartRateFromTypicalGapSoMissedBeatDoesNotSkewIt() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12, 14, 15]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12, 14, 15, 30],
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            '60 bpm',
+            'Did not derive heart rate from typical gap between beats!'
+        )
+    }
+
+    @test()
+    protected static async derivesHeartRateOnlyFromPeakChannels() {
+        FakePpgDetector.peakTimestamps = [10, 11]
+
+        await this.render({
+            samples: [1, 1, 1, 1, 1, 1],
+            timestamps: [0, 10, 30],
+            channelNames: ['INFRARED', 'RED'],
+            detectPeaks: {
+                ...this.heartRateOverThirtySeconds,
+                channels: ['GREEN'],
+            },
+        })
+
+        assert.isEqual(
+            this.heartRate,
+            '-- bpm',
+            'Did not derive heart rate only from peak channels!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholderWhenTooFewBeatsWereDetected() {
+        FakePpgDetector.peakTimestamps = [10]
+
+        await this.renderOneChannelAt(
+            [0, 10, 30],
+            this.heartRateOverThirtySeconds
+        )
+
+        assert.isEqual(
+            this.heartRate,
+            '-- bpm',
+            'Did not show placeholder when too few beats were detected!'
+        )
+    }
+
+    @test()
     protected static async detectsPeaksInEachChannel() {
         await this.render({
             ...this.twoChannels,
@@ -1052,6 +1230,29 @@ export default class StreamPlotTest extends AbstractPackageTest {
     private static readonly twoChannels = {
         samples: [1, 10, 2, 20, 3, 30],
         timestamps: [0, 1, 2],
+    }
+
+    private static readonly heartRateOverThirtySeconds = {
+        sampleRate: 64,
+        heartRateWindowSeconds: 30,
+    }
+
+    private static async renderOneChannelAt(
+        timestamps: number[],
+        detectPeaks: StreamPlotProps['detectPeaks']
+    ) {
+        return this.render({
+            samples: timestamps.map(() => 1),
+            timestamps,
+            detectPeaks,
+        })
+    }
+
+    private static get heartRate() {
+        return (
+            this.plot.querySelector('.stream-plot__heart-rate-value')
+                ?.textContent ?? undefined
+        )
     }
 
     private static readonly oneChannelAtTwoLevels = {

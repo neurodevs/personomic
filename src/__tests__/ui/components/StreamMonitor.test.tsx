@@ -233,6 +233,34 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsSamplesForHeartRateWindowLongerThanPlotWindow() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            windowSeconds: 1,
+            streamOptions: {
+                [this.streams[0].name]: {
+                    detectPeaks: { heartRateWindowSeconds: 2 },
+                },
+            },
+        })
+
+        const chunk = { samples: [1, 2, 3, 4], timestamps: [0, 1, 2, 3] }
+        this.streamSockets.forEach((socket) => socket.receive(chunk))
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.timestamps
+            ),
+            [
+                [1, 2, 3],
+                [2, 3],
+            ],
+            'Did not keep samples for heart rate window longer than plot window!'
+        )
+    }
+
+    @test()
     protected static async startsFreshWhenChannelCountChanges() {
         await this.renderWithFakePlot()
 

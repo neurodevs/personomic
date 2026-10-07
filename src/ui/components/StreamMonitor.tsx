@@ -135,6 +135,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     frameMs - arrival.arrivedAtMs <= windowSeconds * 1000
             )
 
+        const retainedSecondsFor = (port: number) =>
+            Math.max(
+                windowSeconds,
+                streams.find((stream) => stream.wssPort === port)?.detectPeaks
+                    ?.heartRateWindowSeconds ?? 0
+            )
+
         const renderBatches = (batches: Record<number, StreamData[]>) => {
             if (Object.keys(batches).length === 0) {
                 return
@@ -148,7 +155,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         next[Number(port)] = appendToWindow(
                             next[Number(port)],
                             data,
-                            windowSeconds
+                            retainedSecondsFor(Number(port))
                         )
                     }
                 }
