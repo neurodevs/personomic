@@ -2,6 +2,7 @@ import type uPlot from 'uplot'
 
 export default class FakeUPlot {
     public static instances: FakeUPlot[] = []
+    public static pxRatio = 1
 
     public options: uPlot.Options
     public data: uPlot.AlignedData

@@ -380,6 +380,119 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async drawsOccurrenceStripBetweenScaleAndPlotWindow() {
+        await this.render(this.oneChannelAtTwoLevels)
+
+        const strip = this.drawOccurrenceStrip()
+
+        assert.isEqualDeep(
+            {
+                track: strip.track,
+                lefts: [...new Set(strip.rows.map((row) => row.x))],
+                widths: [...new Set(strip.rows.map((row) => row.width))],
+                isInsideWindowHeight: strip.rows.every(
+                    (row) => row.y >= 10 && row.y < 50
+                ),
+            },
+            {
+                track: { x: 94, y: 10, width: 4, height: 40 },
+                lefts: [94],
+                widths: [4],
+                isInsideWindowHeight: true,
+            },
+            'Did not draw occurrence strip between scale and plot window!'
+        )
+    }
+
+    @test()
+    protected static async colorsStripRowsByRelativeOccurrenceInStreamColor() {
+        await this.render({ ...this.oneChannelAtTwoLevels, color: '#abcdef' })
+
+        const strip = this.drawOccurrenceStrip()
+
+        assert.isEqualDeep(
+            strip.rows.map(({ y, color, opacity }) => ({ y, color, opacity })),
+            [
+                { y: 19, color: '#abcdef', opacity: 0.43 },
+                { y: 39, color: '#abcdef', opacity: 1 },
+            ],
+            'Did not color strip rows by relative occurrence in stream color!'
+        )
+    }
+
+    @test()
+    protected static async keepsOccurrencesOfValuesThatLeftTheWindow() {
+        await this.renderThenUpdate(this.oneChannelAtTwoLevels, {
+            samples: [1.05],
+            timestamps: [4],
+        })
+
+        assert.isEqualDeep(
+            this.drawOccurrenceStrip().rows.map(({ y, opacity }) => ({
+                y,
+                opacity,
+            })),
+            [
+                { y: 19, opacity: 0.36 },
+                { y: 39, opacity: 1 },
+            ],
+            'Did not keep occurrences of values that left the window!'
+        )
+    }
+
+    @test()
+    protected static async countsEachSampleOnceWhenWindowsOverlap() {
+        await this.renderThenUpdate(this.oneChannelAtTwoLevels, {
+            samples: [...this.oneChannelAtTwoLevels.samples, 3.05, 3.05],
+            timestamps: [...this.oneChannelAtTwoLevels.timestamps, 4, 5],
+        })
+
+        assert.isEqualDeep(
+            this.drawOccurrenceStrip().rows.map(({ y, opacity }) => ({
+                y,
+                opacity,
+            })),
+            [
+                { y: 19, opacity: 1 },
+                { y: 39, opacity: 1 },
+            ],
+            'Did not count each sample once when windows overlapped!'
+        )
+    }
+
+    @test()
+    protected static async tracksOccurrencesOfEachChannelSeparately() {
+        await this.render({
+            samples: [1.05, 3.05, 1.05, 3.05],
+            timestamps: [0, 1],
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) =>
+                this.drawOccurrenceStrip(plot).rows.map((row) => row.y)
+            ),
+            [[39], [19]],
+            'Did not track occurrences of each channel separately!'
+        )
+    }
+
+    @test()
+    protected static async drawsOnlyStripTrackBeforeAnyValueOccurs() {
+        await this.render(this.oneChannelAtTwoLevels)
+
+        const strip = this.drawOccurrenceStrip(FakeUPlot.latest, {
+            min: 100,
+            max: 104,
+        })
+
+        assert.isEqualDeep(
+            { numRows: strip.rows.length, hasTrack: strip.track !== undefined },
+            { numRows: 0, hasTrack: true },
+            'Did not draw only strip track when no value was in range!'
+        )
+    }
+
+    @test()
     protected static async drawsBarAtEveryYTick() {
         await this.render(this.twoChannels)
 
@@ -941,6 +1054,56 @@ export default class StreamPlotTest extends AbstractPackageTest {
         timestamps: [0, 1, 2],
     }
 
+    private static readonly oneChannelAtTwoLevels = {
+        samples: [1.05, 1.05, 1.05, 3.05],
+        timestamps: [0, 1, 2, 3],
+    }
+
+    private static drawOccurrenceStrip(
+        plot = FakeUPlot.latest,
+        yScale = { min: 0, max: 4 }
+    ) {
+        const bbox = { left: 100, top: 10, width: 200, height: 40 }
+        const rects: StripRect[] = []
+
+        const ctx = {
+            fillStyle: '',
+            globalAlpha: 1,
+            fillRect(x: number, y: number, width: number, height: number) {
+                rects.push({
+                    x,
+                    y,
+                    width,
+                    height,
+                    color: this.fillStyle,
+                    opacity: Math.round(this.globalAlpha * 100) / 100,
+                })
+            },
+        }
+
+        const valToPos = (value: number) =>
+            bbox.top +
+            bbox.height * (1 - (value - yScale.min) / (yScale.max - yScale.min))
+
+        const draw = plot.options.hooks?.draw?.[0] as unknown as (
+            plot: unknown
+        ) => void
+
+        draw({ ctx, bbox, valToPos })
+
+        const [track, ...rows] = rects
+
+        return {
+            track: track && {
+                x: track.x,
+                y: track.y,
+                width: track.width,
+                height: track.height,
+            },
+            rows: rows.sort((a, b) => a.y - b.y),
+        }
+    }
+
     private static readonly oneChannelMaxBeforeMin = {
         samples: [5, 9, 3, 1, 4],
         timestamps: [0, 1, 2, 3, 4],
@@ -1007,4 +1170,13 @@ export default class StreamPlotTest extends AbstractPackageTest {
         const { rerender } = await this.render(props)
         rerender(<StreamPlot name={this.plotName} {...nextProps} />)
     }
+}
+
+interface StripRect {
+    x: number
+    y: number
+    width: number
+    height: number
+    color: string
+    opacity: number
 }

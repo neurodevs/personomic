@@ -88,6 +88,36 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         [samples, timestamps, channelCount]
     )
 
+    const occurrencesRef = useRef<ValueOccurrences[]>([])
+    const lastCountedTimestampRef = useRef(-Infinity)
+
+    useEffect(() => {
+        const latestTimestamp = timestamps[timestamps.length - 1]
+
+        if (
+            occurrencesRef.current.length !== channelCount ||
+            latestTimestamp < lastCountedTimestampRef.current
+        ) {
+            occurrencesRef.current = valuesByChannel.map(noOccurrences)
+            lastCountedTimestampRef.current = -Infinity
+        }
+
+        const firstUncounted = firstIndexAfter(
+            timestamps,
+            lastCountedTimestampRef.current
+        )
+
+        valuesByChannel.forEach((values, channel) => {
+            for (let i = firstUncounted; i < values.length; i++) {
+                countOccurrence(occurrencesRef.current[channel], values[i])
+            }
+        })
+
+        if (latestTimestamp !== undefined) {
+            lastCountedTimestampRef.current = latestTimestamp
+        }
+    }, [timestamps, valuesByChannel])
+
     const peakDetectionTick = Math.floor(
         timestamps[timestamps.length - 1] / peakDetectionIntervalSeconds
     )
@@ -148,6 +178,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         color,
                         hasPeakMarkers,
                         yBounds: { min: yMinBound, max: yMaxBound },
+                        occurrencesOf: () => occurrencesRef.current[channel],
                     }),
                     hasPeakMarkers ? [[], [], []] : [[], []],
                     containerRefs.current[channel]!
@@ -308,10 +339,12 @@ interface PlotAppearance {
     color: string
     hasPeakMarkers: boolean
     yBounds: YRangeBounds
+    occurrencesOf: () => ValueOccurrences | undefined
 }
 
 function optionsFor(appearance: PlotAppearance): uPlot.Options {
-    const { width, height, color, hasPeakMarkers, yBounds } = appearance
+    const { width, height, color, hasPeakMarkers, yBounds, occurrencesOf } =
+        appearance
 
     return {
         width,
@@ -332,6 +365,9 @@ function optionsFor(appearance: PlotAppearance): uPlot.Options {
             },
         },
         axes: [{ show: false }, yAxis],
+        hooks: {
+            draw: [(plot) => drawOccurrenceStrip(plot, occurrencesOf(), color)],
+        },
         series: [
             {},
             {
@@ -346,7 +382,11 @@ function optionsFor(appearance: PlotAppearance): uPlot.Options {
 }
 
 const leftSide = 3
-const yAxisWidth = 48
+const yAxisWidth = 54
+const occurrenceStripWidth = 4
+const occurrenceStripGap = 2
+const faintestOccurrenceOpacity = 0.15
+const maxOccurrenceBins = 256
 const yPadding = 6
 const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
@@ -354,13 +394,129 @@ const maxYTickLabelLength = 7
 const yAxis: uPlot.Axis = {
     side: leftSide,
     size: yAxisWidth,
-    gap: 3,
+    gap: occurrenceStripGap + occurrenceStripWidth + 4,
     stroke: '#5f6878',
     font: '10px ui-monospace, "SF Mono", Menlo, monospace',
-    ticks: { size: 3, width: 1, stroke: 'rgba(255, 255, 255, 0.12)' },
+    ticks: { show: false },
     grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
     splits: (_, __, min, max) => tightestYBarsCovering(min, max),
     values: (_, ticks) => ticks.map(yTickLabelFor),
+}
+
+interface ValueOccurrences {
+    binWidth: number
+    lowestBin: number
+    highestBin: number
+    countsByBin: Map<number, number>
+}
+
+function noOccurrences(): ValueOccurrences {
+    return {
+        binWidth: 0,
+        lowestBin: Infinity,
+        highestBin: -Infinity,
+        countsByBin: new Map(),
+    }
+}
+
+function countOccurrence(occurrences: ValueOccurrences, value: number) {
+    if (!Number.isFinite(value)) {
+        return
+    }
+
+    if (occurrences.binWidth === 0) {
+        occurrences.binWidth = finestBinWidthFor(value)
+    }
+
+    const bin = Math.floor(value / occurrences.binWidth)
+    const { countsByBin } = occurrences
+
+    countsByBin.set(bin, (countsByBin.get(bin) ?? 0) + 1)
+    occurrences.lowestBin = Math.min(occurrences.lowestBin, bin)
+    occurrences.highestBin = Math.max(occurrences.highestBin, bin)
+
+    while (
+        occurrences.highestBin - occurrences.lowestBin >=
+        maxOccurrenceBins
+    ) {
+        mergeNeighboringBins(occurrences)
+    }
+}
+
+function finestBinWidthFor(value: number) {
+    return 2 ** (Math.floor(Math.log2(Math.abs(value) || 1)) - 20)
+}
+
+function mergeNeighboringBins(occurrences: ValueOccurrences) {
+    const merged = new Map<number, number>()
+
+    for (const [bin, count] of occurrences.countsByBin) {
+        const mergedBin = Math.floor(bin / 2)
+        merged.set(mergedBin, (merged.get(mergedBin) ?? 0) + count)
+    }
+
+    occurrences.binWidth *= 2
+    occurrences.lowestBin = Math.floor(occurrences.lowestBin / 2)
+    occurrences.highestBin = Math.floor(occurrences.highestBin / 2)
+    occurrences.countsByBin = merged
+}
+
+function drawOccurrenceStrip(
+    plot: uPlot,
+    occurrences: ValueOccurrences | undefined,
+    color: string
+) {
+    const { ctx, bbox } = plot
+    const countsByRow = occurrenceCountsByPixelRow(plot, occurrences)
+    const highestCount = Math.max(...countsByRow)
+
+    const width = occurrenceStripWidth * uPlot.pxRatio
+    const left = bbox.left - occurrenceStripGap * uPlot.pxRatio - width
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+    ctx.fillRect(left, bbox.top, width, countsByRow.length)
+
+    ctx.fillStyle = color
+
+    countsByRow.forEach((count, row) => {
+        if (count > 0) {
+            ctx.globalAlpha =
+                faintestOccurrenceOpacity +
+                (1 - faintestOccurrenceOpacity) * (count / highestCount)
+            ctx.fillRect(left, bbox.top + row, width, 1)
+        }
+    })
+
+    ctx.globalAlpha = 1
+}
+
+function occurrenceCountsByPixelRow(
+    plot: uPlot,
+    occurrences: ValueOccurrences | undefined
+) {
+    const { top, height } = plot.bbox
+    const countsByRow: number[] = new Array(Math.round(height)).fill(0)
+
+    if (!occurrences) {
+        return countsByRow
+    }
+
+    const { binWidth, countsByBin } = occurrences
+    const rowOf = (value: number) => plot.valToPos(value, 'y', true) - top
+
+    for (const [bin, count] of countsByBin) {
+        const firstRow = Math.floor(rowOf((bin + 1) * binWidth))
+        const lastRow = Math.max(firstRow, Math.ceil(rowOf(bin * binWidth)) - 1)
+        const countPerRow = count / (lastRow - firstRow + 1)
+
+        for (let row = firstRow; row <= lastRow; row++) {
+            if (row >= 0 && row < countsByRow.length) {
+                countsByRow[row] += countPerRow
+            }
+        }
+    }
+
+    return countsByRow
 }
 
 const widestYRangeByPlot = new WeakMap<uPlot, YRange>()
@@ -585,6 +741,16 @@ function decimatedIndices(
     }
 
     return kept
+}
+
+function firstIndexAfter(timestamps: number[], timestamp: number) {
+    let index = timestamps.length
+
+    while (index > 0 && timestamps[index - 1] > timestamp) {
+        index--
+    }
+
+    return index
 }
 
 function firstIndexAtOrAfter(timestamps: number[], cutoff: number) {
