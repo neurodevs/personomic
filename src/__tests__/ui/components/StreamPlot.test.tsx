@@ -658,7 +658,9 @@ export default class StreamPlotTest extends AbstractPackageTest {
         await this.renderOneChannelAt([0], this.heartRateOverThirtySeconds)
 
         const name = this.plot.querySelector('.stream-plot__name')
-        const heartRate = this.plot.querySelector('.stream-plot__heart-rate')
+        const heartRate = this.plot.querySelector(
+            '.stream-plot__readout--heart-rate'
+        )
 
         assert.isEqual(
             name?.nextElementSibling,
@@ -678,7 +680,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
         )
 
         assert.isEqual(
-            this.plot.querySelector('.stream-plot__heart-rate')
+            this.plot.querySelector('.stream-plot__readout--heart-rate')
                 ?.firstElementChild?.textContent,
             'Heart rate',
             'Did not label heart rate!'
@@ -803,6 +805,229 @@ export default class StreamPlotTest extends AbstractPackageTest {
             this.heartRate,
             '-- bpm',
             'Did not show placeholder when too few beats were detected!'
+        )
+    }
+
+    @test()
+    protected static async showsNoHrvWithoutHrvWindow() {
+        await this.renderOneChannelAt([0], this.heartRateOverThirtySeconds)
+
+        assert.isEqual(this.hrv, undefined, 'Showed HRV without HRV window!')
+    }
+
+    @test()
+    protected static async showsLabelledHrvRightOfHeartRate() {
+        await this.renderOneChannelAt([0], {
+            ...this.heartRateOverThirtySeconds,
+            ...this.hrvOverFiveMinutes,
+        })
+
+        const hrv = this.plot.querySelector('.stream-plot__readout--hrv')
+
+        assert.isEqualDeep(
+            {
+                label: hrv?.firstElementChild?.textContent,
+                isRightOfHeartRate:
+                    hrv?.previousElementSibling ===
+                    this.plot.querySelector(
+                        '.stream-plot__readout--heart-rate'
+                    ),
+            },
+            { label: 'HRV (RMSSD)', isRightOfHeartRate: true },
+            'Did not show labelled HRV right of heart rate!'
+        )
+    }
+
+    @test('counts down from five minutes at first data', [5], 'Ready in 5:00')
+    @test('counts down minutes and seconds', [5, 6.5], 'Ready in 4:59')
+    @test('pads seconds within a minute', [5, 60], 'Ready in 4:05')
+    @test('counts down seconds in last minute', [5, 250.5], 'Ready in 55s')
+    protected static async countsDownUntilHrvWindowIsFilled(
+        timestamps: number[],
+        expected: string
+    ) {
+        await this.renderOneChannelAt(timestamps, this.hrvOverFiveMinutes)
+
+        assert.isEqual(
+            this.hrv,
+            expected,
+            'Did not count down until HRV window was filled!'
+        )
+    }
+
+    @test()
+    protected static async showsRmssdInMillisecondsOnceWindowIsFilled() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12.1, 13.1]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12.1, 13.1, 301],
+            this.hrvOverFiveMinutes
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '100 ms',
+            'Did not show RMSSD in milliseconds once window was filled!'
+        )
+    }
+
+    @test()
+    protected static async marksHrvReliableOnceWindowIsFilled() {
+        await this.renderOneChannelAt([0, 301], this.hrvOverFiveMinutes)
+
+        assert.isEqual(
+            this.hrvNote,
+            '(reliable)',
+            'Did not mark HRV reliable once window was filled!'
+        )
+    }
+
+    @test()
+    protected static async marksCountdownToProvisionalHrvAsUnreliable() {
+        await this.renderOneChannelAt([0, 20], this.provisionalHrv)
+
+        assert.isEqualDeep(
+            { value: this.hrv, note: this.hrvNote },
+            { value: 'Ready in 10s', note: '(unreliable)' },
+            'Did not mark countdown to provisional HRV as unreliable!'
+        )
+    }
+
+    @test()
+    protected static async showsNoHrvNoteWhileCountingDownToReliableValue() {
+        await this.renderOneChannelAt([0, 20], this.hrvOverFiveMinutes)
+
+        assert.isEqualDeep(
+            { value: this.hrv, note: this.hrvNote },
+            { value: 'Ready in 4:40', note: undefined },
+            'Showed an HRV note while counting down to reliable value!'
+        )
+    }
+
+    @test()
+    protected static async showsUnreliableHrvWithCountdownBeforeWindowIsFilled() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12.1, 13.1]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12.1, 13.1, 40],
+            this.provisionalHrv
+        )
+
+        assert.isEqualDeep(
+            { value: this.hrv, note: this.hrvNote },
+            { value: '100 ms', note: '(unreliable, reliable in 4:20)' },
+            'Did not show unreliable HRV with countdown before window filled!'
+        )
+    }
+
+    @test()
+    protected static async marksProvisionalHrvReliableOnceWindowIsFilled() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12.1, 13.1]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12.1, 13.1, 300],
+            this.provisionalHrv
+        )
+
+        assert.isEqualDeep(
+            { value: this.hrv, note: this.hrvNote },
+            { value: '100 ms', note: '(reliable)' },
+            'Did not mark provisional HRV reliable once window was filled!'
+        )
+    }
+
+    @test()
+    protected static async leavesMissedBeatOutOfHrv() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12, 14, 15, 16]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12, 14, 15, 16, 301],
+            this.hrvOverFiveMinutes
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '0 ms',
+            'Did not leave missed beat out of HRV!'
+        )
+    }
+
+    @test()
+    protected static async leavesImplausiblyFastBeatsOutOfHrv() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12, 12.28, 13.28, 14.28]
+
+        await this.renderOneChannelAt(
+            [0, 10, 11, 12, 12.28, 13.28, 14.28, 301],
+            this.hrvOverFiveMinutes
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '0 ms',
+            'Did not leave implausibly fast beats out of HRV!'
+        )
+    }
+
+    @test()
+    protected static async leavesBeatsStillSettlingOutOfHrv() {
+        FakePpgDetector.peakTimestamps = [298, 299, 300.1]
+
+        await this.renderOneChannelAt(
+            [0, 298, 299, 300.1, 301],
+            this.hrvOverFiveMinutes
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '-- ms',
+            'Did not leave beats still settling out of HRV!'
+        )
+    }
+
+    @test()
+    protected static async countsBeatOnceWhenDetectedAgainSlightlyShifted() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12.1, 13.1]
+
+        await this.renderOneChannelThenAt(
+            [0, 10, 11, 12.1, 13.1, 301],
+            [0, 10, 11, 12.1, 13.1, 14.1, 302],
+            [10.05, 11, 12.1, 13.1, 14.1]
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '82 ms',
+            'Did not count beat once when detected again slightly shifted!'
+        )
+    }
+
+    @test()
+    protected static async dropsBeatsOlderThanHrvWindow() {
+        FakePpgDetector.peakTimestamps = [10, 11, 12.1]
+
+        await this.renderOneChannelThenAt(
+            [0, 10, 11, 12.1, 301],
+            [200, 201, 202, 400],
+            [200, 201, 202]
+        )
+
+        assert.isEqual(
+            this.hrv,
+            '0 ms',
+            'Did not drop beats older than HRV window!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholderWhenTooFewBeatsForHrv() {
+        FakePpgDetector.peakTimestamps = [10, 11]
+
+        await this.renderOneChannelAt([0, 10, 11, 301], this.hrvOverFiveMinutes)
+
+        assert.isEqual(
+            this.hrv,
+            '-- ms',
+            'Did not show placeholder when too few beats for HRV!'
         )
     }
 
@@ -1249,9 +1474,60 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     private static get heartRate() {
+        return this.readoutValue('heart-rate')
+    }
+
+    private static get hrv() {
+        return this.readoutValue('hrv')
+    }
+
+    private static readoutValue(kind: string) {
         return (
-            this.plot.querySelector('.stream-plot__heart-rate-value')
-                ?.textContent ?? undefined
+            this.plot.querySelector(
+                `.stream-plot__readout--${kind} .stream-plot__readout-value`
+            )?.textContent ?? undefined
+        )
+    }
+
+    private static get hrvNote() {
+        return (
+            this.plot.querySelector(
+                '.stream-plot__readout--hrv .stream-plot__readout-note'
+            )?.textContent ?? undefined
+        )
+    }
+
+    private static readonly provisionalHrv = {
+        sampleRate: 64,
+        hrvWindowSeconds: 300,
+        hrvProvisionalAfterSeconds: 30,
+    }
+
+    private static readonly hrvOverFiveMinutes = {
+        sampleRate: 64,
+        hrvWindowSeconds: 300,
+    }
+
+    private static async renderOneChannelThenAt(
+        timestamps: number[],
+        nextTimestamps: number[],
+        peakTimestampsAfter: number[]
+    ) {
+        const detectPeaks = this.hrvOverFiveMinutes
+        const { rerender } = await this.renderOneChannelAt(
+            timestamps,
+            detectPeaks
+        )
+
+        FakePpgDetector.peakTimestamps = peakTimestampsAfter
+
+        rerender(
+            <StreamPlot
+                name={this.plotName}
+                samples={nextTimestamps.map(() => 1)}
+                timestamps={nextTimestamps}
+                detectPeaks={detectPeaks}
+            />
         )
     }
 

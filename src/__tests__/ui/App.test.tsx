@@ -90,6 +90,30 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async derivesHrvFromFiveMinutesOfPpg() {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks
+                ?.hrvWindowSeconds,
+            300,
+            'Did not derive HRV from five minutes of PPG!'
+        )
+    }
+
+    @test()
+    protected static async showsProvisionalHrvAfterThirtySecondsOfPpg() {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks
+                ?.hrvProvisionalAfterSeconds,
+            30,
+            'Did not show provisional HRV after thirty seconds of PPG!'
+        )
+    }
+
     @test('scales battery from zero to hundred', 'Battery')
     @test('scales humidity from zero to hundred', 'Humidity')
     protected static async scalesPercentageStreamFromZeroToHundred(

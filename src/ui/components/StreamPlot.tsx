@@ -30,6 +30,8 @@ export interface PeakDetectionOptions {
     sampleRate: number
     channels?: string[]
     heartRateWindowSeconds?: number
+    hrvWindowSeconds?: number
+    hrvProvisionalAfterSeconds?: number
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -175,6 +177,53 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
               )
             : undefined
 
+    const hrvWindowSeconds = detectPeaks?.hrvWindowSeconds
+    const beatsByChannelRef = useRef<number[][]>([])
+    const [hrvMilliseconds, setHrvMilliseconds] = useState<number>()
+
+    useEffect(() => {
+        if (
+            hrvWindowSeconds === undefined ||
+            peakTimestampsByChannel === undefined ||
+            latestTimestamp === undefined
+        ) {
+            return
+        }
+
+        const hasRestarted =
+            beatsByChannelRef.current.length !==
+                peakTimestampsByChannel.length ||
+            beatsByChannelRef.current.some(
+                (beats) => beats[beats.length - 1] > latestTimestamp
+            )
+
+        const beatsSoFar = hasRestarted
+            ? peakTimestampsByChannel.map(() => [])
+            : beatsByChannelRef.current
+
+        beatsByChannelRef.current = beatsSoFar.map((beats, channel) =>
+            withSettledBeats(beats, peakTimestampsByChannel[channel], {
+                earliest: latestTimestamp - hrvWindowSeconds,
+                latest: latestTimestamp - beatSettlingSeconds,
+            })
+        )
+
+        setHrvMilliseconds(rmssdMillisecondsFor(beatsByChannelRef.current))
+    }, [peakTimestampsByChannel, hrvWindowSeconds])
+
+    const hrvStatus =
+        hrvWindowSeconds !== undefined && firstTimestamp !== undefined
+            ? hrvStatusFor(
+                  hrvMilliseconds,
+                  {
+                      reliableAfterSeconds: hrvWindowSeconds,
+                      provisionalAfterSeconds:
+                          detectPeaks?.hrvProvisionalAfterSeconds,
+                  },
+                  { first: firstTimestamp, latest: latestTimestamp }
+              )
+            : undefined
+
     useEffect(() => {
         if (width !== undefined) {
             return
@@ -295,14 +344,14 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                 <span className="stream-plot__indicator" />
                 <span className="stream-plot__name">{name}</span>
                 {heartRateStatus && (
-                    <span className="stream-plot__heart-rate">
-                        <span className="stream-plot__heart-rate-label">
-                            Heart rate
-                        </span>
-                        <span className="stream-plot__heart-rate-value">
-                            {heartRateStatus}
-                        </span>
-                    </span>
+                    <Readout
+                        kind="heart-rate"
+                        label="Heart rate"
+                        value={heartRateStatus}
+                    />
+                )}
+                {hrvStatus && (
+                    <Readout kind="hrv" label="HRV (RMSSD)" {...hrvStatus} />
                 )}
                 <span className="stream-plot__meta">
                     {metaFor(channelCount, windowSeconds, isHidden)}
@@ -687,17 +736,35 @@ function verticalLinesAtPeaks(
     return { stroke: lines }
 }
 
+interface ReadoutProps {
+    kind: string
+    label: string
+    value: string
+    note?: string
+}
+
+const Readout: React.FC<ReadoutProps> = ({ kind, label, value, note }) => (
+    <span className={`stream-plot__readout stream-plot__readout--${kind}`}>
+        <span className="stream-plot__readout-label">{label}</span>
+        <span className="stream-plot__readout-value">{value}</span>
+        {note && <span className="stream-plot__readout-note">{note}</span>}
+    </span>
+)
+
+interface ReceivedSpan {
+    first: number
+    latest: number
+}
+
 function heartRateStatusFor(
     peakTimestampsByChannel: Set<number>[],
     windowSeconds: number,
-    received: { first: number; latest: number }
+    received: ReceivedSpan
 ) {
-    const secondsUntilReady = Math.ceil(
-        windowSeconds - (received.latest - received.first)
-    )
+    const countdown = countdownUntilReady(windowSeconds, received)
 
-    if (secondsUntilReady > 0) {
-        return `Ready in ${secondsUntilReady}s`
+    if (countdown) {
+        return countdown
     }
 
     const beatsPerMinute = beatsPerMinuteFor(
@@ -706,6 +773,146 @@ function heartRateStatusFor(
     )
 
     return `${beatsPerMinute ?? '--'} bpm`
+}
+
+function hrvStatusFor(
+    hrvMilliseconds: number | undefined,
+    thresholds: {
+        reliableAfterSeconds: number
+        provisionalAfterSeconds?: number
+    },
+    received: ReceivedSpan
+) {
+    const { reliableAfterSeconds, provisionalAfterSeconds } = thresholds
+
+    const countdown = countdownUntilReady(
+        provisionalAfterSeconds ?? reliableAfterSeconds,
+        received
+    )
+
+    if (countdown) {
+        return {
+            value: countdown,
+            note:
+                provisionalAfterSeconds !== undefined
+                    ? '(unreliable)'
+                    : undefined,
+        }
+    }
+
+    const secondsUntilReliable = secondsUntil(reliableAfterSeconds, received)
+
+    return {
+        value: `${hrvMilliseconds ?? '--'} ms`,
+        note:
+            secondsUntilReliable > 0
+                ? `(unreliable, reliable in ${durationLabelFor(secondsUntilReliable)})`
+                : '(reliable)',
+    }
+}
+
+function countdownUntilReady(windowSeconds: number, received: ReceivedSpan) {
+    const seconds = secondsUntil(windowSeconds, received)
+    return seconds > 0 ? `Ready in ${durationLabelFor(seconds)}` : undefined
+}
+
+function secondsUntil(windowSeconds: number, received: ReceivedSpan) {
+    return Math.ceil(windowSeconds - (received.latest - received.first))
+}
+
+function durationLabelFor(seconds: number) {
+    return seconds < 60
+        ? `${seconds}s`
+        : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+const beatSettlingSeconds = 1
+const minSecondsBetweenBeats = 0.25
+const plausibleSecondsBetweenBeats = { min: 0.3, max: 2 }
+const maxDeviationFromRecentBeats = 0.2
+const numRecentBeatsCompared = 5
+
+function withSettledBeats(
+    beats: number[],
+    detected: Set<number>,
+    span: { earliest: number; latest: number }
+) {
+    const kept = beats.filter((beat) => beat >= span.earliest)
+
+    const settled = [...detected]
+        .filter((beat) => beat >= span.earliest && beat <= span.latest)
+        .sort((a, b) => a - b)
+
+    for (const beat of settled) {
+        const previous = kept[kept.length - 1]
+
+        if (
+            previous === undefined ||
+            beat - previous >= minSecondsBetweenBeats
+        ) {
+            kept.push(beat)
+        }
+    }
+
+    return kept
+}
+
+function rmssdMillisecondsFor(beatsByChannel: number[][]) {
+    const rmssdOfEachChannel = beatsByChannel
+        .map(rmssdSecondsFor)
+        .filter((rmssd) => rmssd !== undefined)
+
+    return rmssdOfEachChannel.length > 0
+        ? Math.round(meanOf(rmssdOfEachChannel) * 1000)
+        : undefined
+}
+
+function rmssdSecondsFor(beats: number[]) {
+    const intervals = beats.slice(1).map((beat, i) => beat - beats[i])
+    const isNormal = normalIntervalFlagsFor(intervals)
+
+    const squaredSuccessiveDifferences = intervals
+        .slice(1)
+        .flatMap((interval, i) =>
+            isNormal[i] && isNormal[i + 1]
+                ? [(interval - intervals[i]) ** 2]
+                : []
+        )
+
+    return squaredSuccessiveDifferences.length > 0
+        ? Math.sqrt(meanOf(squaredSuccessiveDifferences))
+        : undefined
+}
+
+function normalIntervalFlagsFor(intervals: number[]) {
+    const { min, max } = plausibleSecondsBetweenBeats
+    const recentPlausible: number[] = []
+
+    return intervals.map((interval) => {
+        if (interval < min || interval > max) {
+            return false
+        }
+
+        const typical =
+            recentPlausible.length > 0
+                ? medianOfSorted([...recentPlausible].sort((a, b) => a - b))
+                : interval
+
+        recentPlausible.push(interval)
+
+        if (recentPlausible.length > numRecentBeatsCompared) {
+            recentPlausible.shift()
+        }
+
+        return (
+            Math.abs(interval - typical) / typical <=
+            maxDeviationFromRecentBeats
+        )
+    })
+}
+
+function meanOf(values: number[]) {
+    return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 
 function beatsPerMinuteFor(

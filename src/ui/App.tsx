@@ -37,6 +37,8 @@ const streamOptions: Record<string, StreamOptions> = {
         detectPeaks: {
             channels: ['AMBIENT', 'INFRARED'],
             heartRateWindowSeconds: 30,
+            hrvWindowSeconds: 300,
+            hrvProvisionalAfterSeconds: 30,
         },
     },
     Battery: { yRange: { min: 0, max: 100 } },

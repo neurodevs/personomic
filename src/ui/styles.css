@@ -556,7 +556,7 @@ body {
     }
 }
 
-.stream-plot__heart-rate {
+.stream-plot__readout {
     display: flex;
     align-items: baseline;
     gap: 8px;
@@ -566,12 +566,16 @@ body {
     letter-spacing: 0.04em;
 }
 
-.stream-plot__heart-rate-label {
+.stream-plot__readout-label {
     color: var(--text-muted);
 }
 
-.stream-plot__heart-rate-value {
+.stream-plot__readout-value {
     color: var(--text-secondary);
+}
+
+.stream-plot__readout-note {
+    color: var(--text-muted);
 }
 
 .stream-plot__meta {
