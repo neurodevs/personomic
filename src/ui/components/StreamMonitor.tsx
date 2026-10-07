@@ -48,8 +48,17 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
 
-    const devices = deviceNames.map((name) =>
-        deviceFor(name, gatewayDevices, streamOptions)
+    const deviceKeys = deviceKeysFor(deviceNames)
+    const devices = deviceNames.map((name, index) =>
+        deviceFor(
+            {
+                key: deviceKeys[index],
+                name,
+                label: deviceLabelFor(index, deviceNames),
+            },
+            gatewayDevices,
+            streamOptions
+        )
     )
     const streams = devices.flatMap((device) => device.streams)
     const streamNames = [...new Set(streams.map((stream) => stream.name))]
@@ -269,15 +278,15 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         <div className="stream-monitor" data-testid="stream-monitor">
             {devices.map((device) => (
                 <DevicePanel
-                    key={device.name}
+                    key={device.key}
                     device={device}
                     status={
                         isGatewayConnected
-                            ? deviceStatusFor(device.name, gatewayDevices)
+                            ? deviceStatusFor(device, gatewayDevices)
                             : statusBeforeGatewayReports(isConnecting)
                     }
                     onRemove={onRemoveDevice}
-                    identifier={identifiers[device.name]}
+                    identifier={identifiers[device.key]}
                     onIdentifierChange={onIdentifierChange}
                 >
                     {device.streams.map((stream) => (
@@ -341,27 +350,24 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     return (
         <section
             className={`stream-monitor__device stream-monitor__device--${status}`}
-            data-testid={`device-${device.name}`}
+            data-testid={`device-${device.key}`}
             onClick={togglePlotsUnlessClickedOnContents}
         >
             <header className="stream-monitor__device-header">
                 <DeviceStatusIndicator status={status} />
                 <span className="stream-monitor__device-name">
-                    {device.name}
+                    {device.label}
                 </span>
                 {identifier && isIdentifierShown && (
                     <input
                         type="text"
                         className="stream-monitor__device-identifier"
-                        aria-label={`${device.name} ${identifier.label} (optional)`}
+                        aria-label={`${device.label} ${identifier.label} (optional)`}
                         placeholder={`${identifier.label} (optional)`}
                         value={identifier.value}
                         readOnly={isLocked}
                         onChange={(event) =>
-                            onIdentifierChange?.(
-                                device.name,
-                                event.target.value
-                            )
+                            onIdentifierChange?.(device.key, event.target.value)
                         }
                     />
                 )}
@@ -374,9 +380,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     <button
                         type="button"
                         className="stream-monitor__device-remove"
-                        aria-label={`Remove ${device.name}`}
-                        title={`Remove ${device.name}`}
-                        onClick={() => onRemove(device.name)}
+                        aria-label={`Remove ${device.label}`}
+                        title={`Remove ${device.label}`}
+                        onClick={() => onRemove(device.key)}
                     >
                         ×
                     </button>
@@ -411,14 +417,14 @@ const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({
 )
 
 function deviceFor(
-    name: string,
+    shown: ShownDevice,
     gatewayDevices: GatewayDevice[],
     streamOptions: Record<string, StreamOptions>
 ): BiosignalDevice {
-    const gatewayStreams = gatewayDeviceNamed(name, gatewayDevices)?.streams
+    const gatewayStreams = gatewayDeviceFor(shown, gatewayDevices)?.streams
 
     return {
-        name,
+        ...shown,
         streams: (gatewayStreams ?? []).map((stream) =>
             streamFor(stream, streamOptions[stream.type])
         ),
@@ -452,10 +458,10 @@ function withoutTypePrefix(channel: string, type: string) {
 }
 
 function deviceStatusFor(
-    name: string,
+    shown: ShownDevice,
     gatewayDevices: GatewayDevice[]
 ): DeviceStatus {
-    const gatewayDevice = gatewayDeviceNamed(name, gatewayDevices)
+    const gatewayDevice = gatewayDeviceFor(shown, gatewayDevices)
 
     return gatewayDevice
         ? deviceStatusByState[gatewayDevice.state]
@@ -466,8 +472,43 @@ function statusBeforeGatewayReports(isConnecting: boolean): DeviceStatus {
     return isConnecting ? 'connecting' : 'disconnected'
 }
 
-function gatewayDeviceNamed(name: string, gatewayDevices: GatewayDevice[]) {
-    return gatewayDevices.find((device) => device.deviceName === name)
+function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {
+    const sameNamed = gatewayDevices.filter(
+        (device) => device.deviceName === shown.name
+    )
+    return sameNamed[occurrenceOf(shown) - 1]
+}
+
+function occurrenceOf(shown: ShownDevice) {
+    return shown.key === shown.name
+        ? 1
+        : Number(shown.key.slice(shown.name.length + repeatSeparator.length))
+}
+
+const repeatSeparator = ' #'
+
+function deviceLabelFor(index: number, deviceNames: string[]) {
+    const name = deviceNames[index]
+    const isRepeated =
+        deviceNames.indexOf(name) !== deviceNames.lastIndexOf(name)
+    const occurrence = deviceNames
+        .slice(0, index + 1)
+        .filter((earlier) => earlier === name).length
+
+    return isRepeated ? `${name}${repeatSeparator}${occurrence}` : name
+}
+
+export function deviceKeysFor(deviceNames: string[]) {
+    const numSeenByName: Record<string, number> = {}
+
+    return deviceNames.map((name) => {
+        const occurrence = (numSeenByName[name] ?? 0) + 1
+        numSeenByName[name] = occurrence
+
+        return occurrence === 1
+            ? name
+            : `${name}${repeatSeparator}${occurrence}`
+    })
 }
 
 const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
@@ -548,8 +589,13 @@ export interface StreamOptions {
     downsampling?: Downsampling
 }
 
-interface BiosignalDevice {
+interface ShownDevice {
+    key: string
     name: string
+    label: string
+}
+
+interface BiosignalDevice extends ShownDevice {
     streams: BiosignalStream[]
 }
 

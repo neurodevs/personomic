@@ -35,6 +35,13 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         { name: this.generateId(), streams: [this.streams[1]] },
     ]
 
+    private static readonly twins: TestDevice[] = [
+        { name: this.deviceName, streams: [this.streams[0]] },
+        { name: this.deviceName, streams: [this.streams[1]] },
+    ]
+
+    private static readonly secondTwinKey = `${this.deviceName} #2`
+
     protected static async beforeEach() {
         await super.beforeEach()
 
@@ -342,6 +349,137 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.twoDevices.map((device) => this.deviceStatusOf(device.name)),
             ['connecting', 'connected'],
             'Did not match each device by name!'
+        )
+    }
+
+    @test()
+    protected static async numbersRepeatsOfTheSameDevice() {
+        await this.renderBeforeDeviceStatus(this.twins)
+
+        assert.isEqualDeep(
+            Array.from(
+                document.querySelectorAll('.stream-monitor__device-name'),
+                (name) => name.textContent
+            ),
+            [`${this.deviceName} #1`, `${this.deviceName} #2`],
+            'Did not number repeats of the same device!'
+        )
+    }
+
+    @test()
+    protected static async numbersOnlyDevicesThatAreRepeated() {
+        await this.renderBeforeDeviceStatus([...this.twins, this.twoDevices[0]])
+
+        assert.isEqualDeep(
+            Array.from(
+                document.querySelectorAll('.stream-monitor__device-name'),
+                (name) => name.textContent
+            ),
+            [
+                `${this.deviceName} #1`,
+                `${this.deviceName} #2`,
+                this.twoDevices[0].name,
+            ],
+            'Did not number only devices that are repeated!'
+        )
+    }
+
+    @test()
+    protected static async labelsControlsOfFirstRepeatWithItsNumber() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName, this.deviceName], {
+            onRemoveDevice: () => {},
+        })
+
+        assert.isEqualDeep(
+            {
+                identifier:
+                    screen.queryByRole('textbox', {
+                        name: `${this.deviceName} #1 UUID (optional)`,
+                    }) !== null,
+                remove:
+                    screen.queryByRole('button', {
+                        name: `Remove ${this.deviceName} #1`,
+                    }) !== null,
+            },
+            { identifier: true, remove: true },
+            'Did not label controls of first repeat with its number!'
+        )
+    }
+
+    @test()
+    protected static async matchesRepeatsOfTheSameDeviceByOrder() {
+        await this.renderBeforeDeviceStatus(this.twins)
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceFor(this.twins[0], 'connecting'),
+            this.gatewayDeviceFor(this.twins[1], 'streaming'),
+        ])
+
+        assert.isEqualDeep(
+            {
+                statuses: [
+                    this.deviceStatusOf(this.deviceName),
+                    this.deviceStatusOf(this.secondTwinKey),
+                ],
+                plots: [
+                    this.shownPlotsOf(this.deviceName),
+                    this.shownPlotsOf(this.secondTwinKey),
+                ],
+            },
+            {
+                statuses: ['connecting', 'connected'],
+                plots: [
+                    this.plotIdsFor([this.streams[0]]),
+                    this.plotIdsFor([this.streams[1]]),
+                ],
+            },
+            'Did not match repeats of the same device by order!'
+        )
+    }
+
+    @test()
+    protected static async showsRepeatDisconnectedWhenGatewayReportsOnlyOne() {
+        await this.renderBeforeDeviceStatus(this.twins)
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceFor(this.twins[0], 'streaming'),
+        ])
+
+        assert.isEqualDeep(
+            [
+                this.deviceStatusOf(this.deviceName),
+                this.deviceStatusOf(this.secondTwinKey),
+            ],
+            ['connected', 'disconnected'],
+            'Did not show repeat disconnected when gateway reported only one!'
+        )
+    }
+
+    @test()
+    protected static async reportsTypedIdentifierAndRemovalWithKeyOfRepeat() {
+        const calls: string[][] = []
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName, this.deviceName], {
+            identifiers: {
+                [this.secondTwinKey]: { label: 'UUID', value: '' },
+            },
+            onIdentifierChange: (key, typed) => calls.push([key, typed]),
+            onRemoveDevice: (key) => calls.push([key]),
+        })
+
+        fireEvent.change(this.identifierInput!, { target: { value: 'typed' } })
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: `Remove ${this.secondTwinKey}`,
+            })
+        )
+
+        assert.isEqualDeep(
+            calls,
+            [[this.secondTwinKey, 'typed'], [this.secondTwinKey]],
+            'Did not report typed identifier and removal with key of repeat!'
         )
     }
 

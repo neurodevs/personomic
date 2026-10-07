@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 
 import AddBiosensorButton from './components/AddBiosensorButton'
 import StreamMonitor, {
+    deviceKeysFor,
     StreamOptions,
     WebSocketComponent,
 } from './components/StreamMonitor'
@@ -48,10 +49,7 @@ export interface AppProps {
 const App: React.FC<AppProps> = (props: AppProps) => {
     const { downsampling } = props
 
-    const [deviceNames, setDeviceNames] = useState<string[]>([])
-    const [identifierValues, setIdentifierValues] = useState<
-        Record<string, string>
-    >({})
+    const [devices, setDevices] = useState<SelectedDevice[]>([])
     const [isRecordEnabled, setIsRecordEnabled] = useState(false)
     const [recordDirectory, setRecordDirectory] = useState(
         () =>
@@ -70,32 +68,43 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
     const resetMonitor = () => setNumMonitorResets((previous) => previous + 1)
 
+    const deviceNames = devices.map(({ name }) => name)
+    const deviceKeys = deviceKeysFor(deviceNames)
+
     const addableNames = DEVICE_NAMES.filter(
-        (name) => !deviceNames.includes(name)
+        (name) => name in identifierLabels || !deviceNames.includes(name)
     )
 
     const addDevice = (name: string) =>
-        setDeviceNames((previous) => [...previous, name])
+        setDevices((previous) => [...previous, { name, identifier: '' }])
 
-    const removeDevice = (name: string) =>
-        setDeviceNames((previous) =>
-            previous.filter((shownName) => shownName !== name)
+    const removeDevice = (key: string) =>
+        setDevices((previous) =>
+            previous.filter((_, index) => index !== deviceKeys.indexOf(key))
         )
 
-    const setIdentifierValue = (name: string, value: string) =>
-        setIdentifierValues((previous) => ({ ...previous, [name]: value }))
+    const setIdentifierValue = (key: string, value: string) =>
+        setDevices((previous) =>
+            previous.map((device, index) =>
+                index === deviceKeys.indexOf(key)
+                    ? { ...device, identifier: value }
+                    : device
+            )
+        )
 
     const identifiers = Object.fromEntries(
-        deviceNames
-            .filter((name) => name in identifierLabels)
-            .map((name) => [
-                name,
-                {
-                    label: identifierLabels[name],
-                    value: identifierValues[name] ?? '',
-                },
+        devices
+            .map(({ name, identifier }, index) => [
+                deviceKeys[index],
+                { label: identifierLabels[name], value: identifier },
             ])
+            .filter((_, index) => deviceNames[index] in identifierLabels)
     )
+
+    const deviceRequests = devices.map(({ name }, index) => ({
+        deviceName: name,
+        identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
+    }))
 
     const rememberRecordDirectory = (directory: string) => {
         setRecordDirectory(directory)
@@ -141,14 +150,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const restoreRunningSession = (running: RunningSession) => {
         const { devices, xdfRecordPath } = running
 
-        setDeviceNames(devices.map(({ deviceName }) => deviceName))
-        setIdentifierValues(
-            Object.fromEntries(
-                devices.map(({ deviceName, identifier }) => [
-                    deviceName,
-                    identifier ?? '',
-                ])
-            )
+        setDevices(
+            devices.map(({ deviceName, identifier = '' }) => ({
+                name: deviceName,
+                identifier,
+            }))
         )
         setIsRecordEnabled(xdfRecordPath !== undefined)
         setRecordingPath(xdfRecordPath)
@@ -170,6 +176,16 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     }, [])
 
     const connectDevices = () => {
+        const indistinguishable =
+            nameOfDevicesWithoutOwnIdentifier(deviceRequests)
+
+        if (indistinguishable) {
+            setSessionError(
+                `Give each ${indistinguishable} its own ${identifierLabels[indistinguishable]}.`
+            )
+            return
+        }
+
         const startedAt = now()
 
         setSession('connecting')
@@ -179,10 +195,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         sendToOrchestrator(
             {
                 command: 'start',
-                devices: deviceNames.map((name) => ({
-                    deviceName: name,
-                    identifier: identifiers[name]?.value.trim() || undefined,
-                })),
+                devices: deviceRequests,
                 xdfRecordPath: isRecordEnabled
                     ? recordPathFor(recordDirectory, recordName, startedAt)
                     : undefined,
@@ -370,6 +383,25 @@ const RecordTimestamp: React.FC<RecordTimestampProps> = (
     )
 }
 
+function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {
+    const seen = new Set<string>()
+
+    for (const { deviceName, identifier } of requests) {
+        const isRepeated =
+            requests.filter((other) => other.deviceName === deviceName).length >
+            1
+        const own = `${deviceName}/${identifier}`
+
+        if (isRepeated && (!identifier || seen.has(own))) {
+            return deviceName
+        }
+
+        seen.add(own)
+    }
+
+    return undefined
+}
+
 function recordPathFor(directory: string, name: string, startedAt: Date) {
     const folder =
         directory.trim().replace(/\/+$/, '') || defaultRecordDirectory
@@ -432,6 +464,11 @@ type OrchestratorReply = Partial<RunningSession> & {
 interface RunningSession {
     devices: DeviceRequest[]
     xdfRecordPath?: string
+}
+
+interface SelectedDevice {
+    name: string
+    identifier: string
 }
 
 interface DeviceRequest {

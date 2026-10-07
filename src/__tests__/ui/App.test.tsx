@@ -119,12 +119,126 @@ export default class AppTest extends AbstractPackageTest {
     protected static async stopsOfferingBiosensorOnceAdded() {
         render(<App />)
 
-        this.addBiosensor('OpenBCI Cyton')
+        this.addBiosensor('Zephyr BioHarness 3')
         this.openBiosensorMenu()
 
         assert.isFalse(
-            this.offeredBiosensors.includes('OpenBCI Cyton'),
+            this.offeredBiosensors.includes('Zephyr BioHarness 3'),
             'Kept offering biosensor after adding it!'
+        )
+    }
+
+    @test()
+    protected static async keepsOfferingBiosensorThatTakesAnIdentifier() {
+        this.renderWithMuse()
+
+        this.openBiosensorMenu()
+
+        assert.isTrue(
+            this.offeredBiosensors.includes('Muse S Gen 2'),
+            'Did not keep offering biosensor that takes an identifier!'
+        )
+    }
+
+    @test()
+    protected static async monitorsSameBiosensorMoreThanOnce() {
+        this.renderWithTwoMuses()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.deviceNames,
+            ['Muse S Gen 2', 'Muse S Gen 2'],
+            'Did not monitor same biosensor more than once!'
+        )
+    }
+
+    @test()
+    protected static async keepsIdentifierOfEachRepeatSeparate() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.typeIdentifier('Muse S Gen 2 #2', 'second-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.identifiers,
+            {
+                'Muse S Gen 2': { label: 'UUID', value: 'first-uuid' },
+                'Muse S Gen 2 #2': { label: 'UUID', value: 'second-uuid' },
+            },
+            'Did not keep identifier of each repeat separate!'
+        )
+    }
+
+    @test()
+    protected static async removesOnlyTheRepeatThatWasChosen() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.typeIdentifier('Muse S Gen 2 #2', 'second-uuid')
+        this.removeDevice('Muse S Gen 2')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.identifiers,
+            { 'Muse S Gen 2': { label: 'UUID', value: 'second-uuid' } },
+            'Did not remove only the repeat that was chosen!'
+        )
+    }
+
+    @test()
+    protected static async startsEachRepeatWithItsOwnIdentifier() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.typeIdentifier('Muse S Gen 2 #2', 'second-uuid')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [
+                { deviceName: 'Muse S Gen 2', identifier: 'first-uuid' },
+                { deviceName: 'Muse S Gen 2', identifier: 'second-uuid' },
+            ],
+            'Did not start each repeat with its own identifier!'
+        )
+    }
+
+    @test()
+    protected static async refusesToConnectRepeatsWithoutIdentifiers() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.assertRefusesToConnectRepeats()
+    }
+
+    @test()
+    protected static async refusesToConnectRepeatsSharingAnIdentifier() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'same-uuid')
+        this.typeIdentifier('Muse S Gen 2 #2', ' same-uuid ')
+        this.assertRefusesToConnectRepeats()
+    }
+
+    @test()
+    protected static async restoresRepeatsOfSessionRunningOnLoad() {
+        render(<App />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [
+                    { deviceName: 'Muse S Gen 2', identifier: 'first-uuid' },
+                    { deviceName: 'Muse S Gen 2', identifier: 'second-uuid' },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.identifiers,
+            {
+                'Muse S Gen 2': { label: 'UUID', value: 'first-uuid' },
+                'Muse S Gen 2 #2': { label: 'UUID', value: 'second-uuid' },
+            },
+            'Did not restore repeats of session running on load!'
         )
     }
 
@@ -1271,6 +1385,30 @@ export default class AppTest extends AbstractPackageTest {
     private static renderWithMuse() {
         render(<App />)
         this.addBiosensor('Muse S Gen 2')
+    }
+
+    private static renderWithTwoMuses() {
+        this.renderWithMuse()
+        this.addBiosensor('Muse S Gen 2')
+    }
+
+    private static assertRefusesToConnectRepeats() {
+        const numContactsBefore = FakeWebSocket.callsToConstructor.length
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            {
+                error: screen.getByRole('alert').textContent,
+                numContacts: FakeWebSocket.callsToConstructor.length,
+                button: this.sessionButtonState,
+            },
+            {
+                error: 'Give each Muse S Gen 2 its own UUID.',
+                numContacts: numContactsBefore,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not refuse to connect repeats!'
+        )
     }
 
     private static typeIdentifier(name: string, value: string) {
