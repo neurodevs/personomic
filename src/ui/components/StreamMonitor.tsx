@@ -52,6 +52,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         deviceFor(name, gatewayDevices, streamOptions)
     )
     const streams = devices.flatMap((device) => device.streams)
+    const streamNames = [...new Set(streams.map((stream) => stream.name))]
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -284,7 +285,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             key={stream.name}
                             {...stream}
                             downsampling={stream.downsampling ?? downsampling}
-                            color={streamColors[streams.indexOf(stream)]}
+                            color={
+                                streamColors[streamNames.indexOf(stream.name)]
+                            }
                             {...dataByPort[stream.wssPort]}
                             windowSeconds={windowSeconds}
                             nowTimestamp={sharedNowTimestamp}

@@ -951,6 +951,41 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async givesStreamsWithSameNameSameColorAcrossDevices() {
+        this.setFakeStreamPlot()
+
+        await this.render([
+            {
+                name: this.generateId(),
+                streams: [
+                    { name: 'EEG', wssPort: 1111 },
+                    { name: 'PPG', wssPort: 2222 },
+                ],
+            },
+            {
+                name: this.generateId(),
+                streams: [
+                    { name: 'ACCEL', wssPort: 3333 },
+                    { name: 'EEG', wssPort: 4444 },
+                    { name: 'PPG', wssPort: 5555 },
+                ],
+            },
+        ])
+
+        assert.isEqualDeep(
+            this.latestColorsByPort,
+            {
+                1111: streamColors[0],
+                2222: streamColors[1],
+                3333: streamColors[2],
+                4444: streamColors[0],
+                5555: streamColors[1],
+            },
+            'Did not give streams with the same name the same color!'
+        )
+    }
+
+    @test()
     protected static async connectsToStreamsOfEveryDevice() {
         await this.render(this.twoDevices)
 
@@ -1329,6 +1364,15 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await this.runFrame()
 
         return chunks
+    }
+
+    private static get latestColorsByPort() {
+        return Object.fromEntries(
+            passedStreamPlotProps.map((props) => [
+                (props as { wssPort?: number }).wssPort,
+                props.color,
+            ])
+        )
     }
 
     private static latestPlotPropsFor(name: string) {
