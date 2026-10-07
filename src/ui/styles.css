@@ -287,6 +287,16 @@ body {
     box-shadow: none;
 }
 
+.stream-monitor__device:not(.stream-monitor__device--connected)
+    .stream-plot::before {
+    background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--text-muted) 60%, transparent),
+        transparent
+    );
+}
+
 .stream-plot__name {
     font-size: 13px;
     font-weight: 600;
