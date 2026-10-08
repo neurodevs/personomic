@@ -286,6 +286,64 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async refusesToConnectDifferentMusesWithoutIdentifiers() {
+        this.renderWithTwoDifferentMuses()
+
+        this.assertRefusesToConnectRepeats()
+    }
+
+    @test()
+    protected static async refusesToConnectDifferentMusesWhenOnlyOneHasIdentifier() {
+        this.renderWithTwoDifferentMuses()
+
+        this.typeIdentifier('Muse 2', 'second-uuid')
+        this.assertRefusesToConnectRepeats()
+    }
+
+    @test()
+    protected static async refusesToConnectDifferentMusesSharingAnIdentifier() {
+        this.renderWithTwoDifferentMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'same-uuid')
+        this.typeIdentifier('Muse 2', 'same-uuid')
+        this.assertRefusesToConnectRepeats()
+    }
+
+    @test()
+    protected static async connectsDifferentMusesThatEachHaveTheirOwnIdentifier() {
+        this.renderWithTwoDifferentMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'first-uuid')
+        this.typeIdentifier('Muse 2', 'second-uuid')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [
+                { deviceName: 'Muse S Gen 2', identifier: 'first-uuid' },
+                { deviceName: 'Muse 2', identifier: 'second-uuid' },
+            ],
+            'Did not connect different Muses that each had their own identifier!'
+        )
+    }
+
+    @test()
+    protected static async connectsOneMuseBesideAnotherKindWithoutIdentifiers() {
+        this.renderWithMuse()
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [{ deviceName: 'Muse S Gen 2' }, { deviceName: 'OpenBCI Cyton' }],
+            'Did not connect one Muse beside another kind without identifiers!'
+        )
+    }
+
+    @test()
     protected static async restoresRepeatsOfSessionRunningOnLoad() {
         render(<App />)
 
@@ -1541,10 +1599,10 @@ export default class AppTest extends AbstractPackageTest {
     @test()
     protected static async forgetsIdentifierOnlyForItsOwnDevice() {
         this.renderWithMuse()
-        this.addBiosensor('Muse 2')
+        this.addBiosensor('Govee Thermohygrometer H5074')
 
         this.typeIdentifier('Muse S Gen 2', 'shared-uuid')
-        this.typeIdentifier('Muse 2', 'shared-uuid')
+        this.typeIdentifier('Govee Thermohygrometer H5074', 'shared-uuid')
         this.connect()
         this.clickStop()
         act(() => this.orchestratorSocket.receive({}))
@@ -1552,7 +1610,7 @@ export default class AppTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.rememberedIdentifiers,
-            { 'Muse 2': ['shared-uuid'] },
+            { 'Govee Thermohygrometer H5074': ['shared-uuid'] },
             'Did not forget identifier only for its own device!'
         )
     }
@@ -1653,6 +1711,11 @@ export default class AppTest extends AbstractPackageTest {
         this.addBiosensor('Muse S Gen 2')
     }
 
+    private static renderWithTwoDifferentMuses() {
+        this.renderWithMuse()
+        this.addBiosensor('Muse 2')
+    }
+
     private static assertRefusesToConnectRepeats() {
         const numContactsBefore = FakeWebSocket.callsToConstructor.length
         this.clickConnect()
@@ -1664,7 +1727,7 @@ export default class AppTest extends AbstractPackageTest {
                 button: this.sessionButtonState,
             },
             {
-                error: 'Give each Muse S Gen 2 its own UUID.',
+                error: 'Must give each Muse its own UUID!',
                 numContacts: numContactsBefore,
                 button: { text: 'Connect', isDisabled: false },
             },

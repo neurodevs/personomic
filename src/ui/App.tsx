@@ -1,6 +1,7 @@
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 import React, { useEffect, useState } from 'react'
 
+import familyOf from '../functions/familyOf'
 import AddBiosensorButton from './components/AddBiosensorButton'
 import StreamMonitor, {
     deviceKeysFor,
@@ -213,7 +214,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
         if (indistinguishable) {
             setSessionError(
-                `Give each ${indistinguishable} its own ${identifierLabels[indistinguishable]}.`
+                `Must give each ${familyOf(indistinguishable)} its own ${identifierLabels[indistinguishable]}!`
             )
             return
         }
@@ -422,10 +423,11 @@ function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {
     const seen = new Set<string>()
 
     for (const { deviceName, identifier } of requests) {
+        const family = familyOf(deviceName)
         const isRepeated =
-            requests.filter((other) => other.deviceName === deviceName).length >
-            1
-        const own = `${deviceName}/${identifier}`
+            requests.filter((other) => familyOf(other.deviceName) === family)
+                .length > 1
+        const own = `${family}/${identifier}`
 
         if (isRepeated && (!identifier || seen.has(own))) {
             return deviceName

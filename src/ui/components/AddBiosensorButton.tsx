@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 
+import familyOf from '../../functions/familyOf'
+
 export interface AddBiosensorButtonProps {
     names: readonly string[]
     onAdd: (name: string) => void
@@ -69,8 +71,4 @@ function familiesOf(names: readonly string[]) {
     }
 
     return [...namesByFamily.values()]
-}
-
-function familyOf(name: string) {
-    return name.startsWith('Muse ') ? 'Muse' : name
 }
