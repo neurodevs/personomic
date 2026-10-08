@@ -17,11 +17,11 @@ export interface StreamPlotProps {
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
     downsampling?: Downsampling
-    yRange?: YRangeBounds
+    yLimits?: YLimits
     units?: string
 }
 
-export interface YRangeBounds {
+export interface YLimits {
     min?: number
     max?: number
 }
@@ -50,12 +50,12 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         detectPeaks,
         channelNames,
         downsampling,
-        yRange,
+        yLimits,
         units,
     } = props
 
-    const yMinBound = yRange?.min
-    const yMaxBound = yRange?.max
+    const yMinLimit = yLimits?.min
+    const yMaxLimit = yLimits?.max
 
     const channelsRef = useRef<HTMLDivElement>(null)
     const containerRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -262,7 +262,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         height,
                         color,
                         hasPeakMarkers,
-                        yBounds: { min: yMinBound, max: yMaxBound },
+                        yLimits: { min: yMinLimit, max: yMaxLimit },
                         occurrencesOf: () => occurrencesRef.current[channel],
                     }),
                     hasPeakMarkers ? [[], [], []] : [[], []],
@@ -273,7 +273,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [plottedChannelCount, color, hasPeakMarkers, yMinBound, yMaxBound])
+    }, [plottedChannelCount, color, hasPeakMarkers, yMinLimit, yMaxLimit])
 
     useEffect(() => {
         plotsRef.current.forEach((plot) =>
@@ -585,12 +585,12 @@ interface PlotAppearance {
     height: number
     color: string
     hasPeakMarkers: boolean
-    yBounds: YRangeBounds
+    yLimits: YLimits
     occurrencesOf: () => ValueOccurrences | undefined
 }
 
 function optionsFor(appearance: PlotAppearance): uPlot.Options {
-    const { width, height, color, hasPeakMarkers, yBounds, occurrencesOf } =
+    const { width, height, color, hasPeakMarkers, yLimits, occurrencesOf } =
         appearance
 
     return {
@@ -603,12 +603,7 @@ function optionsFor(appearance: PlotAppearance): uPlot.Options {
             x: { time: false },
             y: {
                 range: (plot, min, max) =>
-                    widenedYRangeFor(plot, [
-                        min,
-                        max,
-                        yBounds.min,
-                        yBounds.max,
-                    ]),
+                    yRangeFor(plot, { min, max }, yLimits),
             },
         },
         axes: [{ show: false }, yAxis],
@@ -766,26 +761,42 @@ function occurrenceCountsByPixelRow(
     return countsByRow
 }
 
-const widestYRangeByPlot = new WeakMap<uPlot, YRange>()
+const latestYRangeByPlot = new WeakMap<uPlot, YRange>()
 
-function widenedYRangeFor(
-    plot: uPlot,
-    valuesToCover: (number | null | undefined)[]
-) {
-    const widest = widestYRangeByPlot.get(plot) ?? []
-    const covered = [...valuesToCover, ...widest].filter(
-        (value) => value != null
-    )
+function yRangeFor(plot: uPlot, visible: VisibleExtremes, limits: YLimits) {
+    const latest = latestYRangeByPlot.get(plot)
+    const hasVisibleData = visible.min != null && visible.max != null
 
-    const bars = tightestYBarsCovering(
-        covered.length > 0 ? Math.min(...covered) : 0,
-        covered.length > 0 ? Math.max(...covered) : 0
-    )
+    if (!hasVisibleData && latest) {
+        return latest
+    }
 
-    const widened: YRange = [bars[0], bars[bars.length - 1]]
-    widestYRangeByPlot.set(plot, widened)
+    const bars = hasVisibleData
+        ? tightestYBarsCovering(visible.min!, visible.max!)
+        : tightestYBarsCovering(
+              limits.min ?? limits.max ?? 0,
+              limits.max ?? limits.min ?? 0
+          )
 
-    return widened
+    const range = withinYLimits([bars[0], bars[bars.length - 1]], limits)
+    latestYRangeByPlot.set(plot, range)
+
+    return range
+}
+
+function withinYLimits([low, high]: YRange, limits: YLimits): YRange {
+    const { min = -Infinity, max = Infinity } = limits
+    const span = high - low
+
+    const shiftedHigh = Math.min(Math.max(high, min + span), max)
+    const shiftedLow = Math.max(shiftedHigh - span, min)
+
+    return [shiftedLow, shiftedHigh]
+}
+
+interface VisibleExtremes {
+    min: number | null
+    max: number | null
 }
 
 type YRange = [number, number]

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import StreamPlot, {
     Downsampling,
     PeakDetectionOptions,
-    YRangeBounds,
+    YLimits,
 } from './StreamPlot'
 
 export const streamColors = [
@@ -581,7 +581,7 @@ function streamFor(
     options: StreamOptions = {}
 ): BiosignalStream {
     const { type, listenPort, channelNames, sampleRateHz } = stream
-    const { detectPeaks, downsampling, yRange, units } = options
+    const { detectPeaks, downsampling, yLimits, units } = options
 
     return {
         name: type,
@@ -595,7 +595,7 @@ function streamFor(
             sampleRate: sampleRateHz,
         },
         downsampling,
-        yRange,
+        yLimits,
         units,
     }
 }
@@ -735,7 +735,7 @@ export interface DeviceIdentifier {
 export interface StreamOptions {
     detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
     downsampling?: Downsampling
-    yRange?: YRangeBounds
+    yLimits?: YLimits
     units?: string
 }
 
@@ -756,7 +756,7 @@ interface BiosignalStream {
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
     downsampling?: Downsampling
-    yRange?: YRangeBounds
+    yLimits?: YLimits
     units?: string
 }
 

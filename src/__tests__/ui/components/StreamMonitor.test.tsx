@@ -1682,20 +1682,20 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async passesYRangeForStreamTypeToItsPlot() {
+    protected static async passesYLimitsForStreamTypeToItsPlot() {
         this.setFakeStreamPlot()
         await this.render(this.devicesFor(this.streams), {
             streamOptions: {
-                [this.streams[0].name]: { yRange: { min: 0, max: 100 } },
+                [this.streams[0].name]: { yLimits: { min: 0, max: 100 } },
             },
         })
 
         assert.isEqualDeep(
             this.streams.map(
-                (stream) => this.latestPlotPropsFor(stream.name)?.yRange
+                (stream) => this.latestPlotPropsFor(stream.name)?.yLimits
             ),
             [{ min: 0, max: 100 }, undefined],
-            'Did not pass y-range for stream type to its plot!'
+            'Did not pass y-limits for stream type to its plot!'
         )
     }
 

@@ -43,8 +43,8 @@ const streamOptions: Record<string, StreamOptions> = {
         },
     },
     Temperature: { units: '°C' },
-    Humidity: { yRange: { min: 0, max: 100 }, units: '%' },
-    Battery: { yRange: { min: 0, max: 100 }, units: '%' },
+    Humidity: { yLimits: { min: 0, max: 100 }, units: '%' },
+    Battery: { yLimits: { min: 0, max: 100 }, units: '%' },
 }
 
 const intermittentWindowSeconds = 120

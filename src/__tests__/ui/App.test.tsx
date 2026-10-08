@@ -130,17 +130,17 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
-    @test('scales battery from zero to hundred', 'Battery')
-    @test('scales humidity from zero to hundred', 'Humidity')
-    protected static async scalesPercentageStreamFromZeroToHundred(
+    @test('limits battery between zero and hundred', 'Battery')
+    @test('limits humidity between zero and hundred', 'Humidity')
+    protected static async limitsPercentageStreamBetweenZeroAndHundred(
         streamType: string
     ) {
         render(<App />)
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.streamOptions?.[streamType]?.yRange,
+            lastStreamMonitorProps?.streamOptions?.[streamType]?.yLimits,
             { min: 0, max: 100 },
-            `Did not scale ${streamType} from zero to hundred!`
+            `Did not limit ${streamType} between zero and hundred!`
         )
     }
 

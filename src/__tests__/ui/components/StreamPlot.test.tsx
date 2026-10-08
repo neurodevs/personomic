@@ -225,41 +225,28 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async keepsYScaleWhenSignalNarrows() {
+    protected static async tightensYScaleWhenVisibleSignalNarrows() {
         await this.render(this.twoChannels)
 
         this.yRangeFor(0, 100)
 
         assert.isEqualDeep(
             this.yRangeFor(40, 60),
-            [0, 100],
-            'Did not keep y-scale when signal narrowed!'
+            [40, 60],
+            'Did not tighten y-scale when visible signal narrowed!'
         )
     }
 
     @test()
-    protected static async widensYScaleUpwardKeepingLowerBound() {
-        await this.render(this.twoChannels)
-
-        this.yRangeFor(21.3, 23.9)
-
-        assert.isEqualDeep(
-            this.yRangeFor(22, 31),
-            [20, 35],
-            'Did not widen y-scale upward keeping lower bound covered!'
-        )
-    }
-
-    @test()
-    protected static async widensYScaleDownwardKeepingUpperBound() {
+    protected static async movesYScaleWhenVisibleSignalMoves() {
         await this.render(this.twoChannels)
 
         this.yRangeFor(0, 100)
 
         assert.isEqualDeep(
             this.yRangeFor(-20, 10),
-            [-50, 100],
-            'Did not widen y-scale downward keeping upper bound covered!'
+            [-20, 10],
+            'Did not move y-scale when visible signal moved!'
         )
     }
 
@@ -277,105 +264,106 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async widensYScaleOfEachChannelSeparately() {
+    protected static async keepsYScaleOfEachChannelSeparately() {
         await this.render(this.twoChannels)
 
         this.yRangeFor(0, 100, FakeUPlot.instances[0])
 
         assert.isEqualDeep(
-            this.yRangeFor(40, 60, FakeUPlot.instances[1]),
-            [40, 60],
-            'Did not widen y-scale of each channel separately!'
+            this.yRangeFor(null, null, FakeUPlot.instances[1]),
+            [0, 0.2],
+            'Did not keep y-scale of each channel separately!'
         )
     }
 
     @test()
-    protected static async scalesYAcrossGivenRangeFromFirstSample() {
+    protected static async scalesYToVisibleSignalInsideGivenLimits() {
         await this.render({
             ...this.twoChannels,
-            yRange: { min: 0, max: 100 },
+            yLimits: { min: 0, max: 100 },
         })
 
         assert.isEqualDeep(
             this.yRangeFor(87, 88),
-            [0, 100],
-            'Did not scale y across given range from first sample!'
+            [87, 88],
+            'Did not scale y to visible signal inside given limits!'
         )
     }
 
     @test()
-    protected static async scalesYAcrossGivenRangeBeforeAnyDataArrives() {
+    protected static async scalesYAcrossGivenLimitsBeforeAnyDataArrives() {
         await this.render({
             ...this.twoChannels,
-            yRange: { min: 0, max: 100 },
+            yLimits: { min: 0, max: 100 },
         })
 
         assert.isEqualDeep(
             this.yRangeFor(null, null),
             [0, 100],
-            'Did not scale y across given range before any data arrived!'
+            'Did not scale y across given limits before any data arrived!'
         )
     }
 
-    @test('given min only', { min: 0 }, 40, 60, [0, 60])
-    @test('given max only', { max: 100 }, 87, 88, [85, 100])
-    protected static async scalesYToIncludeTheOneGivenBound(
-        yRange: StreamPlotProps['yRange'],
+    @test('shifts up to given min', { min: 0 }, -5, 15, [0, 30])
+    @test('shifts down to given max', { max: 100 }, 100, 100, [80, 100])
+    @test('ignores side without limit', { min: 0 }, 40, 60, [40, 60])
+    protected static async keepsYScaleWithinTheOneGivenLimit(
+        yLimits: StreamPlotProps['yLimits'],
         min: number,
         max: number,
         expected: number[]
     ) {
-        await this.render({ ...this.twoChannels, yRange })
+        await this.render({ ...this.twoChannels, yLimits })
 
         assert.isEqualDeep(
             this.yRangeFor(min, max),
             expected,
-            'Did not scale y to include the one given bound!'
+            'Did not keep y-scale within the one given limit!'
         )
     }
 
     @test()
-    protected static async widensYScalePastGivenRangeWhenDataExceedsIt() {
+    protected static async keepsYScaleWithinGivenLimitsWhenDataExceedsThem() {
         await this.render({
             ...this.twoChannels,
-            yRange: { min: 0, max: 100 },
+            yLimits: { min: 0, max: 100 },
         })
 
         assert.isEqualDeep(
             this.yRangeFor(-5, 120),
-            [-100, 200],
-            'Did not widen y-scale past given range when data exceeded it!'
+            [0, 100],
+            'Did not keep y-scale within given limits when data exceeded them!'
         )
     }
 
     @test()
-    protected static async recreatesPlotsWhenGivenYRangeChanges() {
+    protected static async recreatesPlotsWhenGivenYLimitsChange() {
         await this.renderThenUpdate(
-            { ...this.twoChannels, yRange: { min: 0 } },
-            { ...this.twoChannels, yRange: { min: 0, max: 100 } }
+            { ...this.twoChannels, yLimits: { min: 0 } },
+            { ...this.twoChannels, yLimits: { min: 0, max: 100 } }
         )
 
         assert.isEqualDeep(
             {
                 numPlots: FakeUPlot.instances.length,
-                range: this.yRangeFor(87, 88),
+                range: this.yRangeFor(100, 100),
             },
-            { numPlots: 4, range: [0, 100] },
-            'Did not recreate plots when given y-range changed!'
+            { numPlots: 4, range: [80, 100] },
+            'Did not recreate plots when given y-limits changed!'
         )
     }
 
     @test()
-    protected static async keepsPlotsWhenGivenYRangeIsSameValues() {
+    protected static async keepsPlotsWhenGivenYLimitsAreSameValues() {
         await this.renderThenUpdate(
-            { ...this.twoChannels, yRange: { min: 0, max: 100 } },
-            { ...this.twoChannels, yRange: { min: 0, max: 100 } }
+            { ...this.twoChannels, yLimits: { min: 0, max: 100 } },
+            { ...this.twoChannels, yLimits: { min: 0, max: 100 } }
         )
 
         assert.isEqual(
             FakeUPlot.instances.length,
             2,
-            'Recreated plots for a y-range with the same values!'
+            'Recreated plots for y-limits with the same values!'
         )
     }
 
