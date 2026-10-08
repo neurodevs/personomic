@@ -90,11 +90,33 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const windowSecondsByPortRef = useRef(windowSecondsByPort)
     windowSecondsByPortRef.current = windowSecondsByPort
 
-    const chooseWindowSeconds = (port: number, seconds: number) =>
+    const sessionByPortRef = useRef<Record<number, StreamData>>({})
+
+    const retainedSecondsFor = (port: number, windowSeconds: number) =>
+        Math.max(
+            windowSeconds,
+            streams.find((stream) => stream.wssPort === port)?.detectPeaks
+                ?.heartRateWindowSeconds ?? 0
+        )
+
+    const chooseWindowSeconds = (port: number, seconds: number) => {
         setChosenWindowSecondsByPort((previous) => ({
             ...previous,
             [port]: seconds,
         }))
+
+        const session = sessionByPortRef.current[port]
+
+        if (session) {
+            setDataByPort((previous) => ({
+                ...previous,
+                [port]: latestSecondsOf(
+                    session,
+                    retainedSecondsFor(port, seconds)
+                ),
+            }))
+        }
+    }
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -164,29 +186,30 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     windowSecondsFor(Number(port)) * 1000
             )
 
-        const retainedSecondsFor = (port: number) =>
-            Math.max(
-                windowSecondsFor(port),
-                streams.find((stream) => stream.wssPort === port)?.detectPeaks
-                    ?.heartRateWindowSeconds ?? 0
-            )
-
         const renderBatches = (batches: Record<number, StreamData[]>) => {
             if (Object.keys(batches).length === 0) {
                 return
             }
 
+            const sessionByPort = sessionByPortRef.current
+
+            for (const [port, pending] of Object.entries(batches)) {
+                for (const data of pending) {
+                    sessionByPort[Number(port)] = appendToSession(
+                        sessionByPort[Number(port)],
+                        data
+                    )
+                }
+            }
+
             setDataByPort((previous) => {
                 const next = { ...previous }
 
-                for (const [port, pending] of Object.entries(batches)) {
-                    for (const data of pending) {
-                        next[Number(port)] = appendToWindow(
-                            next[Number(port)],
-                            data,
-                            retainedSecondsFor(Number(port))
-                        )
-                    }
+                for (const port of Object.keys(batches).map(Number)) {
+                    next[port] = latestSecondsOf(
+                        sessionByPortRef.current[port],
+                        retainedSecondsFor(port, windowSecondsFor(port))
+                    )
                 }
 
                 return next
@@ -672,22 +695,33 @@ function retryDelayMsAfter(numFailedRetries: number) {
     return numFailedRetries < 10 ? 1000 : 10000
 }
 
-function appendToWindow(
-    previous: StreamData | undefined,
-    data: StreamData,
-    windowSeconds: number
+function appendToSession(
+    session: StreamData | undefined,
+    data: StreamData
 ): StreamData {
-    const channelCount = channelCountOf(data)
-    const kept =
-        previous && channelCountOf(previous) === channelCount
-            ? previous
-            : undefined
+    const isSameShape =
+        data.timestamps.length === 0 ||
+        channelCountOf(session ?? data) === channelCountOf(data)
 
-    const samples = [...(kept?.samples ?? []), ...data.samples]
-    const timestamps = [...(kept?.timestamps ?? []), ...data.timestamps]
+    const continued =
+        session && isSameShape ? session : { samples: [], timestamps: [] }
 
-    const cutoff = timestamps[timestamps.length - 1] - windowSeconds
-    const firstKept = timestamps.findIndex((timestamp) => timestamp >= cutoff)
+    data.samples.forEach((sample) => continued.samples.push(sample))
+    data.timestamps.forEach((timestamp) => continued.timestamps.push(timestamp))
+
+    return continued
+}
+
+function latestSecondsOf(session: StreamData, seconds: number): StreamData {
+    const { samples, timestamps } = session
+    const channelCount = channelCountOf(session)
+    const cutoff = timestamps[timestamps.length - 1] - seconds
+
+    let firstKept = timestamps.length
+
+    while (firstKept > 0 && timestamps[firstKept - 1] >= cutoff) {
+        firstKept--
+    }
 
     return {
         samples: samples.slice(firstKept * channelCount),

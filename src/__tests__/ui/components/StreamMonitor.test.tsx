@@ -349,6 +349,51 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsWholeSessionAsSoonAsAllWindowIsChosen() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), { windowSeconds: 1 })
+
+        await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 1, 2] })
+        this.chooseWindowSeconds(Infinity)
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3], timestamps: [0, 1, 2] },
+            'Did not show whole session as soon as all window was chosen!'
+        )
+    }
+
+    @test()
+    protected static async showsEarlierSamplesWhenLongerWindowIsChosen() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), { windowSeconds: 1 })
+
+        await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 1, 2] })
+        this.chooseWindowSeconds(5)
+        await this.sendChunk({ samples: [4], timestamps: [3] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4], timestamps: [0, 1, 2, 3] },
+            'Did not show earlier samples when longer window was chosen!'
+        )
+    }
+
+    @test()
+    protected static async keepsSessionWhenEmptyChunkArrives() {
+        await this.renderWithFakePlot()
+
+        await this.sendChunk({ samples: [1, 2], timestamps: [0, 1] })
+        await this.sendChunk({ samples: [], timestamps: [] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2], timestamps: [0, 1] },
+            'Did not keep session when empty chunk arrived!'
+        )
+    }
+
+    @test()
     protected static async keepsEverySampleForAllWindow() {
         await this.renderWithFakePlot()
 
