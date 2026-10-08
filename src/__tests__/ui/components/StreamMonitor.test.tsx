@@ -287,6 +287,166 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesDeviceWindowSecondsToItsPlots() {
+        this.setFakeStreamPlot()
+        await this.render(this.twoDevices, {
+            windowSeconds: 3,
+            windowSecondsByDevice: { [this.twoDevices[1].name]: 120 },
+        })
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [3, 120],
+            'Did not pass device windowSeconds to its plots!'
+        )
+    }
+
+    @test()
+    protected static async changesWindowOfOnlyThePlotThatAsked() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowSeconds(30)
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [30, 10],
+            'Did not change window of only the plot that asked!'
+        )
+    }
+
+    @test()
+    protected static async prefersChosenWindowOverDeviceWindow() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            windowSecondsByDevice: { [this.deviceName]: 120 },
+        })
+
+        this.chooseWindowSeconds(30)
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [30, 120],
+            'Did not prefer chosen window over device window!'
+        )
+    }
+
+    @test()
+    protected static async keepsSamplesForChosenWindow() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), { windowSeconds: 1 })
+
+        this.chooseWindowSeconds(2)
+        await this.sendChunk({
+            samples: [1, 2, 3, 4],
+            timestamps: [0, 1, 2, 3],
+        })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [2, 3, 4], timestamps: [1, 2, 3] },
+            'Did not keep samples for chosen window!'
+        )
+    }
+
+    @test()
+    protected static async keepsEverySampleForAllWindow() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowSeconds(Infinity)
+        await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 100, 1000] })
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3], timestamps: [0, 100, 1000] },
+            'Did not keep every sample for all window!'
+        )
+    }
+
+    @test()
+    protected static async showsStreamsOfDeviceQuickestFirst() {
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceWithRates([
+                { type: 'Slow', sampleRateHz: 0 },
+                { type: 'Quick', sampleRateHz: 256 },
+                { type: 'Medium', sampleRateHz: 64 },
+            ]),
+        ])
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            ['stream-plot-Quick', 'stream-plot-Medium', 'stream-plot-Slow'],
+            'Did not show streams of device quickest first!'
+        )
+    }
+
+    @test()
+    protected static async keepsGatewayOrderForEquallyQuickStreams() {
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceWithRates([
+                { type: 'First', sampleRateHz: 64 },
+                { type: 'Second', sampleRateHz: 64 },
+            ]),
+        ])
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            ['stream-plot-First', 'stream-plot-Second'],
+            'Did not keep gateway order for equally quick streams!'
+        )
+    }
+
+    @test()
+    protected static async keepsStreamColorsWhenSortedQuickestFirst() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceWithRates([
+                { type: 'Slow', sampleRateHz: 0 },
+                { type: 'Quick', sampleRateHz: 256 },
+            ]),
+        ])
+
+        assert.isEqualDeep(
+            ['Slow', 'Quick'].map(
+                (name) => this.latestPlotPropsFor(name)?.color
+            ),
+            [streamColors[0], streamColors[1]],
+            'Did not keep stream colors when sorted quickest first!'
+        )
+    }
+
+    @test()
+    protected static async keepsAnimatingWhileDataIsWithinDeviceWindow() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            windowSecondsByDevice: { [this.deviceName]: 120 },
+        })
+
+        await this.sendChunk({ samples: [1], timestamps: [5] })
+
+        this.nowMs = 60000
+        await this.runFrame()
+        const framesWhileVisible = FakeFrameScheduler.pending.length
+
+        this.nowMs = 120001
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                framesWhileVisible,
+                framesAfterGone: FakeFrameScheduler.pending.length,
+            },
+            { framesWhileVisible: 1, framesAfterGone: 0 },
+            'Did not keep animating while data was within device window!'
+        )
+    }
+
+    @test()
     protected static async connectsToDeviceStatusPort() {
         await this.renderBeforeDeviceStatus()
 
@@ -1821,6 +1981,34 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         const url = this.urlsFor([stream])[0]
         const index = FakeWebSocket.callsToConstructor.lastIndexOf(url)
         return FakeWebSocket.instances[index]
+    }
+
+    private static gatewayDeviceWithRates(
+        streams: { type: string; sampleRateHz: number }[]
+    ) {
+        return {
+            deviceName: this.deviceName,
+            state: 'streaming',
+            streams: streams.map((stream, index) => ({
+                ...stream,
+                listenPort: 1234 + index,
+                channelNames: [],
+            })),
+        }
+    }
+
+    private static get latestWindowSecondsByStream() {
+        return this.streams.map(
+            (stream) => this.latestPlotPropsFor(stream.name)?.windowSeconds
+        )
+    }
+
+    private static chooseWindowSeconds(seconds: number, streamIndex = 0) {
+        const { name } = this.streams[streamIndex]
+
+        act(() =>
+            this.latestPlotPropsFor(name)?.onWindowSecondsChange?.(seconds)
+        )
     }
 
     private static plotRendersFor(name: string) {

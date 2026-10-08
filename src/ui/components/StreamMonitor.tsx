@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import StreamPlot, {
     Downsampling,
@@ -22,6 +22,7 @@ export interface StreamMonitorProps {
     deviceStatusPort: number
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
+    windowSecondsByDevice?: Record<string, number>
     downsampling?: Downsampling
     isConnecting?: boolean
     identifiers?: Record<string, DeviceIdentifier>
@@ -39,6 +40,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         deviceStatusPort,
         streamOptions = {},
         windowSeconds = 10,
+        windowSecondsByDevice = {},
         downsampling,
         onRemoveDevice,
         isConnecting = false,
@@ -53,6 +55,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         Record<number, LatestArrival>
     >({})
     const [nowMs, setNowMs] = useState(0)
+    const [chosenWindowSecondsByPort, setChosenWindowSecondsByPort] = useState<
+        Record<number, number>
+    >({})
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
 
@@ -70,6 +75,26 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     )
     const streams = devices.flatMap((device) => device.streams)
     const streamNames = [...new Set(streams.map((stream) => stream.name))]
+
+    const windowSecondsByPort: Record<number, number> = Object.fromEntries(
+        devices.flatMap((device) =>
+            device.streams.map((stream) => [
+                stream.wssPort,
+                chosenWindowSecondsByPort[stream.wssPort] ??
+                    windowSecondsByDevice[device.name] ??
+                    windowSeconds,
+            ])
+        )
+    )
+
+    const windowSecondsByPortRef = useRef(windowSecondsByPort)
+    windowSecondsByPortRef.current = windowSecondsByPort
+
+    const chooseWindowSeconds = (port: number, seconds: number) =>
+        setChosenWindowSecondsByPort((previous) => ({
+            ...previous,
+            [port]: seconds,
+        }))
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
 
@@ -129,15 +154,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             }
         }
 
+        const windowSecondsFor = (port: number) =>
+            windowSecondsByPortRef.current[port] ?? windowSeconds
+
         const isAnyDataStillOnScreen = (frameMs: number) =>
-            Object.values(latestArrivalByPort).some(
-                (arrival) =>
-                    frameMs - arrival.arrivedAtMs <= windowSeconds * 1000
+            Object.entries(latestArrivalByPort).some(
+                ([port, arrival]) =>
+                    frameMs - arrival.arrivedAtMs <=
+                    windowSecondsFor(Number(port)) * 1000
             )
 
         const retainedSecondsFor = (port: number) =>
             Math.max(
-                windowSeconds,
+                windowSecondsFor(port),
                 streams.find((stream) => stream.wssPort === port)?.detectPeaks
                     ?.heartRateWindowSeconds ?? 0
             )
@@ -306,7 +335,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     onForgetIdentifier={onForgetIdentifier}
                     onIdentifierChange={onIdentifierChange}
                 >
-                    {device.streams.map((stream) => (
+                    {quickestFirst(device.streams).map((stream) => (
                         <StreamPlotComponent
                             key={stream.name}
                             {...stream}
@@ -315,7 +344,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                                 streamColors[streamNames.indexOf(stream.name)]
                             }
                             {...dataByPort[stream.wssPort]}
-                            windowSeconds={windowSeconds}
+                            windowSeconds={windowSecondsByPort[stream.wssPort]}
+                            onWindowSecondsChange={(seconds) =>
+                                chooseWindowSeconds(stream.wssPort, seconds)
+                            }
                             nowTimestamp={sharedNowTimestamp}
                         />
                     ))}
@@ -326,6 +358,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function quickestFirst(streams: BiosignalStream[]) {
+    return [...streams].sort(
+        (a, b) => (b.sampleRateHz ?? 0) - (a.sampleRateHz ?? 0)
+    )
+}
 
 function sharedNowTimestampFor(
     arrivalsByPort: Record<number, LatestArrival>,
@@ -548,6 +586,7 @@ function streamFor(
     return {
         name: type,
         wssPort: listenPort,
+        sampleRateHz,
         channelNames: channelNames.map((channel) =>
             withoutTypePrefix(channel, type)
         ),
@@ -713,6 +752,7 @@ interface BiosignalDevice extends ShownDevice {
 interface BiosignalStream {
     name: string
     wssPort: number
+    sampleRateHz?: number
     detectPeaks?: PeakDetectionOptions
     channelNames?: string[]
     downsampling?: Downsampling

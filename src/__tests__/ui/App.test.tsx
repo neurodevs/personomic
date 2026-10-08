@@ -145,6 +145,17 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsLastTwoMinutesOfOnlyGoveeByDefault() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.windowSecondsByDevice,
+            { 'Govee Thermohygrometer H5074': 120 },
+            'Did not show last two minutes of only Govee by default!'
+        )
+    }
+
+    @test()
     protected static async watchesGatewayDeviceStatusPort() {
         render(<App />)
 

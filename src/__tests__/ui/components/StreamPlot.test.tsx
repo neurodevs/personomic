@@ -1515,6 +1515,255 @@ export default class StreamPlotTest extends AbstractPackageTest {
         )
     }
 
+    @test('labels seconds', 30, '2 ch · 30s window')
+    @test('labels whole minutes', 120, '2 ch · 2m window')
+    @test('labels minutes and seconds', 90, '2 ch · 1m 30s window')
+    protected static async labelsWindow(windowSeconds: number, label: string) {
+        await this.render({ ...this.twoChannels, windowSeconds })
+
+        assert.isEqual(this.meta, label, 'Did not label window!')
+    }
+
+    @test()
+    protected static async labelsAllWindowAsAllData() {
+        await this.render({ ...this.twoChannels, windowSeconds: Infinity })
+
+        assert.isEqual(
+            this.meta,
+            '2 ch · All data',
+            'Did not label all window as all data!'
+        )
+    }
+
+    @test()
+    protected static async changesToAllWindow() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+        fireEvent.click(screen.getByRole('menuitemradio', { name: 'All' }))
+
+        assert.isEqualDeep(
+            this.chosenWindows,
+            [Infinity],
+            'Did not change to all window!'
+        )
+    }
+
+    @test()
+    protected static async showsEverythingSinceFirstSampleInAllWindow() {
+        await this.render({
+            samples: [1, 2, 3],
+            timestamps: [0, 100, 1000],
+            windowSeconds: Infinity,
+            nowTimestamp: 1500,
+        })
+
+        assert.isEqualDeep(
+            { xScales: this.xScales, data: FakeUPlot.latest.data },
+            {
+                xScales: [{ min: 0, max: 1500 }],
+                data: [
+                    [0, 100, 1000],
+                    [1, 2, 3],
+                ],
+            },
+            'Did not show everything since first sample in all window!'
+        )
+    }
+
+    @test()
+    protected static async decimatesAllWindowAcrossEverythingShown() {
+        await this.render({
+            samples: [5, 9, 3, 1, 4, 2],
+            timestamps: [0, 1, 2, 3, 4, 5],
+            windowSeconds: Infinity,
+            nowTimestamp: 8,
+            width: 4,
+            downsampling: 'medium',
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.latest.data[0],
+            [1, 3, 4, 5],
+            'Did not decimate all window across everything shown!'
+        )
+    }
+
+    @test()
+    protected static async showsWindowAsPlainTextWhenItCannotChange() {
+        await this.render(this.twoChannels)
+
+        assert.isFalsy(
+            this.plot.querySelector('.stream-plot__meta button'),
+            'Offered to change a window that cannot change!'
+        )
+    }
+
+    @test()
+    protected static async hidesWindowOptionsUntilLabelPressed() {
+        await this.renderWithChangeableWindow()
+
+        assert.isLength(
+            this.windowOptions,
+            0,
+            'Showed window options before label was pressed!'
+        )
+    }
+
+    @test()
+    protected static async offersCommonWindowsWhenLabelPressed() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+
+        assert.isEqualDeep(
+            this.windowOptions.map((option) => option.textContent),
+            ['10s', '30s', '1m', '2m', '5m', 'All'],
+            'Did not offer common windows when label was pressed!'
+        )
+    }
+
+    @test()
+    protected static async checksCurrentWindowAmongOptions() {
+        await this.renderWithChangeableWindow({ windowSeconds: 120 })
+
+        this.pressWindowLabel()
+
+        assert.isEqualDeep(
+            this.windowOptions
+                .filter(
+                    (option) => option.getAttribute('aria-checked') === 'true'
+                )
+                .map((option) => option.textContent),
+            ['2m'],
+            'Did not check current window among options!'
+        )
+    }
+
+    @test()
+    protected static async changesToChosenWindow() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+        fireEvent.click(screen.getByRole('menuitemradio', { name: '2m' }))
+
+        assert.isEqualDeep(
+            this.chosenWindows,
+            [120],
+            'Did not change to chosen window!'
+        )
+    }
+
+    @test()
+    protected static async closesWindowOptionsAfterChoosing() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+        fireEvent.click(screen.getByRole('menuitemradio', { name: '30s' }))
+
+        assert.isLength(
+            this.windowOptions,
+            0,
+            'Did not close window options after choosing!'
+        )
+    }
+
+    @test()
+    protected static async closesWindowOptionsWhenLabelPressedAgain() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+        this.pressWindowLabel()
+
+        assert.isLength(
+            this.windowOptions,
+            0,
+            'Did not close window options when label was pressed again!'
+        )
+    }
+
+    @test()
+    protected static async keepsChannelsShownWhenLabelPressed() {
+        await this.renderWithChangeableWindow()
+
+        this.pressWindowLabel()
+
+        assert.isLength(
+            Array.from(this.plot.querySelectorAll('.stream-plot__channel')),
+            2,
+            'Did not keep channels shown when label was pressed!'
+        )
+    }
+
+    @test('takes plain number as seconds', '90', 90)
+    @test('takes seconds with suffix', '45s', 45)
+    @test('takes minutes with suffix', '3m', 180)
+    @test('takes fractional minutes', '1.5 m', 90)
+    protected static async changesToCustomWindow(
+        typed: string,
+        seconds: number
+    ) {
+        await this.renderWithChangeableWindow()
+
+        this.submitCustomWindow(typed)
+
+        assert.isEqualDeep(
+            this.chosenWindows,
+            [seconds],
+            'Did not change to custom window!'
+        )
+    }
+
+    @test('ignores words', 'soon')
+    @test('ignores zero', '0')
+    @test('ignores nothing typed', '')
+    protected static async ignoresInvalidCustomWindow(typed: string) {
+        await this.renderWithChangeableWindow()
+
+        this.submitCustomWindow(typed)
+
+        assert.isEqualDeep(
+            { chosen: this.chosenWindows, isStillOpen: this.isMenuOpen },
+            { chosen: [], isStillOpen: true },
+            'Did not ignore invalid custom window!'
+        )
+    }
+
+    private static chosenWindows: number[] = []
+
+    private static async renderWithChangeableWindow(
+        props?: Partial<StreamPlotProps>
+    ) {
+        this.chosenWindows = []
+
+        return this.render({
+            ...this.twoChannels,
+            onWindowSecondsChange: (seconds) =>
+                this.chosenWindows.push(seconds),
+            ...props,
+        })
+    }
+
+    private static pressWindowLabel() {
+        fireEvent.click(screen.getByRole('button', { name: /window$/ }))
+    }
+
+    private static submitCustomWindow(typed: string) {
+        this.pressWindowLabel()
+
+        const input = screen.getByRole('textbox', { name: /custom window/i })
+        fireEvent.change(input, { target: { value: typed } })
+        fireEvent.submit(input.closest('form')!)
+    }
+
+    private static get windowOptions() {
+        return screen.queryAllByRole('menuitemradio')
+    }
+
+    private static get isMenuOpen() {
+        return screen.queryByRole('menu') !== null
+    }
+
     private static readonly twoChannels = {
         samples: [1, 10, 2, 20, 3, 30],
         timestamps: [0, 1, 2],

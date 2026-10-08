@@ -47,6 +47,12 @@ const streamOptions: Record<string, StreamOptions> = {
     Battery: { yRange: { min: 0, max: 100 }, units: '%' },
 }
 
+const intermittentWindowSeconds = 120
+
+const windowSecondsByDevice: Record<string, number> = {
+    'Govee Thermohygrometer H5074': intermittentWindowSeconds,
+}
+
 const sessionButtonLabels: Record<SessionState, string> = {
     unlocked: 'Connect',
     connecting: 'Connecting…',
@@ -287,6 +293,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceStatusPort={8764}
                 deviceNames={deviceNames}
                 streamOptions={streamOptions}
+                windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
                 identifiers={identifiers}
                 rememberedIdentifiers={rememberedIdentifiers}

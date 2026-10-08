@@ -11,6 +11,7 @@ export interface StreamPlotProps {
     width?: number
     height?: number
     windowSeconds?: number
+    onWindowSecondsChange?: (seconds: number) => void
     nowTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
@@ -43,6 +44,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         width,
         height = 60,
         windowSeconds = 10,
+        onWindowSecondsChange,
         nowTimestamp,
         color = '#8b93a7',
         detectPeaks,
@@ -68,6 +70,16 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
     const plottedChannelCount = isHidden ? 0 : channelCount
+
+    const toggleHiddenUnlessClickedOnWindowPicker = (
+        event: React.MouseEvent
+    ) => {
+        const clicked = event.target as Element
+
+        if (!clicked.closest(`.${windowPickerClassName}`)) {
+            setIsHidden((wasHidden) => !wasHidden)
+        }
+    }
 
     const labelFor = (channel: number) =>
         channelNames?.length === channelCount
@@ -273,17 +285,20 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         const rightEdgeTimestamp =
             nowTimestamp ?? timestamps[timestamps.length - 1]
 
-        const firstVisible = firstIndexAtOrAfter(
-            timestamps,
-            rightEdgeTimestamp - windowSeconds
-        )
+        const leftEdgeTimestamp = Number.isFinite(windowSeconds)
+            ? rightEdgeTimestamp - windowSeconds
+            : (timestamps[0] ?? rightEdgeTimestamp)
+
+        const shownSeconds = rightEdgeTimestamp - leftEdgeTimestamp
+
+        const firstVisible = firstIndexAtOrAfter(timestamps, leftEdgeTimestamp)
 
         const pointsPerPixel = downsampling
             ? pointsPerPixelByDownsampling[downsampling]
             : 0
 
         const numBuckets = (plotWidth * pointsPerPixel) / 2
-        const bucketSeconds = windowSeconds / numBuckets
+        const bucketSeconds = shownSeconds / numBuckets
 
         plotsRef.current.forEach((plot, channel) => {
             const values = valuesByChannel[channel]
@@ -312,7 +327,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
                 if (rightEdgeTimestamp !== undefined) {
                     plot.setScale('x', {
-                        min: rightEdgeTimestamp - windowSeconds,
+                        min: leftEdgeTimestamp,
                         max: rightEdgeTimestamp,
                     })
                 }
@@ -340,7 +355,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             className="stream-plot"
             style={plotStyle}
             data-testid={`stream-plot-${name}`}
-            onClick={() => setIsHidden((wasHidden) => !wasHidden)}
+            onClick={toggleHiddenUnlessClickedOnWindowPicker}
         >
             <header className="stream-plot__header">
                 <span className="stream-plot__indicator" />
@@ -366,7 +381,17 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                     <Readout kind="hrv" label="HRV (RMSSD)" {...hrvStatus} />
                 )}
                 <span className="stream-plot__meta">
-                    {metaFor(channelCount, windowSeconds, isHidden)}
+                    {channelCount > 0 && !isHidden ? (
+                        <>
+                            {channelCount} ch ·{' '}
+                            <WindowPicker
+                                seconds={windowSeconds}
+                                onChange={onWindowSecondsChange}
+                            />
+                        </>
+                    ) : (
+                        metaWithoutWindowFor(channelCount)
+                    )}
                 </span>
             </header>
             <div ref={channelsRef} className="stream-plot__channels">
@@ -392,18 +417,147 @@ export function setResizeObserverComponent(component: typeof ResizeObserver) {
     ResizeObserverComponent = component
 }
 
-function metaFor(
-    channelCount: number,
-    windowSeconds: number,
-    isHidden: boolean
-) {
-    if (channelCount === 0) {
-        return 'Awaiting signal'
+function metaWithoutWindowFor(channelCount: number) {
+    return channelCount === 0
+        ? 'Awaiting signal'
+        : `${channelCount} ch · Hidden`
+}
+
+const windowPickerClassName = 'stream-plot__window'
+const offeredWindowSeconds = [10, 30, 60, 120, 300, Infinity]
+
+interface WindowPickerProps {
+    seconds: number
+    onChange?: (seconds: number) => void
+}
+
+const WindowPicker: React.FC<WindowPickerProps> = ({ seconds, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false)
+    const [custom, setCustom] = useState('')
+
+    const label = Number.isFinite(seconds)
+        ? `${windowLabelFor(seconds)} window`
+        : 'All data'
+
+    if (!onChange) {
+        return <>{label}</>
     }
 
-    return isHidden
-        ? `${channelCount} ch · Hidden`
-        : `${channelCount} ch · ${windowSeconds}s window`
+    const choose = (chosen: number) => {
+        onChange(chosen)
+        setIsOpen(false)
+        setCustom('')
+    }
+
+    const chooseCustom = (event: React.FormEvent) => {
+        event.preventDefault()
+
+        const chosen = windowSecondsFrom(custom)
+
+        if (chosen !== undefined) {
+            choose(chosen)
+        }
+    }
+
+    const closeWhenFocusLeaves = (event: React.FocusEvent) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+            setIsOpen(false)
+        }
+    }
+
+    const closeOnEscape = (event: React.KeyboardEvent) => {
+        if (event.key === 'Escape') {
+            setIsOpen(false)
+        }
+    }
+
+    return (
+        <span
+            className={windowPickerClassName}
+            onBlur={closeWhenFocusLeaves}
+            onKeyDown={closeOnEscape}
+        >
+            <button
+                type="button"
+                className="stream-plot__window-button"
+                aria-haspopup="menu"
+                aria-expanded={isOpen}
+                title="Change time window"
+                onClick={() => setIsOpen((wasOpen) => !wasOpen)}
+            >
+                {label}
+            </button>
+            {isOpen && (
+                <ul className="stream-plot__window-menu" role="menu">
+                    {offeredWindowSeconds.map((offered) => (
+                        <li key={offered} role="none">
+                            <button
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={offered === seconds}
+                                className="stream-plot__window-option"
+                                onMouseDown={keepFocusInPicker}
+                                onClick={() => choose(offered)}
+                            >
+                                {windowLabelFor(offered)}
+                            </button>
+                        </li>
+                    ))}
+                    <li role="none">
+                        <form onSubmit={chooseCustom}>
+                            <input
+                                type="text"
+                                className="stream-plot__window-custom"
+                                aria-label={customWindowLabel}
+                                title={customWindowLabel}
+                                placeholder="Custom"
+                                value={custom}
+                                onChange={(event) =>
+                                    setCustom(event.target.value)
+                                }
+                            />
+                        </form>
+                    </li>
+                </ul>
+            )}
+        </span>
+    )
+}
+
+const customWindowLabel = 'Custom window, such as 90, 45s or 3m'
+
+function keepFocusInPicker(event: React.MouseEvent) {
+    event.preventDefault()
+}
+
+function windowLabelFor(seconds: number) {
+    if (!Number.isFinite(seconds)) {
+        return 'All'
+    }
+
+    const minutes = Math.floor(seconds / 60)
+    const remainder = seconds % 60
+
+    if (minutes === 0) {
+        return `${seconds}s`
+    }
+
+    return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`
+}
+
+function windowSecondsFrom(text: string) {
+    const match = /^(\d*\.?\d+)\s*(s|m)?$/i.exec(text.trim())
+
+    if (!match) {
+        return undefined
+    }
+
+    const [, amount, unit = 's'] = match
+    const seconds = Math.round(
+        Number(amount) * (unit.toLowerCase() === 'm' ? 60 : 1)
+    )
+
+    return seconds >= 1 ? seconds : undefined
 }
 
 type PlotStyle = React.CSSProperties & {
