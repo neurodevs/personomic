@@ -260,6 +260,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                     optionsFor({
                         width: plotWidth,
                         height,
+                        labelsTime: channel === plottedChannelCount - 1,
                         color,
                         hasPeakMarkers,
                         yLimits: { min: yMinLimit, max: yMaxLimit },
@@ -276,8 +277,14 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     }, [plottedChannelCount, color, hasPeakMarkers, yMinLimit, yMaxLimit])
 
     useEffect(() => {
-        plotsRef.current.forEach((plot) =>
-            plot.setSize({ width: plotWidth, height })
+        plotsRef.current.forEach((plot, channel) =>
+            plot.setSize({
+                width: plotWidth,
+                height: heightWithXAxis(
+                    height,
+                    channel === plottedChannelCount - 1
+                ),
+            })
         )
     }, [plotWidth, height, plottedChannelCount])
 
@@ -344,11 +351,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plottedChannelCount,
     ])
 
-    const plotStyle: PlotStyle = {
-        '--stream-color': color,
-        '--y-axis-width': `${yAxisWidth}px`,
-        '--y-padding': `${yPadding}px`,
-    }
+    const plotStyle: PlotStyle = { '--stream-color': color }
 
     return (
         <section
@@ -562,8 +565,6 @@ function windowSecondsFrom(text: string) {
 
 type PlotStyle = React.CSSProperties & {
     '--stream-color': string
-    '--y-axis-width': string
-    '--y-padding': string
 }
 
 const peakDetectionIntervalSeconds = 0.5
@@ -583,6 +584,7 @@ interface ChannelSeries {
 interface PlotAppearance {
     width: number
     height: number
+    labelsTime: boolean
     color: string
     hasPeakMarkers: boolean
     yLimits: YLimits
@@ -590,12 +592,19 @@ interface PlotAppearance {
 }
 
 function optionsFor(appearance: PlotAppearance): uPlot.Options {
-    const { width, height, color, hasPeakMarkers, yLimits, occurrencesOf } =
-        appearance
+    const {
+        width,
+        height,
+        labelsTime,
+        color,
+        hasPeakMarkers,
+        yLimits,
+        occurrencesOf,
+    } = appearance
 
     return {
         width,
-        height,
+        height: heightWithXAxis(height, labelsTime),
         padding: [yPadding, 0, yPadding, 0],
         legend: { show: false },
         cursor: { show: false },
@@ -606,7 +615,7 @@ function optionsFor(appearance: PlotAppearance): uPlot.Options {
                     yRangeFor(plot, { min, max }, yLimits),
             },
         },
-        axes: [{ show: false }, yAxis],
+        axes: [labelsTime ? labeledXAxis : unlabeledXAxis, yAxis],
         hooks: {
             draw: [(plot) => drawOccurrenceStrip(plot, occurrencesOf(), color)],
         },
@@ -633,16 +642,82 @@ const yPadding = 6
 const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
 
-const yAxis: uPlot.Axis = {
-    side: leftSide,
-    size: yAxisWidth,
-    gap: occurrenceStripGap + occurrenceStripWidth + 4,
+const xAxisHeight = 16
+const minXIntervals = 4
+const roundXTickSeconds = [
+    1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400,
+]
+
+const axisLook: uPlot.Axis = {
     stroke: '#5f6878',
     font: '10px ui-monospace, "SF Mono", Menlo, monospace',
     ticks: { show: false },
     grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
+}
+
+const yAxis: uPlot.Axis = {
+    ...axisLook,
+    side: leftSide,
+    size: yAxisWidth,
+    gap: occurrenceStripGap + occurrenceStripWidth + 4,
     splits: (_, __, min, max) => tightestYBarsCovering(min, max),
     values: (_, ticks) => ticks.map(yTickLabelFor),
+}
+
+const unlabeledXAxis: uPlot.Axis = {
+    ...axisLook,
+    size: 0,
+    splits: (_, __, min, max) => roundXTicksBackFrom(max, min),
+    values: () => [],
+}
+
+const labeledXAxis: uPlot.Axis = {
+    ...unlabeledXAxis,
+    size: xAxisHeight,
+    gap: 2,
+    values: (plot, ticks) =>
+        ticks.map((tick) => xTickLabelFor(plot.scales.x.max! - tick)),
+}
+
+function heightWithXAxis(height: number, labelsTime: boolean) {
+    return labelsTime ? height + xAxisHeight : height
+}
+
+function roundXTicksBackFrom(latest: number, earliest: number) {
+    const shownSeconds = latest - earliest
+
+    if (!(shownSeconds > 0)) {
+        return []
+    }
+
+    const tickSeconds = roundXTickSecondsFor(shownSeconds)
+    const numTicks = Math.floor(shownSeconds / tickSeconds + floatTolerance)
+
+    return Array.from(
+        { length: numTicks },
+        (_, i) => latest - (numTicks - i) * tickSeconds
+    )
+}
+
+function roundXTickSecondsFor(shownSeconds: number) {
+    const longestAllowed = shownSeconds / minXIntervals + floatTolerance
+
+    const longestRound = [...roundXTickSeconds]
+        .reverse()
+        .find((seconds) => seconds <= longestAllowed)
+
+    return longestRound ?? roundFractionAtMost(longestAllowed)
+}
+
+function roundFractionAtMost(seconds: number) {
+    const unit = 10 ** Math.floor(Math.log10(seconds))
+    const mantissa = [5, 2, 1].find((mantissa) => mantissa * unit <= seconds)!
+
+    return mantissa * unit
+}
+
+function xTickLabelFor(secondsAgo: number) {
+    return `-${windowLabelFor(Math.round(secondsAgo * 1000) / 1000)}`
 }
 
 interface ValueOccurrences {

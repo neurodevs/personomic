@@ -90,14 +90,25 @@ export default class StreamPlotTest extends AbstractPackageTest {
             })),
             [
                 { width: 100, height: 50 },
-                { width: 100, height: 50 },
+                { width: 100, height: 50 + this.xAxisHeight },
             ],
             'Did not create each channel plot with size!'
         )
     }
 
     @test()
-    protected static async showsYAxisOnLeftOfEachChannelWithoutXAxis() {
+    protected static async keepsRoomForTimeLabelsBelowLastChannelOnResize() {
+        await this.render({ ...this.twoChannels, width: 100, height: 50 })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.size?.height),
+            [50, 50 + this.xAxisHeight],
+            'Did not keep room for time labels below last channel on resize!'
+        )
+    }
+
+    @test()
+    protected static async showsYAxisOnLeftAndXAxisBelowEachChannel() {
         await this.render(this.twoChannels)
 
         assert.isEqualDeep(
@@ -108,10 +119,10 @@ export default class StreamPlotTest extends AbstractPackageTest {
                 }))
             ),
             Array.from({ length: 2 }, () => [
-                { isShown: false, side: undefined },
+                { isShown: true, side: undefined },
                 { isShown: true, side: 3 },
             ]),
-            'Did not show y-axis on left of each channel without x-axis!'
+            'Did not show y-axis on left and x-axis below each channel!'
         )
     }
 
@@ -133,14 +144,64 @@ export default class StreamPlotTest extends AbstractPackageTest {
         )
     }
 
-    @test()
-    protected static async tellsStylesTheYAxisWidthToKeepItOutsidePlotWindow() {
+    @test('every 2s across 10s', 0, 10, [0, 2, 4, 6, 8])
+    @test('every 5s across 30s', 100, 130, [100, 105, 110, 115, 120, 125])
+    @test('every 15s across 1m', 0, 60, [0, 15, 30, 45])
+    @test('every 30s across 2m', 0, 120, [0, 30, 60, 90])
+    @test('every 1m across 5m', 0, 300, [0, 60, 120, 180, 240])
+    @test('counting back from latest', 2.5, 10, [3, 4, 5, 6, 7, 8, 9])
+    @test('every half second across 2s', 0, 2, [0, 0.5, 1, 1.5])
+    @test('nowhere when no time is shown', 5, 5, [])
+    protected static async putsTimeBarsAtRoundSecondsBeforeLatest(
+        earliest: number,
+        latest: number,
+        expected: number[]
+    ) {
         await this.render(this.twoChannels)
 
-        assert.isEqual(
-            this.plot.style.getPropertyValue('--y-axis-width'),
-            `${FakeUPlot.latest.options.axes?.[1].size}px`,
-            'Did not tell styles the y-axis width!'
+        assert.isEqualDeep(
+            this.xTicksBetween(earliest, latest),
+            expected,
+            'Did not put time bars at round seconds before latest!'
+        )
+    }
+
+    @test()
+    protected static async putsSameTimeBarsOnEveryChannel() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => this.xTicksBetween(0, 10, plot)),
+            [
+                [0, 2, 4, 6, 8],
+                [0, 2, 4, 6, 8],
+            ],
+            'Did not put same time bars on every channel!'
+        )
+    }
+
+    @test()
+    protected static async labelsTimeBarsBelowLastChannelAsTimeBeforeLatest() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.xTickLabelsFor([1.5, -8, -58, -88]),
+            ['-0.5s', '-10s', '-1m', '-1m 30s'],
+            'Did not label time bars below last channel as time before latest!'
+        )
+    }
+
+    @test()
+    protected static async labelsTimeBarsBelowLastChannelOnly() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            {
+                labels: this.xTickLabelsFor([0, 1], FakeUPlot.instances[0]),
+                size: FakeUPlot.instances[0].options.axes?.[0].size,
+            },
+            { labels: [], size: 0 },
+            'Did not label time bars below last channel only!'
         )
     }
 
@@ -487,17 +548,6 @@ export default class StreamPlotTest extends AbstractPackageTest {
         assert.isTrue(
             FakeUPlot.latest.options.axes?.[1].grid?.show !== false,
             'Did not draw a bar at every y-tick!'
-        )
-    }
-
-    @test()
-    protected static async tellsStylesTheYPaddingToEndTimeBarsAtOuterYBars() {
-        await this.render(this.twoChannels)
-
-        assert.isEqual(
-            this.plot.style.getPropertyValue('--y-padding'),
-            `${(FakeUPlot.latest.options.padding as number[])[0]}px`,
-            'Did not tell styles the y-padding!'
         )
     }
 
@@ -1908,6 +1958,34 @@ export default class StreamPlotTest extends AbstractPackageTest {
         ) => number[]
 
         return barsFor(FakeUPlot.latest, 1, min, max)
+    }
+
+    private static get xAxisHeight() {
+        return FakeUPlot.latest.options.axes?.[0].size as number
+    }
+
+    private static xTicksBetween(
+        earliest: number,
+        latest: number,
+        plot = FakeUPlot.latest
+    ) {
+        const ticksFor = plot.options.axes?.[0].splits as unknown as (
+            plot: unknown,
+            axisIdx: number,
+            min: number,
+            max: number
+        ) => number[]
+
+        return ticksFor(plot, 0, earliest, latest)
+    }
+
+    private static xTickLabelsFor(ticks: number[], plot = FakeUPlot.latest) {
+        const formatTicks = plot.options.axes?.[0].values as unknown as (
+            plot: unknown,
+            ticks: number[]
+        ) => string[]
+
+        return formatTicks(plot, ticks)
     }
 
     private static yRangeFor(
