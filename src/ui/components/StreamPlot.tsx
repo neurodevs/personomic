@@ -694,7 +694,8 @@ const yPadding = 6
 const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
 
-const xAxisHeight = 16
+const axisLabelGap = 6
+const xAxisHeight = 14 + axisLabelGap
 const minXIntervals = 4
 const roundXTickSeconds = [
     1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400,
@@ -711,7 +712,7 @@ const yAxis: uPlot.Axis = {
     ...axisLook,
     side: leftSide,
     size: yAxisWidth,
-    gap: occurrenceStripGap + occurrenceStripWidth + 4,
+    gap: occurrenceStripGap + occurrenceStripWidth + axisLabelGap,
     splits: (_, __, min, max) => tightestYBarsCovering(min, max),
     values: (_, ticks) => ticks.map(yTickLabelFor),
 }
@@ -726,7 +727,7 @@ const unlabeledXAxis: uPlot.Axis = {
 const labeledXAxis: uPlot.Axis = {
     ...unlabeledXAxis,
     size: xAxisHeight,
-    gap: 2,
+    gap: axisLabelGap,
     values: (plot, ticks) =>
         ticks.map((tick) => xTickLabelFor(plot.scales.x.max! - tick)),
 }

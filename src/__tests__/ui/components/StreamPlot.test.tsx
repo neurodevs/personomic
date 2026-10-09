@@ -192,6 +192,38 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async leavesGapBetweenXAxisAndItsTimeLabels() {
+        await this.render(this.twoChannels)
+
+        const xAxis = FakeUPlot.latest.options.axes?.[0]
+        const labelHeight = 10
+
+        assert.isEqualDeep(
+            {
+                gap: xAxis?.gap,
+                hasRoomForLabels:
+                    this.xAxisHeight - (xAxis?.gap ?? 0) >= labelHeight,
+            },
+            { gap: 6, hasRoomForLabels: true },
+            'Did not leave gap between x-axis and its time labels!'
+        )
+    }
+
+    @test()
+    protected static async leavesSameGapBeforeYLabelsPastOccurrenceStripAsBeforeTimeLabels() {
+        await this.render(this.twoChannels)
+
+        const [xAxis, yAxis] = FakeUPlot.latest.options.axes ?? []
+        const occurrenceStripFootprint = 6
+
+        assert.isEqual(
+            (yAxis?.gap ?? 0) - occurrenceStripFootprint,
+            xAxis?.gap,
+            'Did not leave same gap before y labels as before time labels!'
+        )
+    }
+
+    @test()
     protected static async labelsTimeBarsBelowLastChannelOnly() {
         await this.render(this.twoChannels)
 
