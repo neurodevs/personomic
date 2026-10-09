@@ -127,14 +127,14 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async leavesUnusedAuxChannelOutOfAverageEegBandPowers() {
+    protected static async leavesUnusedAuxChannelOutOfEegBandPowers() {
         render(<App />)
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.streamOptions?.EEG?.bandPowers
-                ?.channelsLeftOutOfAverage,
+                ?.channelsLeftOut,
             ['AUX'],
-            'Did not leave unused AUX channel out of average EEG band powers!'
+            'Did not leave unused AUX channel out of EEG band powers!'
         )
     }
 

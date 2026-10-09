@@ -41,7 +41,7 @@ export interface PeakDetectionOptions {
 export interface BandPowerOptions {
     sampleRate: number
     windowSeconds: number
-    channelsLeftOutOfAverage?: string[]
+    channelsLeftOut?: string[]
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -271,15 +271,15 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         ]
     )
 
-    const channelsLeftOutOfAverage = bandPowers?.channelsLeftOutOfAverage
+    const channelsLeftOut = bandPowers?.channelsLeftOut
+
+    const hasBandPowers = (channel: number) =>
+        !channelsLeftOut?.includes(labelFor(channel))
 
     const averageBandPowers =
         bandPowersByChannel &&
         averageBandPowersOf(
-            bandPowersByChannel.filter(
-                (_, channel) =>
-                    !channelsLeftOutOfAverage?.includes(labelFor(channel))
-            )
+            bandPowersByChannel.filter((_, channel) => hasBandPowers(channel))
         )
 
     useEffect(() => {
@@ -473,11 +473,14 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                                 <span className="stream-plot__channel-name">
                                     {labelFor(channel)}
                                 </span>
-                                {bandPowersByChannel && (
-                                    <BandPowers
-                                        powers={bandPowersByChannel[channel]}
-                                    />
-                                )}
+                                {bandPowersByChannel &&
+                                    hasBandPowers(channel) && (
+                                        <BandPowers
+                                            powers={
+                                                bandPowersByChannel[channel]
+                                            }
+                                        />
+                                    )}
                             </div>
                         )}
                     </div>

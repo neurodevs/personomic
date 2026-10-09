@@ -36,7 +36,7 @@ const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
     EEG: {
-        bandPowers: { windowSeconds: 4, channelsLeftOutOfAverage: ['AUX'] },
+        bandPowers: { windowSeconds: 4, channelsLeftOut: ['AUX'] },
     },
     PPG: {
         detectPeaks: {

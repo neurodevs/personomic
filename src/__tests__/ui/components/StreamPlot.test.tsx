@@ -1237,25 +1237,30 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async leavesGivenChannelsOutOfAverageButShowsTheirOwn() {
-        await this.renderAlphaAndBetaChannels({
-            channelNames: ['TP9', 'AUX'],
-            bandPowers: {
-                ...this.bandPowersOverFourSeconds,
-                channelsLeftOutOfAverage: ['AUX'],
-            },
-        })
+    protected static async showsOnlyNameOfChannelsLeftOutOfBandPowers() {
+        await this.renderAlphaAndBetaChannels(this.auxLeftOutOfBandPowers)
 
         assert.isEqualDeep(
             {
-                average: this.averageBandPowers,
-                betaOfLeftOut: this.bandPowers[1].Beta,
+                names: this.channelNames,
+                numBandsShown: this.bandPowers.map(
+                    (powers) => Object.keys(powers).length
+                ),
+                numBars: this.bandPowerBars.length,
             },
-            {
-                average: { ...this.noPowerInAnyBand, Alpha: '100%' },
-                betaOfLeftOut: '100%',
-            },
-            'Did not leave given channels out of average but show their own!'
+            { names: ['TP9', 'AUX'], numBandsShown: [5, 0], numBars: 5 },
+            'Did not show only name of channels left out of band powers!'
+        )
+    }
+
+    @test()
+    protected static async leavesChannelsLeftOutOfBandPowersOutOfAverage() {
+        await this.renderAlphaAndBetaChannels(this.auxLeftOutOfBandPowers)
+
+        assert.isEqualDeep(
+            this.averageBandPowers,
+            { ...this.noPowerInAnyBand, Alpha: '100%' },
+            'Did not leave channels left out of band powers out of average!'
         )
     }
 
@@ -2380,6 +2385,15 @@ export default class StreamPlotTest extends AbstractPackageTest {
             bandPowers: this.bandPowersOverFourSeconds,
             ...props,
         })
+    }
+
+    private static readonly auxLeftOutOfBandPowers = {
+        channelNames: ['TP9', 'AUX'],
+        bandPowers: {
+            sampleRate: 256,
+            windowSeconds: 4,
+            channelsLeftOut: ['AUX'],
+        },
     }
 
     private static get channelRows() {
