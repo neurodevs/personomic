@@ -692,9 +692,29 @@ body {
   color: var(--text-secondary);
 }
 
+.stream-plot__band-power-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+}
+
+.stream-plot__band-power-bar {
+  width: 4px;
+  min-height: 1px;
+  transition: height 0.3s ease-out;
+}
+
 .stream-plot__band-power {
   display: flex;
+  align-items: baseline;
   gap: 6px;
+}
+
+.stream-plot__band-power-swatch {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
 }
 
 .stream-plot__band-power-name {

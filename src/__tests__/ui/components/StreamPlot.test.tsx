@@ -1108,6 +1108,86 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsBandPowerBarsBetweenChannelNameAndFirstBand() {
+        await this.renderOscillating([10])
+
+        const bars = this.plot.querySelector('.stream-plot__band-power-bars')
+
+        assert.isEqualDeep(
+            {
+                before: bars?.previousElementSibling?.className,
+                after: bars?.nextElementSibling?.className,
+                numBars: this.bandPowerBars.length,
+            },
+            {
+                before: 'stream-plot__band-powers-channel',
+                after: 'stream-plot__band-power',
+                numBars: 5,
+            },
+            'Did not show band power bars between channel name and first band!'
+        )
+    }
+
+    @test()
+    protected static async raisesEachBarToItsBandShareOfChartHeight() {
+        await this.renderOscillating([10, 20])
+
+        assert.isEqualDeep(
+            this.bandPowerBars.map((bar) => bar.style.height),
+            ['0%', '0%', '50%', '50%', '0%'],
+            'Did not raise each bar to its band share of chart height!'
+        )
+    }
+
+    @test()
+    protected static async leavesBarsFlatUntilBandPowerWindowIsFilled() {
+        await this.renderOscillating([10], { seconds: 3.5 })
+
+        assert.isEqualDeep(
+            this.bandPowerBars.map((bar) => bar.style.height),
+            ['0%', '0%', '0%', '0%', '0%'],
+            'Did not leave bars flat until band power window is filled!'
+        )
+    }
+
+    @test()
+    protected static async givesEachBandItsOwnColor() {
+        await this.renderOscillating([10])
+
+        const colors = this.bandPowerBars.map(
+            (bar) => bar.style.backgroundColor
+        )
+
+        assert.isEqualDeep(
+            {
+                numDistinct: new Set(colors).size,
+                areAllSet: colors.every((color) => color !== ''),
+            },
+            { numDistinct: 5, areAllSet: true },
+            'Did not give each band its own color!'
+        )
+    }
+
+    @test()
+    protected static async showsColorOfEachBarLeftOfItsBandName() {
+        await this.renderOscillating([10])
+
+        assert.isEqualDeep(
+            this.bandPowerSwatches.map((swatch) => ({
+                color: swatch.style.backgroundColor,
+                isLeftOfName:
+                    swatch.nextElementSibling?.className ===
+                    'stream-plot__band-power-name',
+            })),
+            this.bandPowerBars.map((bar) => ({
+                color: bar.style.backgroundColor,
+                isLeftOfName: true,
+            })),
+            'Did not show color of each bar left of its band name!'
+        )
+    }
+
+    @test()
     protected static async showsNoHrvWithoutHrvWindow() {
         await this.renderOneChannelAt([0], this.heartRateOverThirtySeconds)
 
@@ -2063,9 +2143,27 @@ export default class StreamPlotTest extends AbstractPackageTest {
                 Array.from(
                     channel.querySelectorAll('.stream-plot__band-power')
                 ).map((band) => [
-                    band.firstElementChild?.textContent,
-                    band.lastElementChild?.textContent,
+                    band.querySelector('.stream-plot__band-power-name')
+                        ?.textContent,
+                    band.querySelector('.stream-plot__band-power-value')
+                        ?.textContent,
                 ])
+            )
+        )
+    }
+
+    private static get bandPowerBars() {
+        return Array.from(
+            this.plot.querySelectorAll<HTMLElement>(
+                '.stream-plot__band-power-bar'
+            )
+        )
+    }
+
+    private static get bandPowerSwatches() {
+        return Array.from(
+            this.plot.querySelectorAll<HTMLElement>(
+                '.stream-plot__band-power-swatch'
             )
         )
     }
