@@ -595,13 +595,17 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsNoChannelNameInsidePlotWindow() {
+    protected static async showsChannelNamesOnlyInHeaderAbovePlotWindow() {
         await this.render({ ...this.twoChannels, channelNames: ['TP9', 'AF7'] })
 
+        const shown = ['TP9', 'AF7'].flatMap((name) =>
+            screen.queryAllByText(name)
+        )
+
         assert.isEqualDeep(
-            [screen.queryByText('TP9'), screen.queryByText('AF7')],
-            [null, null],
-            'Showed a channel name inside plot window!'
+            shown.map((name) => name.parentElement?.className),
+            ['stream-plot__channel-header', 'stream-plot__channel-header'],
+            'Showed a channel name outside header above plot window!'
         )
     }
 
@@ -946,18 +950,15 @@ export default class StreamPlotTest extends AbstractPackageTest {
         await this.render(this.twoChannels)
 
         assert.isEqual(
-            this.plot.querySelectorAll('.stream-plot__band-powers').length,
+            this.plot.querySelectorAll('.stream-plot__band-power').length,
             0,
             'Showed band powers without band power options!'
         )
     }
 
     @test()
-    protected static async showsBandPowersAboveEachChannelPlot() {
-        await this.render({
-            ...this.twoChannels,
-            bandPowers: this.bandPowersOverFourSeconds,
-        })
+    protected static async showsHeaderAboveEachChannelPlot() {
+        await this.render(this.twoChannels)
 
         const channels = Array.from(
             this.plot.querySelectorAll('.stream-plot__channel')
@@ -967,27 +968,59 @@ export default class StreamPlotTest extends AbstractPackageTest {
             channels.map(
                 (channel) => channel.firstElementChild?.className ?? undefined
             ),
-            ['stream-plot__band-powers', 'stream-plot__band-powers'],
-            'Did not show band powers above each channel plot!'
+            ['stream-plot__channel-header', 'stream-plot__channel-header'],
+            'Did not show header above each channel plot!'
+        )
+    }
+
+    @test('labels with given names', ['X', 'Y'], ['X', 'Y'])
+    @test('numbers channels without names', undefined, ['CH 1', 'CH 2'])
+    protected static async labelsEachChannelWithItsName(
+        channelNames: string[] | undefined,
+        expected: string[]
+    ) {
+        await this.render({ ...this.twoChannels, channelNames })
+
+        assert.isEqualDeep(
+            this.channelNames,
+            expected,
+            'Did not label each channel with its name!'
         )
     }
 
     @test()
-    protected static async labelsBandPowersWithChannelName() {
+    protected static async leavesOnlyChannelUnlabelledAsStreamNameSaysEnough() {
+        await this.renderOneChannelAt([0, 1], undefined)
+
+        assert.isEqualDeep(
+            this.channelNames,
+            [],
+            'Did not leave only channel unlabelled!'
+        )
+    }
+
+    @test()
+    protected static async labelsOnlyChannelWhenItShowsBandPowers() {
+        await this.renderOscillating([10])
+
+        assert.isEqualDeep(
+            this.channelNames,
+            ['CH 1'],
+            'Did not label only channel when it shows band powers!'
+        )
+    }
+
+    @test()
+    protected static async showsBandPowersRightOfEachChannelName() {
         await this.render({
             ...this.twoChannels,
-            channelNames: ['TP9', 'AF7'],
             bandPowers: this.bandPowersOverFourSeconds,
         })
 
-        const labels = Array.from(
-            this.plot.querySelectorAll('.stream-plot__band-powers-channel')
-        )
-
         assert.isEqualDeep(
-            labels.map((label) => label.textContent),
-            ['TP9', 'AF7'],
-            'Did not label band powers with channel name!'
+            this.bandPowers.map((powers) => Object.keys(powers).length),
+            [5, 5],
+            'Did not show band powers right of each channel name!'
         )
     }
 
@@ -1171,7 +1204,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
                 numBars: this.bandPowerBars.length,
             },
             {
-                before: 'stream-plot__band-powers-channel',
+                before: 'stream-plot__channel-name',
                 after: 'stream-plot__band-power',
                 numBars: 5,
             },
@@ -2186,7 +2219,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static get bandPowers() {
         const channels = Array.from(
-            this.plot.querySelectorAll('.stream-plot__band-powers')
+            this.plot.querySelectorAll('.stream-plot__channel-header')
         )
 
         return channels.map((channel) =>
@@ -2201,6 +2234,12 @@ export default class StreamPlotTest extends AbstractPackageTest {
                 ])
             )
         )
+    }
+
+    private static get channelNames() {
+        return Array.from(
+            this.plot.querySelectorAll('.stream-plot__channel-name')
+        ).map((name) => name.textContent)
     }
 
     private static get bandPowerBars() {

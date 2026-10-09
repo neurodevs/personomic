@@ -448,11 +448,17 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         }}
                         className="stream-plot__channel"
                     >
-                        {bandPowersByChannel && (
-                            <BandPowers
-                                channelName={labelFor(channel)}
-                                powers={bandPowersByChannel[channel]}
-                            />
+                        {(channelCount > 1 || bandPowersByChannel) && (
+                            <div className="stream-plot__channel-header">
+                                <span className="stream-plot__channel-name">
+                                    {labelFor(channel)}
+                                </span>
+                                {bandPowersByChannel && (
+                                    <BandPowers
+                                        powers={bandPowersByChannel[channel]}
+                                    />
+                                )}
+                            </div>
                         )}
                     </div>
                 ))}
@@ -1065,13 +1071,11 @@ function latestValuesWithUnits(values: number[], units: string) {
 }
 
 interface BandPowersProps {
-    channelName: string
     powers?: number[]
 }
 
-const BandPowers: React.FC<BandPowersProps> = ({ channelName, powers }) => (
-    <div className="stream-plot__band-powers">
-        <span className="stream-plot__band-powers-channel">{channelName}</span>
+const BandPowers: React.FC<BandPowersProps> = ({ powers }) => (
+    <>
         <span className="stream-plot__band-power-bars" aria-hidden="true">
             {frequencyBands.map((band, i) => (
                 <span
@@ -1102,7 +1106,7 @@ const BandPowers: React.FC<BandPowersProps> = ({ channelName, powers }) => (
                 </span>
             </span>
         ))}
-    </div>
+    </>
 )
 
 const frequencyBands = [
