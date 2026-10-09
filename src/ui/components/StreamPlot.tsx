@@ -425,7 +425,8 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                 {bandPowersByChannel && channelCount > 0 && (
                     <span className="stream-plot__average-band-powers">
                         <span className="stream-plot__readout-label">
-                            Average
+                            Average (last{' '}
+                            {durationLabelFor(bandPowerWindowSeconds!)})
                         </span>
                         <BandPowers powers={averageBandPowers} />
                     </span>

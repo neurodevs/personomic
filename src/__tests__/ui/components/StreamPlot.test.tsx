@@ -1259,8 +1259,22 @@ export default class StreamPlotTest extends AbstractPackageTest {
                     '.stream-plot__band-power-bar'
                 ).length,
             },
-            { isRightOfName: true, label: 'Average', numBars: 5 },
+            { isRightOfName: true, label: 'Average (last 4s)', numBars: 5 },
             'Did not show labelled average band powers right of stream name!'
+        )
+    }
+
+    @test()
+    protected static async labelsAverageWithHowRecentItsDataMustBe() {
+        await this.renderAlphaAndBetaChannels({
+            bandPowers: { sampleRate: 256, windowSeconds: 2 },
+        })
+
+        assert.isEqual(
+            this.plot.querySelector('.stream-plot__average-band-powers')
+                ?.firstElementChild?.textContent,
+            'Average (last 2s)',
+            'Did not label average with how recent its data must be!'
         )
     }
 
