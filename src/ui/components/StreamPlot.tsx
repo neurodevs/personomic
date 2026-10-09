@@ -41,6 +41,7 @@ export interface PeakDetectionOptions {
 export interface BandPowerOptions {
     sampleRate: number
     windowSeconds: number
+    channelsLeftOutOfAverage?: string[]
 }
 
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
@@ -270,6 +271,17 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         ]
     )
 
+    const channelsLeftOutOfAverage = bandPowers?.channelsLeftOutOfAverage
+
+    const averageBandPowers =
+        bandPowersByChannel &&
+        averageBandPowersOf(
+            bandPowersByChannel.filter(
+                (_, channel) =>
+                    !channelsLeftOutOfAverage?.includes(labelFor(channel))
+            )
+        )
+
     useEffect(() => {
         if (width !== undefined) {
             return
@@ -405,6 +417,14 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             <header className="stream-plot__header">
                 <span className="stream-plot__indicator" />
                 <span className="stream-plot__name">{name}</span>
+                {bandPowersByChannel && channelCount > 0 && (
+                    <span className="stream-plot__average-band-powers">
+                        <span className="stream-plot__readout-label">
+                            Average
+                        </span>
+                        <BandPowers powers={averageBandPowers} />
+                    </span>
+                )}
                 {units !== undefined && channelCount > 0 && (
                     <Readout
                         kind="latest"
@@ -1119,6 +1139,16 @@ const frequencyBands = [
 
 function percentOf(share: number) {
     return Math.round(share * 100)
+}
+
+function averageBandPowersOf(powersByChannel: (number[] | undefined)[]) {
+    const known = powersByChannel.filter((powers) => powers !== undefined)
+
+    return known.length > 0
+        ? frequencyBands.map((_, band) =>
+              meanOf(known.map((powers) => powers[band]))
+          )
+        : undefined
 }
 
 const numHalfOverlappingSegments = 3

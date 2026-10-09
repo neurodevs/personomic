@@ -126,6 +126,18 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async leavesUnusedAuxChannelOutOfAverageEegBandPowers() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.streamOptions?.EEG?.bandPowers
+                ?.channelsLeftOutOfAverage,
+            ['AUX'],
+            'Did not leave unused AUX channel out of average EEG band powers!'
+        )
+    }
+
     @test('shows latest temperature in celsius', 'Temperature', '°C')
     @test('shows latest humidity in percent', 'Humidity', '%')
     @test('shows latest battery in percent', 'Battery', '%')

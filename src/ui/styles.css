@@ -676,16 +676,30 @@ body {
   position: relative;
 }
 
-.stream-plot__channel-header {
+.stream-plot__channel-header,
+.stream-plot__average-band-powers {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 14px;
-  margin-bottom: 4px;
-  padding-left: var(--y-axis-width);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
+}
+
+.stream-plot__channel-header {
+  margin-bottom: 4px;
+  padding-left: var(--y-axis-width);
+}
+
+.stream-plot__average-band-powers {
+  margin-left: 14px;
+}
+
+.stream-plot__header:has(.stream-plot__average-band-powers)
+  + .stream-plot__channels
+  .stream-plot__channel:first-child {
+  padding-top: 8px;
 }
 
 .stream-plot__channel-name {

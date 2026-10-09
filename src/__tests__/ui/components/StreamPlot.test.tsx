@@ -1192,10 +1192,132 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNoAverageBandPowersWithoutBandPowerOptions() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            this.averageBandPowers,
+            undefined,
+            'Showed average band powers without band power options!'
+        )
+    }
+
+    @test()
+    protected static async showsLabelledAverageBandPowersRightOfStreamName() {
+        await this.renderAlphaAndBetaChannels()
+
+        const average = this.plot.querySelector(
+            '.stream-plot__average-band-powers'
+        )
+
+        assert.isEqualDeep(
+            {
+                isRightOfName:
+                    average?.previousElementSibling ===
+                    this.plot.querySelector('.stream-plot__name'),
+                label: average?.firstElementChild?.textContent,
+                numBars: average?.querySelectorAll(
+                    '.stream-plot__band-power-bar'
+                ).length,
+            },
+            { isRightOfName: true, label: 'Average', numBars: 5 },
+            'Did not show labelled average band powers right of stream name!'
+        )
+    }
+
+    @test()
+    protected static async averagesBandPowersAcrossChannels() {
+        await this.renderAlphaAndBetaChannels()
+
+        assert.isEqualDeep(
+            this.averageBandPowers,
+            { ...this.noPowerInAnyBand, Alpha: '50%', Beta: '50%' },
+            'Did not average band powers across channels!'
+        )
+    }
+
+    @test()
+    protected static async leavesGivenChannelsOutOfAverageButShowsTheirOwn() {
+        await this.renderAlphaAndBetaChannels({
+            channelNames: ['TP9', 'AUX'],
+            bandPowers: {
+                ...this.bandPowersOverFourSeconds,
+                channelsLeftOutOfAverage: ['AUX'],
+            },
+        })
+
+        assert.isEqualDeep(
+            {
+                average: this.averageBandPowers,
+                betaOfLeftOut: this.bandPowers[1].Beta,
+            },
+            {
+                average: { ...this.noPowerInAnyBand, Alpha: '100%' },
+                betaOfLeftOut: '100%',
+            },
+            'Did not leave given channels out of average but show their own!'
+        )
+    }
+
+    @test()
+    protected static async leavesChannelWithNoBandPowersOutOfAverage() {
+        const alpha = this.oscillationAt([10])
+
+        await this.render({
+            samples: alpha.flatMap((value) => [value, 1]),
+            timestamps: this.timestampsFor(alpha),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqualDeep(
+            this.averageBandPowers,
+            { ...this.noPowerInAnyBand, Alpha: '100%' },
+            'Did not leave channel with no band powers out of average!'
+        )
+    }
+
+    @test()
+    protected static async showsAveragePlaceholdersUntilBandPowerWindowIsFilled() {
+        await this.renderOscillating([10], { seconds: 3.5 })
+
+        assert.isEqualDeep(
+            this.averageBandPowers,
+            this.placeholderInEveryBand,
+            'Did not show average placeholders until window is filled!'
+        )
+    }
+
+    @test()
+    protected static async keepsAverageBandPowersShownWhenChannelsAreHidden() {
+        await this.renderAlphaAndBetaChannels()
+
+        this.clickPlot()
+
+        assert.isEqualDeep(
+            this.averageBandPowers,
+            { ...this.noPowerInAnyBand, Alpha: '50%', Beta: '50%' },
+            'Did not keep average band powers shown when channels are hidden!'
+        )
+    }
+
+    @test()
+    protected static async showsNoAverageBandPowersBeforeFirstData() {
+        await this.render({ bandPowers: this.bandPowersOverFourSeconds })
+
+        assert.isEqual(
+            this.averageBandPowers,
+            undefined,
+            'Showed average band powers before first data!'
+        )
+    }
+
+    @test()
     protected static async showsBandPowerBarsBetweenChannelNameAndFirstBand() {
         await this.renderOscillating([10])
 
-        const bars = this.plot.querySelector('.stream-plot__band-power-bars')
+        const bars = this.channelRows.querySelector(
+            '.stream-plot__band-power-bars'
+        )
 
         assert.isEqualDeep(
             {
@@ -2222,18 +2344,46 @@ export default class StreamPlotTest extends AbstractPackageTest {
             this.plot.querySelectorAll('.stream-plot__channel-header')
         )
 
-        return channels.map((channel) =>
-            Object.fromEntries(
-                Array.from(
-                    channel.querySelectorAll('.stream-plot__band-power')
-                ).map((band) => [
-                    band.querySelector('.stream-plot__band-power-name')
-                        ?.textContent,
-                    band.querySelector('.stream-plot__band-power-value')
-                        ?.textContent,
-                ])
-            )
+        return channels.map((channel) => this.bandPowersShownIn(channel))
+    }
+
+    private static get averageBandPowers() {
+        const average = this.plot.querySelector(
+            '.stream-plot__average-band-powers'
         )
+
+        return average ? this.bandPowersShownIn(average) : undefined
+    }
+
+    private static bandPowersShownIn(element: Element) {
+        return Object.fromEntries(
+            Array.from(
+                element.querySelectorAll('.stream-plot__band-power')
+            ).map((band) => [
+                band.querySelector('.stream-plot__band-power-name')
+                    ?.textContent,
+                band.querySelector('.stream-plot__band-power-value')
+                    ?.textContent,
+            ])
+        )
+    }
+
+    private static async renderAlphaAndBetaChannels(
+        props?: Partial<StreamPlotProps>
+    ) {
+        const alpha = this.oscillationAt([10])
+        const beta = this.oscillationAt([20])
+
+        return this.render({
+            samples: alpha.flatMap((value, i) => [value, beta[i]]),
+            timestamps: this.timestampsFor(alpha),
+            bandPowers: this.bandPowersOverFourSeconds,
+            ...props,
+        })
+    }
+
+    private static get channelRows() {
+        return this.plot.querySelector('.stream-plot__channels')!
     }
 
     private static get channelNames() {
@@ -2244,7 +2394,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static get bandPowerBars() {
         return Array.from(
-            this.plot.querySelectorAll<HTMLElement>(
+            this.channelRows.querySelectorAll<HTMLElement>(
                 '.stream-plot__band-power-bar'
             )
         )
@@ -2252,7 +2402,7 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static get bandPowerSwatches() {
         return Array.from(
-            this.plot.querySelectorAll<HTMLElement>(
+            this.channelRows.querySelectorAll<HTMLElement>(
                 '.stream-plot__band-power-swatch'
             )
         )
