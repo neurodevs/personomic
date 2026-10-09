@@ -676,6 +676,37 @@ body {
   position: relative;
 }
 
+.stream-plot__band-powers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  margin-bottom: 4px;
+  padding-left: var(--y-axis-width);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.stream-plot__band-powers-channel {
+  color: var(--text-secondary);
+}
+
+.stream-plot__band-power {
+  display: flex;
+  gap: 6px;
+}
+
+.stream-plot__band-power-name {
+  color: var(--text-muted);
+}
+
+.stream-plot__band-power-value {
+  min-width: 4ch;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .stream-plot__channel + .stream-plot__channel {
   margin-top: 12px;
 }

@@ -910,6 +910,204 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsNoBandPowersWithoutBandPowerOptions() {
+        await this.render(this.twoChannels)
+
+        assert.isEqual(
+            this.plot.querySelectorAll('.stream-plot__band-powers').length,
+            0,
+            'Showed band powers without band power options!'
+        )
+    }
+
+    @test()
+    protected static async showsBandPowersAboveEachChannelPlot() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        const channels = Array.from(
+            this.plot.querySelectorAll('.stream-plot__channel')
+        )
+
+        assert.isEqualDeep(
+            channels.map(
+                (channel) => channel.firstElementChild?.className ?? undefined
+            ),
+            ['stream-plot__band-powers', 'stream-plot__band-powers'],
+            'Did not show band powers above each channel plot!'
+        )
+    }
+
+    @test()
+    protected static async labelsBandPowersWithChannelName() {
+        await this.render({
+            ...this.twoChannels,
+            channelNames: ['TP9', 'AF7'],
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        const labels = Array.from(
+            this.plot.querySelectorAll('.stream-plot__band-powers-channel')
+        )
+
+        assert.isEqualDeep(
+            labels.map((label) => label.textContent),
+            ['TP9', 'AF7'],
+            'Did not label band powers with channel name!'
+        )
+    }
+
+    @test()
+    protected static async namesEachBandFromSlowestToQuickest() {
+        await this.renderOscillating([10])
+
+        assert.isEqualDeep(
+            Object.keys(this.bandPowers[0]),
+            ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma'],
+            'Did not name each band from slowest to quickest!'
+        )
+    }
+
+    @test('gives 2 Hz to delta', 2, 'Delta')
+    @test('gives 6 Hz to theta', 6, 'Theta')
+    @test('gives 10 Hz to alpha', 10, 'Alpha')
+    @test('gives 20 Hz to beta', 20, 'Beta')
+    @test('gives 40 Hz to gamma', 40, 'Gamma')
+    protected static async givesAllPowerToBandOfOscillation(
+        hz: number,
+        band: string
+    ) {
+        await this.renderOscillating([hz])
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            { ...this.noPowerInAnyBand, [band]: '100%' },
+            `Did not give all power to band of ${hz} Hz oscillation!`
+        )
+    }
+
+    @test()
+    protected static async sharesPowerBetweenBandsOfEquallyStrongOscillations() {
+        await this.renderOscillating([10, 20])
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            { ...this.noPowerInAnyBand, Alpha: '50%', Beta: '50%' },
+            'Did not share power between bands of equally strong oscillations!'
+        )
+    }
+
+    @test()
+    protected static async derivesBandPowersOfEachChannelFromItsOwnSamples() {
+        const alpha = this.oscillationAt([10])
+        const beta = this.oscillationAt([20])
+
+        await this.render({
+            samples: alpha.flatMap((value, i) => [value, beta[i]]),
+            timestamps: this.timestampsFor(alpha),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqualDeep(
+            this.bandPowers.map(({ Alpha, Beta }) => ({ Alpha, Beta })),
+            [
+                { Alpha: '100%', Beta: '0%' },
+                { Alpha: '0%', Beta: '100%' },
+            ],
+            'Did not derive band powers of each channel from its own samples!'
+        )
+    }
+
+    @test()
+    protected static async derivesBandPowersOnlyFromSamplesInsideWindow() {
+        const samples = [
+            ...this.oscillationAt([10]),
+            ...this.oscillationAt([20]),
+        ]
+
+        await this.render({
+            samples,
+            timestamps: this.timestampsFor(samples),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            { ...this.noPowerInAnyBand, Beta: '100%' },
+            'Did not derive band powers only from samples inside window!'
+        )
+    }
+
+    @test()
+    protected static async leavesSteadyOffsetOutOfBandPowersAtAnySampleRate() {
+        const sampleRate = 250
+        const samples = this.oscillationAt([10], { sampleRate }).map(
+            (value) => value + 1000
+        )
+
+        await this.render({
+            samples,
+            timestamps: this.timestampsFor(samples, sampleRate),
+            bandPowers: { ...this.bandPowersOverFourSeconds, sampleRate },
+        })
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            { ...this.noPowerInAnyBand, Alpha: '100%' },
+            'Did not leave steady offset out of band powers at any sample rate!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholdersUntilBandPowerWindowIsFilled() {
+        await this.renderOscillating([10], { seconds: 3.5 })
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            this.placeholderInEveryBand,
+            'Did not show placeholders until band power window is filled!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholdersWhenSignalHasNoPowerInAnyBand() {
+        const samples = this.oscillationAt([10]).map(() => 1)
+
+        await this.render({
+            samples,
+            timestamps: this.timestampsFor(samples),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            this.placeholderInEveryBand,
+            'Did not show placeholders when signal has no power in any band!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholdersWhenMostOfWindowWasDropped() {
+        const samples = this.oscillationAt([10])
+        const timestamps = this.timestampsFor(samples)
+        const isKept = (i: number) => i < 100 || i >= samples.length - 100
+
+        await this.render({
+            samples: samples.filter((_, i) => isKept(i)),
+            timestamps: timestamps.filter((_, i) => isKept(i)),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            this.placeholderInEveryBand,
+            'Did not show placeholders when most of window was dropped!'
+        )
+    }
+
+    @test()
     protected static async showsNoHrvWithoutHrvWindow() {
         await this.renderOneChannelAt([0], this.heartRateOverThirtySeconds)
 
@@ -1800,6 +1998,76 @@ export default class StreamPlotTest extends AbstractPackageTest {
 
     private static get isMenuOpen() {
         return screen.queryByRole('menu') !== null
+    }
+
+    private static readonly bandPowersOverFourSeconds = {
+        sampleRate: 256,
+        windowSeconds: 4,
+    }
+
+    private static readonly noPowerInAnyBand = {
+        Delta: '0%',
+        Theta: '0%',
+        Alpha: '0%',
+        Beta: '0%',
+        Gamma: '0%',
+    }
+
+    private static readonly placeholderInEveryBand = {
+        Delta: '--%',
+        Theta: '--%',
+        Alpha: '--%',
+        Beta: '--%',
+        Gamma: '--%',
+    }
+
+    private static async renderOscillating(
+        frequenciesHz: number[],
+        span?: { seconds: number }
+    ) {
+        const samples = this.oscillationAt(frequenciesHz, span)
+
+        return this.render({
+            samples,
+            timestamps: this.timestampsFor(samples),
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+    }
+
+    private static oscillationAt(
+        frequenciesHz: number[],
+        options?: { seconds?: number; sampleRate?: number }
+    ) {
+        const { seconds = 4, sampleRate = 256 } = options ?? {}
+
+        return Array.from({ length: seconds * sampleRate + 1 }, (_, i) =>
+            frequenciesHz.reduce(
+                (sum, hz) =>
+                    sum + Math.sin((2 * Math.PI * hz * i) / sampleRate),
+                0
+            )
+        )
+    }
+
+    private static timestampsFor(samples: number[], sampleRate = 256) {
+        return samples.map((_, i) => i / sampleRate)
+    }
+
+    private static get bandPowers() {
+        const channels = Array.from(
+            this.plot.querySelectorAll('.stream-plot__band-powers')
+        )
+
+        return channels.map((channel) =>
+            Object.fromEntries(
+                Array.from(
+                    channel.querySelectorAll('.stream-plot__band-power')
+                ).map((band) => [
+                    band.firstElementChild?.textContent,
+                    band.lastElementChild?.textContent,
+                ])
+            )
+        )
     }
 
     private static readonly twoChannels = {

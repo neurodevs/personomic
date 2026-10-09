@@ -114,6 +114,18 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async derivesBandPowersFromFourSecondsOfEeg() {
+        render(<App />)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.streamOptions?.EEG?.bandPowers
+                ?.windowSeconds,
+            4,
+            'Did not derive band powers from four seconds of EEG!'
+        )
+    }
+
     @test('shows latest temperature in celsius', 'Temperature', '°C')
     @test('shows latest humidity in percent', 'Humidity', '%')
     @test('shows latest battery in percent', 'Battery', '%')

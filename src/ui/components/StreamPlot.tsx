@@ -1,6 +1,7 @@
 import PpgPeakDetector, {
     PpgDetector,
 } from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
+import { createFft } from '@neurodevs/node-signal-processing'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 
@@ -15,6 +16,7 @@ export interface StreamPlotProps {
     nowTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
+    bandPowers?: BandPowerOptions
     channelNames?: string[]
     downsampling?: Downsampling
     yLimits?: YLimits
@@ -36,6 +38,11 @@ export interface PeakDetectionOptions {
     hrvProvisionalAfterSeconds?: number
 }
 
+export interface BandPowerOptions {
+    sampleRate: number
+    windowSeconds: number
+}
+
 const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const {
         name,
@@ -48,6 +55,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         nowTimestamp,
         color = '#8b93a7',
         detectPeaks,
+        bandPowers,
         channelNames,
         downsampling,
         yLimits,
@@ -238,6 +246,30 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
               )
             : undefined
 
+    const bandPowerSampleRate = bandPowers?.sampleRate
+    const bandPowerWindowSeconds = bandPowers?.windowSeconds
+
+    const bandPowerTick = Math.floor(latestTimestamp / bandPowerIntervalSeconds)
+
+    const bandPowersByChannel = useMemo(
+        () =>
+            bandPowerSampleRate !== undefined &&
+            bandPowerWindowSeconds !== undefined
+                ? valuesByChannel.map((values) =>
+                      relativeBandPowersFor(values, timestamps, {
+                          sampleRate: bandPowerSampleRate,
+                          windowSeconds: bandPowerWindowSeconds,
+                      })
+                  )
+                : undefined,
+        [
+            bandPowerSampleRate,
+            bandPowerWindowSeconds,
+            bandPowerTick,
+            channelCount,
+        ]
+    )
+
     useEffect(() => {
         if (width !== undefined) {
             return
@@ -351,7 +383,10 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plottedChannelCount,
     ])
 
-    const plotStyle: PlotStyle = { '--stream-color': color }
+    const plotStyle: PlotStyle = {
+        '--stream-color': color,
+        '--y-axis-width': `${yAxisWidth}px`,
+    }
 
     return (
         <section
@@ -405,7 +440,14 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                             containerRefs.current[channel] = container
                         }}
                         className="stream-plot__channel"
-                    />
+                    >
+                        {bandPowersByChannel && (
+                            <BandPowers
+                                channelName={labelFor(channel)}
+                                powers={bandPowersByChannel[channel]}
+                            />
+                        )}
+                    </div>
                 ))}
             </div>
         </section>
@@ -565,9 +607,11 @@ function windowSecondsFrom(text: string) {
 
 type PlotStyle = React.CSSProperties & {
     '--stream-color': string
+    '--y-axis-width': string
 }
 
 const peakDetectionIntervalSeconds = 0.5
+const bandPowerIntervalSeconds = 0.5
 
 const pointsPerPixelByDownsampling: Record<Downsampling, number> = {
     light: 2,
@@ -1011,6 +1055,121 @@ function latestValuesWithUnits(values: number[], units: string) {
         .join(', ')
 }
 
+interface BandPowersProps {
+    channelName: string
+    powers?: number[]
+}
+
+const BandPowers: React.FC<BandPowersProps> = ({ channelName, powers }) => (
+    <div className="stream-plot__band-powers">
+        <span className="stream-plot__band-powers-channel">{channelName}</span>
+        {frequencyBands.map((band, i) => (
+            <span
+                key={band.name}
+                className="stream-plot__band-power"
+                title={`${band.name}, ${band.minHz} to ${band.maxHz} Hz, as a share of ${frequencyBands[0].minHz} to ${frequencyBands[frequencyBands.length - 1].maxHz} Hz power`}
+            >
+                <span className="stream-plot__band-power-name">
+                    {band.name}
+                </span>
+                <span className="stream-plot__band-power-value">
+                    {powers ? Math.round(powers[i] * 100) : '--'}%
+                </span>
+            </span>
+        ))}
+    </div>
+)
+
+const frequencyBands = [
+    { name: 'Delta', minHz: 1, maxHz: 4 },
+    { name: 'Theta', minHz: 4, maxHz: 8 },
+    { name: 'Alpha', minHz: 8, maxHz: 13 },
+    { name: 'Beta', minHz: 13, maxHz: 30 },
+    { name: 'Gamma', minHz: 30, maxHz: 45 },
+]
+
+const numHalfOverlappingSegments = 3
+const minShareOfWindowReceived = 0.5
+
+function relativeBandPowersFor(
+    values: number[],
+    timestamps: number[],
+    options: BandPowerOptions
+) {
+    const { sampleRate, windowSeconds } = options
+    const latestTimestamp = timestamps[timestamps.length - 1]
+
+    if (!(latestTimestamp - timestamps[0] >= windowSeconds)) {
+        return undefined
+    }
+
+    const inWindow = values.slice(
+        firstIndexAfter(timestamps, latestTimestamp - windowSeconds)
+    )
+
+    if (
+        inWindow.length <
+        windowSeconds * sampleRate * minShareOfWindowReceived
+    ) {
+        return undefined
+    }
+
+    const spectrum = summedSegmentPowerSpectrumFor(inWindow)
+    const hzPerBin = sampleRate / spectrum.length
+
+    const powers = frequencyBands.map((band) =>
+        sumOf(
+            spectrum.slice(
+                Math.ceil(band.minHz / hzPerBin),
+                Math.min(Math.ceil(band.maxHz / hzPerBin), spectrum.length / 2)
+            )
+        )
+    )
+
+    const totalPower = sumOf(powers)
+
+    return totalPower > 0
+        ? powers.map((power) => power / totalPower)
+        : undefined
+}
+
+function summedSegmentPowerSpectrumFor(values: number[]) {
+    const hop = Math.floor(values.length / (numHalfOverlappingSegments + 1))
+    const segmentLength = hop * 2
+    const fftLength = 2 ** Math.ceil(Math.log2(segmentLength))
+
+    const fft = createFft({ radix: fftLength })
+    const spectrum: number[] = new Array(fftLength).fill(0)
+
+    for (let start = 0; start + segmentLength <= values.length; start += hop) {
+        const segment = values.slice(start, start + segmentLength)
+        const mean = meanOf(segment)
+
+        const tapered = segment.map(
+            (value, i) => (value - mean) * hannWeightAt(i, segmentLength)
+        )
+
+        const { real, imaginary } = fft.forward([
+            ...tapered,
+            ...new Array(fftLength - segmentLength).fill(0),
+        ])
+
+        real.forEach((re, bin) => {
+            spectrum[bin] += re ** 2 + imaginary[bin] ** 2
+        })
+    }
+
+    return spectrum
+}
+
+function hannWeightAt(index: number, length: number) {
+    return 0.5 - 0.5 * Math.cos((2 * Math.PI * index) / length)
+}
+
+function sumOf(values: number[]) {
+    return values.reduce((sum, value) => sum + value, 0)
+}
+
 interface ReceivedSpan {
     first: number
     latest: number
@@ -1172,7 +1331,7 @@ function normalIntervalFlagsFor(intervals: number[]) {
 }
 
 function meanOf(values: number[]) {
-    return values.reduce((sum, value) => sum + value, 0) / values.length
+    return sumOf(values) / values.length
 }
 
 function beatsPerMinuteFor(

@@ -1708,6 +1708,52 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsSamplesForBandPowerWindowLongerThanPlotWindow() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            windowSeconds: 1,
+            streamOptions: {
+                [this.streams[0].name]: {
+                    bandPowers: { windowSeconds: 2 },
+                },
+            },
+        })
+
+        const chunk = { samples: [1, 2, 3, 4], timestamps: [0, 1, 2, 3] }
+        this.streamSockets.forEach((socket) => socket.receive(chunk))
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.timestamps
+            ),
+            [
+                [1, 2, 3],
+                [2, 3],
+            ],
+            'Did not keep samples for band power window longer than plot window!'
+        )
+    }
+
+    @test()
+    protected static async derivesBandPowersAtGatewaySampleRateForStreamType() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            streamOptions: {
+                [this.streams[0].name]: { bandPowers: { windowSeconds: 4 } },
+            },
+        })
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.bandPowers
+            ),
+            [{ windowSeconds: 4, sampleRate: this.sampleRateHz }, undefined],
+            'Did not derive band powers at gateway sample rate for stream type!'
+        )
+    }
+
+    @test()
     protected static async passesUnitsForStreamTypeToItsPlot() {
         this.setFakeStreamPlot()
 

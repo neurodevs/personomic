@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 import StreamPlot, {
+    BandPowerOptions,
     Downsampling,
     PeakDetectionOptions,
     YLimits,
@@ -92,12 +93,15 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     const sessionByPortRef = useRef<Record<number, StreamData>>({})
 
-    const retainedSecondsFor = (port: number, windowSeconds: number) =>
-        Math.max(
+    const retainedSecondsFor = (port: number, windowSeconds: number) => {
+        const stream = streams.find((stream) => stream.wssPort === port)
+
+        return Math.max(
             windowSeconds,
-            streams.find((stream) => stream.wssPort === port)?.detectPeaks
-                ?.heartRateWindowSeconds ?? 0
+            stream?.detectPeaks?.heartRateWindowSeconds ?? 0,
+            stream?.bandPowers?.windowSeconds ?? 0
         )
+    }
 
     const chooseWindowSeconds = (port: number, seconds: number) => {
         setChosenWindowSecondsByPort((previous) => ({
@@ -604,7 +608,7 @@ function streamFor(
     options: StreamOptions = {}
 ): BiosignalStream {
     const { type, listenPort, channelNames, sampleRateHz } = stream
-    const { detectPeaks, downsampling, yLimits, units } = options
+    const { detectPeaks, bandPowers, downsampling, yLimits, units } = options
 
     return {
         name: type,
@@ -615,6 +619,10 @@ function streamFor(
         ),
         detectPeaks: detectPeaks && {
             ...detectPeaks,
+            sampleRate: sampleRateHz,
+        },
+        bandPowers: bandPowers && {
+            ...bandPowers,
             sampleRate: sampleRateHz,
         },
         downsampling,
@@ -768,6 +776,7 @@ export interface DeviceIdentifier {
 
 export interface StreamOptions {
     detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
+    bandPowers?: Omit<BandPowerOptions, 'sampleRate'>
     downsampling?: Downsampling
     yLimits?: YLimits
     units?: string
@@ -788,6 +797,7 @@ interface BiosignalStream {
     wssPort: number
     sampleRateHz?: number
     detectPeaks?: PeakDetectionOptions
+    bandPowers?: BandPowerOptions
     channelNames?: string[]
     downsampling?: Downsampling
     yLimits?: YLimits

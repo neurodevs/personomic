@@ -1,5 +1,6 @@
-import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 import React, { useEffect, useState } from 'react'
+
+import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 
 import familyOf from '../functions/familyOf'
 import AddBiosensorButton from './components/AddBiosensorButton'
@@ -34,6 +35,7 @@ const recordDirectoryStorageKey = 'personomic.recordDirectory'
 const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
+    EEG: { bandPowers: { windowSeconds: 4 } },
     PPG: {
         detectPeaks: {
             channels: ['AMBIENT', 'INFRARED'],
