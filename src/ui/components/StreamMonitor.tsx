@@ -351,11 +351,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 <DevicePanel
                     key={device.key}
                     device={device}
-                    status={
+                    status={statusWhile(
+                        isConnecting,
                         isGatewayConnected
                             ? deviceStatusFor(device, gatewayDevices)
-                            : statusBeforeGatewayReports(isConnecting)
-                    }
+                            : 'disconnected'
+                    )}
                     onRemove={onRemoveDevice}
                     identifier={identifiers[device.key]}
                     rememberedIdentifiers={rememberedIdentifiers[device.name]}
@@ -647,8 +648,11 @@ function deviceStatusFor(
         : 'disconnected'
 }
 
-function statusBeforeGatewayReports(isConnecting: boolean): DeviceStatus {
-    return isConnecting ? 'connecting' : 'disconnected'
+function statusWhile(
+    isConnecting: boolean,
+    reported: DeviceStatus
+): DeviceStatus {
+    return isConnecting && reported === 'disconnected' ? 'connecting' : reported
 }
 
 function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {
