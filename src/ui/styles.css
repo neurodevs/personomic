@@ -689,6 +689,8 @@ body {
 }
 
 .stream-plot__band-powers-channel {
+  width: calc(var(--channel-name-length) * (1ch + 0.04em));
+  white-space: nowrap;
   color: var(--text-secondary);
 }
 

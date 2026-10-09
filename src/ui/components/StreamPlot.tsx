@@ -386,6 +386,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const plotStyle: PlotStyle = {
         '--stream-color': color,
         '--y-axis-width': `${yAxisWidth}px`,
+        '--channel-name-length': Math.max(
+            0,
+            ...Array.from(
+                { length: channelCount },
+                (_, channel) => labelFor(channel).length
+            )
+        ),
     }
 
     return (
@@ -608,6 +615,7 @@ function windowSecondsFrom(text: string) {
 type PlotStyle = React.CSSProperties & {
     '--stream-color': string
     '--y-axis-width': string
+    '--channel-name-length': number
 }
 
 const peakDetectionIntervalSeconds = 0.5

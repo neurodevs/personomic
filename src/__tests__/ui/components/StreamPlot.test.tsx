@@ -959,6 +959,25 @@ export default class StreamPlotTest extends AbstractPackageTest {
         )
     }
 
+    @test('fits longest given name', ['TP9', 'AUX_RIGHT'], '9')
+    @test('fits longest default name', undefined, '4')
+    protected static async givesEveryChannelNameRoomForLongestSoBandPowersAlign(
+        channelNames: string[] | undefined,
+        expected: string
+    ) {
+        await this.render({
+            ...this.twoChannels,
+            channelNames,
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        assert.isEqual(
+            this.plot.style.getPropertyValue('--channel-name-length'),
+            expected,
+            'Did not give every channel name room for longest!'
+        )
+    }
+
     @test()
     protected static async namesEachBandFromSlowestToQuickest() {
         await this.renderOscillating([10])
