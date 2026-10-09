@@ -1192,6 +1192,45 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsBandPowersWhileDataStillFillsMostOfWindowBeforeNow() {
+        await this.render(this.alphaUntilFourSecondsThenAt(5))
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            { ...this.noPowerInAnyBand, Alpha: '100%' },
+            'Did not keep band powers while data still fills most of window!'
+        )
+    }
+
+    @test()
+    protected static async showsPlaceholdersOnceDataHasRunOutOfMostOfWindowBeforeNow() {
+        await this.render(this.alphaUntilFourSecondsThenAt(6.5))
+
+        assert.isEqualDeep(
+            { channel: this.bandPowers[0], average: this.averageBandPowers },
+            {
+                channel: this.placeholderInEveryBand,
+                average: this.placeholderInEveryBand,
+            },
+            'Did not show placeholders once data has run out of most of window!'
+        )
+    }
+
+    @test()
+    protected static async replacesBandPowersWithPlaceholdersAsTimePassesWithoutNewData() {
+        await this.renderThenUpdate(
+            this.alphaUntilFourSecondsThenAt(4),
+            this.alphaUntilFourSecondsThenAt(8)
+        )
+
+        assert.isEqualDeep(
+            this.bandPowers[0],
+            this.placeholderInEveryBand,
+            'Did not replace band powers with placeholders as time passed!'
+        )
+    }
+
+    @test()
     protected static async showsNoAverageBandPowersWithoutBandPowerOptions() {
         await this.render(this.twoChannels)
 
@@ -2323,6 +2362,17 @@ export default class StreamPlotTest extends AbstractPackageTest {
             timestamps: this.timestampsFor(samples),
             bandPowers: this.bandPowersOverFourSeconds,
         })
+    }
+
+    private static alphaUntilFourSecondsThenAt(nowTimestamp: number) {
+        const samples = this.oscillationAt([10])
+
+        return {
+            samples,
+            timestamps: this.timestampsFor(samples),
+            bandPowers: this.bandPowersOverFourSeconds,
+            nowTimestamp,
+        }
     }
 
     private static oscillationAt(

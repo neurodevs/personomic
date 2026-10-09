@@ -250,7 +250,11 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const bandPowerSampleRate = bandPowers?.sampleRate
     const bandPowerWindowSeconds = bandPowers?.windowSeconds
 
-    const bandPowerTick = Math.floor(latestTimestamp / bandPowerIntervalSeconds)
+    const bandPowerWindowEnd = nowTimestamp ?? latestTimestamp
+
+    const bandPowerTick = Math.floor(
+        bandPowerWindowEnd / bandPowerIntervalSeconds
+    )
 
     const bandPowersByChannel = useMemo(
         () =>
@@ -260,6 +264,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                       relativeBandPowersFor(values, timestamps, {
                           sampleRate: bandPowerSampleRate,
                           windowSeconds: bandPowerWindowSeconds,
+                          windowEnd: bandPowerWindowEnd,
                       })
                   )
                 : undefined,
@@ -1160,18 +1165,16 @@ const minShareOfWindowReceived = 0.5
 function relativeBandPowersFor(
     values: number[],
     timestamps: number[],
-    options: BandPowerOptions
+    options: BandPowerOptions & { windowEnd: number }
 ) {
-    const { sampleRate, windowSeconds } = options
-    const latestTimestamp = timestamps[timestamps.length - 1]
+    const { sampleRate, windowSeconds, windowEnd } = options
+    const windowStart = windowEnd - windowSeconds
 
-    if (!(latestTimestamp - timestamps[0] >= windowSeconds)) {
+    if (!(timestamps[0] <= windowStart)) {
         return undefined
     }
 
-    const inWindow = values.slice(
-        firstIndexAfter(timestamps, latestTimestamp - windowSeconds)
-    )
+    const inWindow = values.slice(firstIndexAfter(timestamps, windowStart))
 
     if (
         inWindow.length <
