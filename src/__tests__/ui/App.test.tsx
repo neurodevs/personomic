@@ -8,6 +8,7 @@ import FakeStreamMonitor, {
     numStreamMonitorMounts,
 } from '../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
+import buildXdfFile from '../../testDoubles/Xdf/buildXdfFile'
 import App, {
     setEverySecond,
     setNow,
@@ -1733,6 +1734,295 @@ export default class AppTest extends AbstractPackageTest {
         assert.isTrue(
             this.sessionButtonState.isDisabled,
             'Did not disable connect again once last device was removed!'
+        )
+    }
+
+    @test()
+    protected static async offersToPlayRecordingBeforeConnecting() {
+        render(<App />)
+
+        assert.isTrue(
+            this.isPlayRecordingOffered,
+            'Did not offer to play recording before connecting!'
+        )
+    }
+
+    @test()
+    protected static async doesNotOfferToPlayRecordingWhileConnected() {
+        this.renderWithMuse()
+        this.connect()
+
+        assert.isFalse(
+            this.isPlayRecordingOffered,
+            'Offered to play recording while connected!'
+        )
+    }
+
+    @test()
+    protected static async asksForFileWhenPlayRecordingIsClicked() {
+        render(<App />)
+
+        let numTimesAsked = 0
+        this.recordingToPlayInput.click = () => numTimesAsked++
+
+        fireEvent.click(screen.getByRole('button', { name: /play recording/i }))
+
+        assert.isEqual(
+            numTimesAsked,
+            1,
+            'Did not ask for file when play recording was clicked!'
+        )
+    }
+
+    @test()
+    protected static async asksOnlyForXdfFiles() {
+        render(<App />)
+
+        assert.isEqual(
+            this.recordingToPlayInput.accept,
+            '.xdf',
+            'Did not ask only for XDF files!'
+        )
+    }
+
+    @test()
+    protected static async passesRecordingReadFromChosenFileToMonitor() {
+        render(<App />)
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.recording,
+            {
+                devices: [
+                    {
+                        deviceName: 'Muse',
+                        streams: [
+                            {
+                                type: 'EEG',
+                                channelNames: ['EEG_TP9'],
+                                sampleRateHz: 256,
+                                samples: [1, 2],
+                                timestamps: [10, 11],
+                            },
+                        ],
+                    },
+                ],
+            },
+            'Did not pass recording read from chosen file to monitor!'
+        )
+    }
+
+    @test()
+    protected static async monitorsDevicesOfRecordingBeingPlayed() {
+        this.renderWithMuse()
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.deviceNames,
+            ['Muse'],
+            'Did not monitor devices of recording being played!'
+        )
+    }
+
+    @test()
+    protected static async locksWhilePlayingAndOffersToStop() {
+        render(<App />)
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            { ...this.lockState, isPlayOffered: this.isPlayRecordingOffered },
+            {
+                isLocked: true,
+                isAddBiosensorButtonShown: false,
+                button: { text: 'Stop', isDisabled: false },
+                isPlayOffered: false,
+            },
+            'Did not lock while playing and offer to stop!'
+        )
+    }
+
+    @test()
+    protected static async showsNameOfFileBeingPlayed() {
+        render(<App />)
+
+        await this.chooseRecording(this.museRecordingFile, 'morning.xdf')
+
+        assert.isTruthy(
+            screen.queryByText('Playing morning.xdf'),
+            'Did not show name of file being played!'
+        )
+    }
+
+    @test()
+    protected static async showsNoRecordControlsWhilePlaying() {
+        render(<App />)
+        this.turnRecordOn()
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            {
+                isToggleShown: screen.queryByRole('checkbox') !== null,
+                isDirectoryShown: this.isRecordDirectoryShown,
+            },
+            { isToggleShown: false, isDirectoryShown: false },
+            'Showed record controls while playing!'
+        )
+    }
+
+    @test()
+    protected static async startsMonitorAfreshWhenPlayingStarts() {
+        render(<App />)
+
+        const numMountsBefore = numStreamMonitorMounts
+        await this.chooseRecording()
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore + 1,
+            'Did not start monitor afresh when playing started!'
+        )
+    }
+
+    @test()
+    protected static async returnsToDevicesChosenBeforeOncePlayingIsStopped() {
+        this.renderWithMuse()
+
+        await this.chooseRecording()
+        this.clickStop()
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                recording: lastStreamMonitorProps?.recording,
+                ...this.lockState,
+            },
+            {
+                deviceNames: ['Muse S Gen 2'],
+                recording: undefined,
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not return to devices chosen before once playing was stopped!'
+        )
+    }
+
+    @test()
+    protected static async stopsPlayingWithoutContactingOrchestrator() {
+        render(<App />)
+
+        await this.chooseRecording()
+        const numContactsBefore = FakeWebSocket.callsToConstructor.length
+        this.clickStop()
+
+        assert.isEqual(
+            FakeWebSocket.callsToConstructor.length,
+            numContactsBefore,
+            'Contacted orchestrator to stop playing!'
+        )
+    }
+
+    @test()
+    protected static async clearsMonitorWhenPlayingIsStopped() {
+        render(<App />)
+
+        await this.chooseRecording()
+        const numMountsWhilePlaying = numStreamMonitorMounts
+        this.clickStop()
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsWhilePlaying + 1,
+            'Did not clear monitor when playing was stopped!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorWhenChosenFileIsNotXdf() {
+        render(<App />)
+
+        await this.chooseRecording(new ArrayBuffer(8), 'notes.txt')
+
+        assert.isEqualDeep(
+            {
+                error: screen.getByRole('alert').textContent,
+                ...this.lockState,
+            },
+            {
+                error: 'Could not play notes.txt. It is not an XDF file.',
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: true },
+            },
+            'Did not show error when chosen file was not XDF!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorWhenRecordingHoldsNoSamples() {
+        render(<App />)
+
+        await this.chooseRecording(
+            buildXdfFile([{ sourceId: 'muse-eeg-X', channelNames: ['A'] }]),
+            'empty.xdf'
+        )
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'Could not play empty.xdf. It holds no samples.',
+            'Did not show error when recording held no samples!'
+        )
+    }
+
+    @test()
+    protected static async clearsEarlierErrorWhenRecordingPlays() {
+        render(<App />)
+
+        await this.chooseRecording(new ArrayBuffer(8), 'notes.txt')
+        await this.chooseRecording()
+
+        assert.isEqual(
+            screen.queryByRole('alert'),
+            null,
+            'Did not clear earlier error when recording played!'
+        )
+    }
+
+    private static readonly museRecordingFile = buildXdfFile([
+        {
+            name: 'Muse EEG (X)',
+            type: 'EEG',
+            sourceId: 'muse-eeg-X',
+            channelNames: ['EEG_TP9'],
+            sampleRateHz: 256,
+            chunks: [{ samples: [[1], [2]], timestamps: [10, 11] }],
+        },
+    ])
+
+    private static async chooseRecording(
+        contents = this.museRecordingFile,
+        name = 'session.xdf'
+    ) {
+        const file = { name, arrayBuffer: async () => contents }
+
+        await act(async () => {
+            fireEvent.change(this.recordingToPlayInput, {
+                target: { files: [file] },
+            })
+        })
+    }
+
+    private static get recordingToPlayInput() {
+        return screen.getByLabelText('Recording to play') as HTMLInputElement
+    }
+
+    private static get isPlayRecordingOffered() {
+        return (
+            screen.queryByRole('button', { name: /play recording/i }) !== null
         )
     }
 

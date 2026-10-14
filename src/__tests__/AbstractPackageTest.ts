@@ -1,3 +1,5 @@
+import { TextDecoder as NodeTextDecoder } from 'node:util'
+
 import PpgPeakDetector from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
 import AbstractModuleTest from '@neurodevs/node-tdd'
 
@@ -14,5 +16,11 @@ export default class AbstractPackageTest extends AbstractModuleTest {
 
         PpgPeakDetector.Class = FakePpgDetector
         FakePpgDetector.resetTestDouble()
+
+        this.giveJsdomTheTextDecoderBrowsersHave()
+    }
+
+    private static giveJsdomTheTextDecoderBrowsersHave() {
+        globalThis.TextDecoder ??= NodeTextDecoder as typeof TextDecoder
     }
 }

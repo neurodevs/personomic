@@ -18,6 +18,7 @@ import StreamMonitor, {
     streamColors,
     StreamMonitorProps,
 } from '../../../ui/components/StreamMonitor'
+import { Recording } from '../../../functions/readXdfRecording'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class StreamMonitorTest extends AbstractPackageTest {
@@ -2037,6 +2038,181 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 retried: this.urlsFor([this.streams[1]]),
             },
             'Did not retry every second when any stream reconnected!'
+        )
+    }
+
+    @test()
+    protected static async opensNoSocketsWhilePlayingRecording() {
+        await this.play()
+
+        assert.isEqualDeep(
+            FakeWebSocket.callsToConstructor,
+            [],
+            'Opened sockets while playing a recording!'
+        )
+    }
+
+    @test()
+    protected static async showsRecordedDevicesAsConnected() {
+        await this.play()
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            'connected',
+            'Did not show recorded devices as connected!'
+        )
+    }
+
+    @test()
+    protected static async plotsEachRecordedStreamWithItsChannels() {
+        await this.play()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) => this.latestPlotPropsFor(stream.name)?.channelNames
+            ),
+            [['A', 'B'], ['C']],
+            'Did not plot each recorded stream with its channels!'
+        )
+    }
+
+    @test()
+    protected static async playsSamplesRecordedUpToTimeElapsed() {
+        await this.play()
+
+        this.nowMs = 600
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4], timestamps: [100, 100.5] },
+            'Did not play samples recorded up to time elapsed!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromWhereLastFrameLeftOff() {
+        await this.play()
+
+        this.nowMs = 600
+        await this.runFrame()
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4, 5, 6], timestamps: [100, 100.5, 101] },
+            'Did not play on from where last frame left off!'
+        )
+    }
+
+    @test()
+    protected static async startsEachStreamWhenItStartedInRecording() {
+        await this.play()
+
+        this.nowMs = 100
+        await this.runFrame()
+        const beforeItStarted = this.latestPlotPropsFor(
+            this.streams[1].name
+        )?.samples
+
+        this.nowMs = 300
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                beforeItStarted,
+                onceItStarted: this.latestPlotPropsFor(this.streams[1].name)
+                    ?.samples,
+            },
+            { beforeItStarted: undefined, onceItStarted: [7] },
+            'Did not start each stream when it started in recording!'
+        )
+    }
+
+    @test()
+    protected static async keepsAnimatingThroughGapInRecording() {
+        await this.play(this.recordingWithGap)
+
+        await this.runFrame()
+        this.nowMs = 11000
+        await this.runFrame()
+
+        assert.isEqual(
+            FakeFrameScheduler.pending.length,
+            1,
+            'Did not keep animating through gap in recording!'
+        )
+    }
+
+    @test()
+    protected static async stopsAnimatingOncePlayedRecordingIsGone() {
+        await this.play(this.recordingWithGap)
+
+        await this.runFrame()
+        this.nowMs = 20000
+        await this.runFrame()
+        this.nowMs = 30001
+        await this.runFrame()
+
+        assert.isEqual(
+            FakeFrameScheduler.pending.length,
+            0,
+            'Did not stop animating once played recording was gone!'
+        )
+    }
+
+    private static get recording(): Recording {
+        return {
+            devices: [
+                {
+                    deviceName: this.deviceName,
+                    streams: [
+                        {
+                            type: this.streams[0].name,
+                            channelNames: ['A', 'B'],
+                            sampleRateHz: 2,
+                            samples: [1, 2, 3, 4, 5, 6],
+                            timestamps: [100, 100.5, 101],
+                        },
+                        {
+                            type: this.streams[1].name,
+                            channelNames: ['C'],
+                            sampleRateHz: 1,
+                            samples: [7, 8],
+                            timestamps: [100.2, 103],
+                        },
+                    ],
+                },
+            ],
+        }
+    }
+
+    private static get recordingWithGap(): Recording {
+        return {
+            devices: [
+                {
+                    deviceName: this.deviceName,
+                    streams: [
+                        {
+                            type: this.streams[0].name,
+                            channelNames: ['A'],
+                            sampleRateHz: 0,
+                            samples: [1, 2],
+                            timestamps: [100, 120],
+                        },
+                    ],
+                },
+            ],
+        }
+    }
+
+    private static async play(recording = this.recording) {
+        this.setFakeStreamPlot()
+
+        await this.mount(
+            recording.devices.map((device) => device.deviceName),
+            { recording: recording }
         )
     }
 

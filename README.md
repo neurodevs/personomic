@@ -51,3 +51,14 @@ it is not at Homebrew's path.
 
 The app starts with no biosensors, so add "Muse S Gen 2" with "+ Add biosensor"
 to see these streams.
+
+## Playing a recording
+
+Click "Play recording…" and choose an XDF file, such as one recorded here. The
+app reads it in the browser and plays it through the same plots as a live
+session, with the timing it was recorded with, so it needs neither biosensors
+nor the orchestrator. The biosensors in the recording replace the ones you
+picked until you click Stop.
+
+A recording does not say which Muse made it: one with IMU or optics streams
+shows as "Muse S Athena", and any other as "Muse".

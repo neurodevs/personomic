@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+import { RecordedStream, Recording } from '../../functions/readXdfRecording'
 import StreamPlot, {
     BandPowerOptions,
     Downsampling,
@@ -21,6 +22,7 @@ export const streamColors = [
 export interface StreamMonitorProps {
     deviceNames: string[]
     deviceStatusPort: number
+    recording?: Recording
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     windowSecondsByDevice?: Record<string, number>
@@ -39,6 +41,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const {
         deviceNames,
         deviceStatusPort,
+        recording: recording,
         streamOptions = {},
         windowSeconds = 10,
         windowSecondsByDevice = {},
@@ -62,6 +65,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
 
+    const reportedDevices = recording
+        ? gatewayDevicesPlaying(recording)
+        : gatewayDevices
+    const isReportingDevices = isGatewayConnected || recording !== undefined
+
     const deviceKeys = deviceKeysFor(deviceNames)
     const devices = deviceNames.map((name, index) =>
         deviceFor(
@@ -70,7 +78,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 name,
                 label: deviceLabelFor(index, deviceNames),
             },
-            gatewayDevices,
+            reportedDevices,
             streamOptions
         )
     )
@@ -130,6 +138,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         let isFrameScheduled = false
         let isClosed = false
 
+        const playback = recording && playbackOf(recording, clock())
+
         const scheduleNextFrame = () => {
             if (!isFrameScheduled) {
                 isFrameScheduled = true
@@ -145,14 +155,14 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             }
 
             const frameMs = clock()
-            const batches = pendingByPort
+            const batches = playback?.takeSamplesDueBy(frameMs) ?? pendingByPort
             pendingByPort = {}
 
             recordLatestArrivals(batches, frameMs)
             renderBatches(batches)
             setNowMs(frameMs)
 
-            if (isAnyDataStillOnScreen(frameMs)) {
+            if (isAnyDataStillOnScreen(frameMs) || playback?.isUnfinished()) {
                 scheduleNextFrame()
             }
         }
@@ -293,7 +303,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 }
             })
 
-        streams.forEach((stream) => void connect(stream))
+        if (playback) {
+            scheduleNextFrame()
+        } else {
+            streams.forEach((stream) => void connect(stream))
+        }
 
         return () => {
             isClosed = true
@@ -303,9 +317,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             Object.values(socketsByPort).forEach((socket) => socket.close())
         }
-    }, [wssPorts])
+    }, [wssPorts, recording])
 
     useEffect(() => {
+        if (recording) {
+            return undefined
+        }
+
         let socket: WebSocket
         let retryTimerId: unknown
         let isClosed = false
@@ -341,7 +359,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             socket.close()
         }
-    }, [deviceStatusPort, isConnecting])
+    }, [deviceStatusPort, isConnecting, recording])
 
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
@@ -353,8 +371,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     device={device}
                     status={statusWhile(
                         isConnecting,
-                        isGatewayConnected
-                            ? deviceStatusFor(device, gatewayDevices)
+                        isReportingDevices
+                            ? deviceStatusFor(device, reportedDevices)
                             : 'disconnected'
                     )}
                     onRemove={onRemoveDevice}
@@ -386,6 +404,87 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function gatewayDevicesPlaying(recording: Recording): GatewayDevice[] {
+    let numStreamsBefore = 0
+
+    return recording.devices.map(({ deviceName, streams }) => ({
+        deviceName,
+        state: 'streaming',
+        streams: streams.map(({ type, channelNames, sampleRateHz }) => ({
+            type,
+            channelNames,
+            sampleRateHz,
+            listenPort: playbackPortOf(numStreamsBefore++),
+        })),
+    }))
+}
+
+function playbackPortOf(streamIndex: number) {
+    return streamIndex + 1
+}
+
+function playbackOf(recording: Recording, startedAtMs: number) {
+    const streams = recording.devices.flatMap((device) => device.streams)
+    const numPlayed = streams.map(() => 0)
+    const recordingStart = Math.min(
+        ...streams.map((stream) => stream.timestamps[0])
+    )
+
+    const takeSamplesDueBy = (nowMs: number) => {
+        const dueBy = recordingStart + (nowMs - startedAtMs) / 1000
+        const due: Record<number, StreamData[]> = {}
+
+        streams.forEach((stream, index) => {
+            const first = numPlayed[index]
+            const end = endOfSamplesDueBy(dueBy, stream, first)
+
+            if (end > first) {
+                numPlayed[index] = end
+                due[playbackPortOf(index)] = [
+                    samplesBetween(first, end, stream),
+                ]
+            }
+        })
+
+        return due
+    }
+
+    const isUnfinished = () =>
+        streams.some(
+            (stream, index) => numPlayed[index] < stream.timestamps.length
+        )
+
+    return { takeSamplesDueBy, isUnfinished }
+}
+
+function endOfSamplesDueBy(
+    dueBy: number,
+    stream: RecordedStream,
+    first: number
+) {
+    const { timestamps } = stream
+    let end = first
+
+    while (end < timestamps.length && timestamps[end] <= dueBy) {
+        end++
+    }
+
+    return end
+}
+
+function samplesBetween(
+    first: number,
+    end: number,
+    stream: RecordedStream
+): StreamData {
+    const channelCount = channelCountOf(stream)
+
+    return {
+        samples: stream.samples.slice(first * channelCount, end * channelCount),
+        timestamps: stream.timestamps.slice(first, end),
+    }
+}
 
 function quickestFirst(streams: BiosignalStream[]) {
     return [...streams].sort(

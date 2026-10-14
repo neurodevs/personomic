@@ -194,7 +194,8 @@ body {
   user-select: none;
 }
 
-.connect-devices__browse {
+.connect-devices__browse,
+.connect-devices__play {
   padding: 6px 12px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -211,12 +212,15 @@ body {
 }
 
 .connect-devices__browse:hover:not(:disabled),
-.connect-devices__browse:focus-visible {
+.connect-devices__browse:focus-visible,
+.connect-devices__play:hover,
+.connect-devices__play:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
   outline: none;
 }
 
-.connect-devices__recording {
+.connect-devices__recording,
+.connect-devices__playing {
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 11px;

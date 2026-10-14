@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 
 import familyOf from '../functions/familyOf'
+import readXdfRecording, { Recording } from '../functions/readXdfRecording'
 import AddBiosensorButton from './components/AddBiosensorButton'
 import StreamMonitor, {
     deviceKeysFor,
@@ -62,7 +63,11 @@ const sessionButtonLabels: Record<SessionState, string> = {
     connecting: 'Connecting…',
     locked: 'Stop',
     stopping: 'Stopping…',
+    playing: 'Stop',
 }
+
+const playRecordingLabel = 'Play recording…'
+const recordingToPlayLabel = 'Recording to play'
 
 export interface AppProps {
     downsampling?: Downsampling
@@ -88,8 +93,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
+    const [playing, setPlaying] = useState<PlayingRecording>()
+    const recordingToPlayInput = useRef<HTMLInputElement>(null)
 
     const isLocked = session !== 'unlocked'
+    const isPlaying = session === 'playing'
 
     const resetMonitor = () => setNumMonitorResets((previous) => previous + 1)
 
@@ -285,6 +293,56 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         )
     }
 
+    const playRecordingIn = async (file: File) => {
+        setSessionError(undefined)
+
+        try {
+            const recording = readXdfRecording(await file.arrayBuffer())
+
+            if (recording.devices.length === 0) {
+                throw new Error('It holds no samples.')
+            }
+
+            setPlaying({
+                fileName: file.name,
+                recording,
+                devicesChosenBefore: devices,
+            })
+            setDevices(
+                recording.devices.map(({ deviceName }) => ({
+                    name: deviceName,
+                    identifier: '',
+                }))
+            )
+            setSession('playing')
+            resetMonitor()
+        } catch (err) {
+            setSessionError(
+                `Could not play ${file.name}. ${(err as Error).message}`
+            )
+        }
+    }
+
+    const playChosenRecording = (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const [file] = event.target.files ?? []
+        event.target.value = ''
+
+        if (file) {
+            void playRecordingIn(file)
+        }
+    }
+
+    const stopPlaying = () => {
+        setDevices(playing?.devicesChosenBefore ?? [])
+        setPlaying(undefined)
+        setSession('unlocked')
+        resetMonitor()
+    }
+
+    const endSession = isPlaying ? stopPlaying : stopSession
+
     return (
         <main className="app">
             <header className="app__header">
@@ -296,6 +354,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 downsampling={downsampling}
                 deviceStatusPort={8764}
                 deviceNames={deviceNames}
+                recording={playing?.recording}
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
@@ -317,22 +376,50 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                         session === 'stopping' ||
                         deviceNames.length === 0
                     }
-                    onClick={isLocked ? stopSession : connectDevices}
+                    onClick={isLocked ? endSession : connectDevices}
                 >
                     {sessionButtonLabels[session]}
                 </button>
-                <label className="connect-devices__record-toggle">
-                    <input
-                        type="checkbox"
-                        checked={isRecordEnabled}
-                        disabled={isLocked}
-                        onChange={(event) =>
-                            setIsRecordEnabled(event.target.checked)
-                        }
-                    />
-                    Record
-                </label>
-                {isRecordEnabled && !recordingPath && (
+                {!isLocked && (
+                    <>
+                        <button
+                            type="button"
+                            className="connect-devices__play"
+                            onClick={() =>
+                                recordingToPlayInput.current?.click()
+                            }
+                        >
+                            {playRecordingLabel}
+                        </button>
+                        <input
+                            ref={recordingToPlayInput}
+                            type="file"
+                            accept=".xdf"
+                            hidden
+                            aria-label={recordingToPlayLabel}
+                            onChange={playChosenRecording}
+                        />
+                    </>
+                )}
+                {playing && (
+                    <span className="connect-devices__playing">
+                        Playing {playing.fileName}
+                    </span>
+                )}
+                {!isPlaying && (
+                    <label className="connect-devices__record-toggle">
+                        <input
+                            type="checkbox"
+                            checked={isRecordEnabled}
+                            disabled={isLocked}
+                            onChange={(event) =>
+                                setIsRecordEnabled(event.target.checked)
+                            }
+                        />
+                        Record
+                    </label>
+                )}
+                {isRecordEnabled && !recordingPath && !isPlaying && (
                     <>
                         <input
                             type="text"
@@ -402,7 +489,14 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
 export default App
 
-type SessionState = 'unlocked' | 'connecting' | 'locked' | 'stopping'
+type SessionState =
+    'unlocked' | 'connecting' | 'locked' | 'stopping' | 'playing'
+
+interface PlayingRecording {
+    fileName: string
+    recording: Recording
+    devicesChosenBefore: SelectedDevice[]
+}
 
 interface RecordTimestampProps {
     frozenAt?: Date
