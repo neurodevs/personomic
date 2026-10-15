@@ -66,5 +66,7 @@ name, while the others play on; click it to open its plots again. Once all of
 them run out, the recording shows as "Finished" until you click Stop. Click
 Replay to play it again from the start.
 
-A recording does not say which Muse made it: one with IMU or optics streams
-shows as "Muse S Athena", and any other as "Muse".
+A recording names the Muse that made it, such as "Muse S Gen 2", when its
+stream names start with the model. Older recordings, whose streams are named
+only "Muse", show as "Muse S Athena" if they have IMU or optics streams, and as
+"Muse" otherwise.

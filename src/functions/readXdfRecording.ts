@@ -193,13 +193,23 @@ function deviceKeyFor(stream: XdfStream) {
 function deviceNameFor(streams: XdfStream[]) {
     const [family] = streams[0].sourceId.split('-')
     const kinds = streams.map(({ sourceId }) => sourceId.split('-')[1])
+    const museModel = family === 'muse' ? museModelIn(streams[0].name) : ''
 
-    if (family === 'muse' && kinds.some(isOnlyOnAthena)) {
+    if (museModel) {
+        return museModel
+    } else if (family === 'muse' && kinds.some(isOnlyOnAthena)) {
         return 'Muse S Athena'
     }
 
     return deviceNamesByFamily.get(family) ?? streams[0].name
 }
+
+function museModelIn(streamName: string) {
+    const [, model = ''] = streamName.match(museModelStreamName) ?? []
+    return model
+}
+
+const museModelStreamName = /^(Muse .+) \S+ \(.*\)$/
 
 function isOnlyOnAthena(kind: string) {
     return kind === 'imu' || kind === 'optics'

@@ -236,6 +236,42 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async namesMuseAfterModelInItsStreamNames() {
+        this.assertNamesMuse(
+            ['Muse S Gen 2 EEG (F57439)', 'Muse S Gen 2 PPG (F57439)'],
+            'Muse S Gen 2'
+        )
+    }
+
+    @test()
+    protected static async namesMuseWhoseModelEndsInNumber() {
+        this.assertNamesMuse(['Muse 2 Accelerometer (F57439)'], 'Muse 2')
+    }
+
+    @test()
+    protected static async namesMuseWithFallbackIdentifierAfterModel() {
+        this.assertNamesMuse(['Muse 1 Gen 2 EEG (Device-1)'], 'Muse 1 Gen 2')
+    }
+
+    @test()
+    protected static async namesAthenaAfterModelEvenWithoutImuOrOptics() {
+        this.assertNamesMuse(['Muse S Athena EEG (F57439)'], 'Muse S Athena')
+    }
+
+    @test()
+    protected static async namesMuseWithoutModelInStreamNamesMuse() {
+        this.assertNamesMuse(['Muse EEG (F57439)'], 'Muse')
+    }
+
+    @test()
+    protected static async namesAthenaWithoutModelInStreamNamesFromImu() {
+        this.assertNamesMuse(
+            ['Muse EEG (F57439)', 'Muse IMU (F57439)'],
+            'Muse S Athena'
+        )
+    }
+
+    @test()
     protected static async namesGoveeFromItsSourceIds() {
         this.assertNamesDevice(
             ['govee-temperature', 'govee-humidity', 'govee-battery'],
@@ -296,6 +332,23 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
             this.devicesReadFrom(sourceIds),
             [{ deviceName: expected, numStreams: sourceIds.length }],
             `Did not name device ${expected}!`
+        )
+    }
+
+    private static assertNamesMuse(streamNames: string[], expected: string) {
+        const file = buildXdfFile(
+            streamNames.map((name) => ({
+                name,
+                sourceId: `muse-${name.split(' ').at(-2)?.toLowerCase()}-F57439`,
+                channelNames: ['A'],
+                chunks: this.oneSample,
+            }))
+        )
+
+        assert.isEqualDeep(
+            readXdfRecording(file).devices.map(({ deviceName }) => deviceName),
+            [expected],
+            `Did not name Muse ${expected}!`
         )
     }
 
