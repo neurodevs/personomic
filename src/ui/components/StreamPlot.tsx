@@ -5,6 +5,12 @@ import { createFft } from '@neurodevs/node-signal-processing'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import uPlot from 'uplot'
 
+import BandPowers, { frequencyBands } from './BandPowers'
+import WindowPicker, {
+    windowLabelFor,
+    windowPickerClassName,
+} from './WindowPicker'
+
 export interface StreamPlotProps {
     name: string
     samples?: number[]
@@ -306,7 +312,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             { length: plottedChannelCount },
             (_, channel) =>
                 new uPlot(
-                    optionsFor({
+                    channelPlotOptionsFor({
                         width: plotWidth,
                         height,
                         labelsTime: channel === plottedChannelCount - 1,
@@ -510,143 +516,6 @@ function metaWithoutWindowFor(channelCount: number) {
         : `${channelCount} ch · Hidden`
 }
 
-const windowPickerClassName = 'stream-plot__window'
-const offeredWindowSeconds = [10, 30, 60, 120, 300, Infinity]
-
-interface WindowPickerProps {
-    seconds: number
-    onChange?: (seconds: number) => void
-}
-
-const WindowPicker: React.FC<WindowPickerProps> = ({ seconds, onChange }) => {
-    const [isOpen, setIsOpen] = useState(false)
-    const [custom, setCustom] = useState('')
-
-    const label = Number.isFinite(seconds)
-        ? `${windowLabelFor(seconds)} window`
-        : 'All data'
-
-    if (!onChange) {
-        return <>{label}</>
-    }
-
-    const choose = (chosen: number) => {
-        onChange(chosen)
-        setIsOpen(false)
-        setCustom('')
-    }
-
-    const chooseCustom = (event: React.FormEvent) => {
-        event.preventDefault()
-
-        const chosen = windowSecondsFrom(custom)
-
-        if (chosen !== undefined) {
-            choose(chosen)
-        }
-    }
-
-    const closeWhenFocusLeaves = (event: React.FocusEvent) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-            setIsOpen(false)
-        }
-    }
-
-    const closeOnEscape = (event: React.KeyboardEvent) => {
-        if (event.key === 'Escape') {
-            setIsOpen(false)
-        }
-    }
-
-    return (
-        <span
-            className={windowPickerClassName}
-            onBlur={closeWhenFocusLeaves}
-            onKeyDown={closeOnEscape}
-        >
-            <button
-                type="button"
-                className="stream-plot__window-button"
-                aria-haspopup="menu"
-                aria-expanded={isOpen}
-                title="Change time window"
-                onClick={() => setIsOpen((wasOpen) => !wasOpen)}
-            >
-                {label}
-            </button>
-            {isOpen && (
-                <ul className="stream-plot__window-menu" role="menu">
-                    {offeredWindowSeconds.map((offered) => (
-                        <li key={offered} role="none">
-                            <button
-                                type="button"
-                                role="menuitemradio"
-                                aria-checked={offered === seconds}
-                                className="stream-plot__window-option"
-                                onMouseDown={keepFocusInPicker}
-                                onClick={() => choose(offered)}
-                            >
-                                {windowLabelFor(offered)}
-                            </button>
-                        </li>
-                    ))}
-                    <li role="none">
-                        <form onSubmit={chooseCustom}>
-                            <input
-                                type="text"
-                                className="stream-plot__window-custom"
-                                aria-label={customWindowLabel}
-                                title={customWindowLabel}
-                                placeholder="Custom"
-                                value={custom}
-                                onChange={(event) =>
-                                    setCustom(event.target.value)
-                                }
-                            />
-                        </form>
-                    </li>
-                </ul>
-            )}
-        </span>
-    )
-}
-
-const customWindowLabel = 'Custom window, such as 90, 45s or 3m'
-
-function keepFocusInPicker(event: React.MouseEvent) {
-    event.preventDefault()
-}
-
-function windowLabelFor(seconds: number) {
-    if (!Number.isFinite(seconds)) {
-        return 'All'
-    }
-
-    const minutes = Math.floor(seconds / 60)
-    const remainder = seconds % 60
-
-    if (minutes === 0) {
-        return `${seconds}s`
-    }
-
-    return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`
-}
-
-function windowSecondsFrom(text: string) {
-    const match = /^(\d*\.?\d+)\s*(s|m)?$/i.exec(text.trim())
-
-    if (!match) {
-        return undefined
-    }
-
-    const [, amount, unit = 's'] = match
-    const seconds = Math.round(
-        Number(amount) * (unit.toLowerCase() === 'm' ? 60 : 1)
-    )
-
-    return seconds >= 1 ? seconds : undefined
-}
-
 type PlotStyle = React.CSSProperties & {
     '--stream-color': string
     '--y-axis-width': string
@@ -668,6 +537,99 @@ interface ChannelSeries {
     peakMarkers?: (number | null)[]
 }
 
+interface ReadoutProps {
+    kind: string
+    label: string
+    value: string
+    note?: string
+}
+
+const Readout: React.FC<ReadoutProps> = ({ kind, label, value, note }) => (
+    <span className={`stream-plot__readout stream-plot__readout--${kind}`}>
+        <span className="stream-plot__readout-label">{label}</span>
+        <span className="stream-plot__readout-value">{value}</span>
+        {note && <span className="stream-plot__readout-note">{note}</span>}
+    </span>
+)
+
+function latestValuesWithUnits(values: number[], units: string) {
+    const separator = units === '%' ? '' : ' '
+
+    return values
+        .map((value) => `${Number(value.toFixed(1))}${separator}${units}`)
+        .join(', ')
+}
+
+function valuesForChannel(
+    samples: number[],
+    timestamps: number[],
+    channelCount: number,
+    channel: number
+) {
+    return timestamps.map((_, i) => samples[i * channelCount + channel])
+}
+
+function decimatedIndices(
+    series: ChannelSeries,
+    firstVisible: number,
+    bucketSeconds: number
+) {
+    const { timestamps, values, peakMarkers } = series
+    const kept: number[] = []
+
+    let bucket: number | undefined
+    let minIdx = 0
+    let maxIdx = 0
+    let peakIdxs: number[] = []
+
+    const keepBucket = () => {
+        if (peakIdxs.length === 0) {
+            kept.push(Math.min(minIdx, maxIdx))
+
+            if (minIdx !== maxIdx) {
+                kept.push(Math.max(minIdx, maxIdx))
+            }
+        } else {
+            const idxs = new Set([minIdx, maxIdx, ...peakIdxs])
+            kept.push(...[...idxs].sort((a, b) => a - b))
+        }
+    }
+
+    for (let i = firstVisible; i < timestamps.length; i++) {
+        const bucketOfSample = Math.floor(timestamps[i] / bucketSeconds)
+
+        if (bucketOfSample !== bucket) {
+            if (bucket !== undefined) {
+                keepBucket()
+            }
+
+            bucket = bucketOfSample
+            minIdx = i
+            maxIdx = i
+            peakIdxs = []
+        } else if (values[i] < values[minIdx]) {
+            minIdx = i
+        } else if (values[i] > values[maxIdx]) {
+            maxIdx = i
+        }
+
+        if (peakMarkers?.[i] != null) {
+            peakIdxs.push(i)
+        }
+    }
+
+    if (bucket !== undefined) {
+        keepBucket()
+    }
+
+    return kept
+}
+
+function firstIndexAtOrAfter(timestamps: number[], cutoff: number) {
+    const index = timestamps.findIndex((timestamp) => timestamp >= cutoff)
+    return index === -1 ? timestamps.length : index
+}
+
 interface PlotAppearance {
     width: number
     height: number
@@ -678,7 +640,7 @@ interface PlotAppearance {
     occurrencesOf: () => ValueOccurrences | undefined
 }
 
-function optionsFor(appearance: PlotAppearance): uPlot.Options {
+function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
     const {
         width,
         height,
@@ -721,10 +683,6 @@ function optionsFor(appearance: PlotAppearance): uPlot.Options {
 
 const leftSide = 3
 const yAxisWidth = 54
-const occurrenceStripWidth = 4
-const occurrenceStripGap = 2
-const faintestOccurrenceOpacity = 0.15
-const maxOccurrenceBins = 256
 const yPadding = 6
 const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
@@ -742,6 +700,9 @@ const axisLook: uPlot.Axis = {
     ticks: { show: false },
     grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
 }
+
+const occurrenceStripWidth = 4
+const occurrenceStripGap = 2
 
 const yAxis: uPlot.Axis = {
     ...axisLook,
@@ -806,122 +767,6 @@ function roundFractionAtMost(seconds: number) {
 
 function xTickLabelFor(secondsAgo: number) {
     return `-${windowLabelFor(Math.round(secondsAgo * 1000) / 1000)}`
-}
-
-interface ValueOccurrences {
-    binWidth: number
-    lowestBin: number
-    highestBin: number
-    countsByBin: Map<number, number>
-}
-
-function noOccurrences(): ValueOccurrences {
-    return {
-        binWidth: 0,
-        lowestBin: Infinity,
-        highestBin: -Infinity,
-        countsByBin: new Map(),
-    }
-}
-
-function countOccurrence(occurrences: ValueOccurrences, value: number) {
-    if (!Number.isFinite(value)) {
-        return
-    }
-
-    if (occurrences.binWidth === 0) {
-        occurrences.binWidth = finestBinWidthFor(value)
-    }
-
-    const bin = Math.floor(value / occurrences.binWidth)
-    const { countsByBin } = occurrences
-
-    countsByBin.set(bin, (countsByBin.get(bin) ?? 0) + 1)
-    occurrences.lowestBin = Math.min(occurrences.lowestBin, bin)
-    occurrences.highestBin = Math.max(occurrences.highestBin, bin)
-
-    while (
-        occurrences.highestBin - occurrences.lowestBin >=
-        maxOccurrenceBins
-    ) {
-        mergeNeighboringBins(occurrences)
-    }
-}
-
-function finestBinWidthFor(value: number) {
-    return 2 ** (Math.floor(Math.log2(Math.abs(value) || 1)) - 20)
-}
-
-function mergeNeighboringBins(occurrences: ValueOccurrences) {
-    const merged = new Map<number, number>()
-
-    for (const [bin, count] of occurrences.countsByBin) {
-        const mergedBin = Math.floor(bin / 2)
-        merged.set(mergedBin, (merged.get(mergedBin) ?? 0) + count)
-    }
-
-    occurrences.binWidth *= 2
-    occurrences.lowestBin = Math.floor(occurrences.lowestBin / 2)
-    occurrences.highestBin = Math.floor(occurrences.highestBin / 2)
-    occurrences.countsByBin = merged
-}
-
-function drawOccurrenceStrip(
-    plot: uPlot,
-    occurrences: ValueOccurrences | undefined,
-    color: string
-) {
-    const { ctx, bbox } = plot
-    const countsByRow = occurrenceCountsByPixelRow(plot, occurrences)
-    const highestCount = Math.max(...countsByRow)
-
-    const width = occurrenceStripWidth * uPlot.pxRatio
-    const left = bbox.left - occurrenceStripGap * uPlot.pxRatio - width
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
-    ctx.fillRect(left, bbox.top, width, countsByRow.length)
-
-    ctx.fillStyle = color
-
-    countsByRow.forEach((count, row) => {
-        if (count > 0) {
-            ctx.globalAlpha =
-                faintestOccurrenceOpacity +
-                (1 - faintestOccurrenceOpacity) * (count / highestCount)
-            ctx.fillRect(left, bbox.top + row, width, 1)
-        }
-    })
-
-    ctx.globalAlpha = 1
-}
-
-function occurrenceCountsByPixelRow(
-    plot: uPlot,
-    occurrences: ValueOccurrences | undefined
-) {
-    const { top, height } = plot.bbox
-    const countsByRow: number[] = new Array(Math.round(height)).fill(0)
-
-    if (!occurrences) {
-        return countsByRow
-    }
-
-    const { binWidth, countsByBin } = occurrences
-    const rowOf = (value: number) => plot.valToPos(value, 'y', true) - top
-
-    for (const [bin, count] of countsByBin) {
-        const firstRow = Math.floor(rowOf((bin + 1) * binWidth))
-        const lastRow = Math.max(firstRow, Math.ceil(rowOf(bin * binWidth)) - 1)
-        const countPerRow = count / (lastRow - firstRow + 1)
-
-        for (let row = firstRow; row <= lastRow; row++) {
-            if (row >= 0 && row < countsByRow.length) {
-                countsByRow[row] += countPerRow
-            }
-        }
-    }
-
-    return countsByRow
 }
 
 const latestYRangeByPlot = new WeakMap<uPlot, YRange>()
@@ -1076,78 +921,327 @@ function verticalLinesAtPeaks(
     return { stroke: lines }
 }
 
-interface ReadoutProps {
-    kind: string
-    label: string
-    value: string
-    note?: string
+function fadingGlowFor(plot: uPlot, hexColor: string) {
+    const { top, height } = plot.bbox
+    const gradient = plot.ctx.createLinearGradient(0, top, 0, top + height)
+
+    gradient.addColorStop(0, `${hexColor}33`)
+    gradient.addColorStop(1, `${hexColor}00`)
+
+    return gradient
 }
 
-const Readout: React.FC<ReadoutProps> = ({ kind, label, value, note }) => (
-    <span className={`stream-plot__readout stream-plot__readout--${kind}`}>
-        <span className="stream-plot__readout-label">{label}</span>
-        <span className="stream-plot__readout-value">{value}</span>
-        {note && <span className="stream-plot__readout-note">{note}</span>}
-    </span>
-)
+const faintestOccurrenceOpacity = 0.15
+const maxOccurrenceBins = 256
 
-function latestValuesWithUnits(values: number[], units: string) {
-    const separator = units === '%' ? '' : ' '
-
-    return values
-        .map((value) => `${Number(value.toFixed(1))}${separator}${units}`)
-        .join(', ')
+interface ValueOccurrences {
+    binWidth: number
+    lowestBin: number
+    highestBin: number
+    countsByBin: Map<number, number>
 }
 
-interface BandPowersProps {
-    powers?: number[]
+function noOccurrences(): ValueOccurrences {
+    return {
+        binWidth: 0,
+        lowestBin: Infinity,
+        highestBin: -Infinity,
+        countsByBin: new Map(),
+    }
 }
 
-const BandPowers: React.FC<BandPowersProps> = ({ powers }) => (
-    <>
-        <span className="stream-plot__band-power-bars" aria-hidden="true">
-            {frequencyBands.map((band, i) => (
-                <span
-                    key={band.name}
-                    className="stream-plot__band-power-bar"
-                    style={{
-                        height: `${percentOf(powers?.[i] ?? 0)}%`,
-                        backgroundColor: band.color,
-                    }}
-                />
-            ))}
-        </span>
-        {frequencyBands.map((band, i) => (
-            <span
-                key={band.name}
-                className="stream-plot__band-power"
-                title={`${band.name}, ${band.minHz} to ${band.maxHz} Hz, as a share of ${frequencyBands[0].minHz} to ${frequencyBands[frequencyBands.length - 1].maxHz} Hz power`}
-            >
-                <span
-                    className="stream-plot__band-power-swatch"
-                    style={{ backgroundColor: band.color }}
-                />
-                <span className="stream-plot__band-power-name">
-                    {band.name}
-                </span>
-                <span className="stream-plot__band-power-value">
-                    {powers ? percentOf(powers[i]) : '--'}%
-                </span>
-            </span>
-        ))}
-    </>
-)
+function countOccurrence(occurrences: ValueOccurrences, value: number) {
+    if (!Number.isFinite(value)) {
+        return
+    }
 
-const frequencyBands = [
-    { name: 'Delta', minHz: 1, maxHz: 4, color: '#9085e9' },
-    { name: 'Theta', minHz: 4, maxHz: 8, color: '#3987e5' },
-    { name: 'Alpha', minHz: 8, maxHz: 13, color: '#199e70' },
-    { name: 'Beta', minHz: 13, maxHz: 30, color: '#c98500' },
-    { name: 'Gamma', minHz: 30, maxHz: 45, color: '#e66767' },
-]
+    if (occurrences.binWidth === 0) {
+        occurrences.binWidth = finestBinWidthFor(value)
+    }
 
-function percentOf(share: number) {
-    return Math.round(share * 100)
+    const bin = Math.floor(value / occurrences.binWidth)
+    const { countsByBin } = occurrences
+
+    countsByBin.set(bin, (countsByBin.get(bin) ?? 0) + 1)
+    occurrences.lowestBin = Math.min(occurrences.lowestBin, bin)
+    occurrences.highestBin = Math.max(occurrences.highestBin, bin)
+
+    while (
+        occurrences.highestBin - occurrences.lowestBin >=
+        maxOccurrenceBins
+    ) {
+        mergeNeighboringBins(occurrences)
+    }
+}
+
+function finestBinWidthFor(value: number) {
+    return 2 ** (Math.floor(Math.log2(Math.abs(value) || 1)) - 20)
+}
+
+function mergeNeighboringBins(occurrences: ValueOccurrences) {
+    const merged = new Map<number, number>()
+
+    for (const [bin, count] of occurrences.countsByBin) {
+        const mergedBin = Math.floor(bin / 2)
+        merged.set(mergedBin, (merged.get(mergedBin) ?? 0) + count)
+    }
+
+    occurrences.binWidth *= 2
+    occurrences.lowestBin = Math.floor(occurrences.lowestBin / 2)
+    occurrences.highestBin = Math.floor(occurrences.highestBin / 2)
+    occurrences.countsByBin = merged
+}
+
+function drawOccurrenceStrip(
+    plot: uPlot,
+    occurrences: ValueOccurrences | undefined,
+    color: string
+) {
+    const { ctx, bbox } = plot
+    const countsByRow = occurrenceCountsByPixelRow(plot, occurrences)
+    const highestCount = Math.max(...countsByRow)
+
+    const width = occurrenceStripWidth * uPlot.pxRatio
+    const left = bbox.left - occurrenceStripGap * uPlot.pxRatio - width
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)'
+    ctx.fillRect(left, bbox.top, width, countsByRow.length)
+
+    ctx.fillStyle = color
+
+    countsByRow.forEach((count, row) => {
+        if (count > 0) {
+            ctx.globalAlpha =
+                faintestOccurrenceOpacity +
+                (1 - faintestOccurrenceOpacity) * (count / highestCount)
+            ctx.fillRect(left, bbox.top + row, width, 1)
+        }
+    })
+
+    ctx.globalAlpha = 1
+}
+
+function occurrenceCountsByPixelRow(
+    plot: uPlot,
+    occurrences: ValueOccurrences | undefined
+) {
+    const { top, height } = plot.bbox
+    const countsByRow: number[] = new Array(Math.round(height)).fill(0)
+
+    if (!occurrences) {
+        return countsByRow
+    }
+
+    const { binWidth, countsByBin } = occurrences
+    const rowOf = (value: number) => plot.valToPos(value, 'y', true) - top
+
+    for (const [bin, count] of countsByBin) {
+        const firstRow = Math.floor(rowOf((bin + 1) * binWidth))
+        const lastRow = Math.max(firstRow, Math.ceil(rowOf(bin * binWidth)) - 1)
+        const countPerRow = count / (lastRow - firstRow + 1)
+
+        for (let row = firstRow; row <= lastRow; row++) {
+            if (row >= 0 && row < countsByRow.length) {
+                countsByRow[row] += countPerRow
+            }
+        }
+    }
+
+    return countsByRow
+}
+
+interface ReceivedSpan {
+    first: number
+    latest: number
+}
+
+function heartRateStatusFor(
+    peakTimestampsByChannel: Set<number>[],
+    windowSeconds: number,
+    received: ReceivedSpan
+) {
+    const countdown = countdownUntilReady(windowSeconds, received)
+
+    if (countdown) {
+        return countdown
+    }
+
+    const beatsPerMinute = beatsPerMinuteFor(
+        peakTimestampsByChannel,
+        received.latest - windowSeconds
+    )
+
+    return `${beatsPerMinute ?? '--'} bpm`
+}
+
+function hrvStatusFor(
+    hrvMilliseconds: number | undefined,
+    thresholds: {
+        reliableAfterSeconds: number
+        provisionalAfterSeconds?: number
+    },
+    received: ReceivedSpan
+) {
+    const { reliableAfterSeconds, provisionalAfterSeconds } = thresholds
+
+    const countdown = countdownUntilReady(
+        provisionalAfterSeconds ?? reliableAfterSeconds,
+        received
+    )
+
+    if (countdown) {
+        return {
+            value: countdown,
+            note:
+                provisionalAfterSeconds !== undefined
+                    ? '(unreliable)'
+                    : undefined,
+        }
+    }
+
+    const secondsUntilReliable = secondsUntil(reliableAfterSeconds, received)
+
+    return {
+        value: `${hrvMilliseconds ?? '--'} ms`,
+        note:
+            secondsUntilReliable > 0
+                ? `(unreliable, reliable in ${durationLabelFor(secondsUntilReliable)})`
+                : '(reliable)',
+    }
+}
+
+function countdownUntilReady(windowSeconds: number, received: ReceivedSpan) {
+    const seconds = secondsUntil(windowSeconds, received)
+    return seconds > 0 ? `Ready in ${durationLabelFor(seconds)}` : undefined
+}
+
+function secondsUntil(windowSeconds: number, received: ReceivedSpan) {
+    return Math.ceil(windowSeconds - (received.latest - received.first))
+}
+
+const beatSettlingSeconds = 1
+const minSecondsBetweenBeats = 0.25
+const plausibleSecondsBetweenBeats = { min: 0.3, max: 2 }
+const maxDeviationFromRecentBeats = 0.2
+const numRecentBeatsCompared = 5
+
+function withSettledBeats(
+    beats: number[],
+    detected: Set<number>,
+    span: { earliest: number; latest: number }
+) {
+    const kept = beats.filter((beat) => beat >= span.earliest)
+
+    const settled = [...detected]
+        .filter((beat) => beat >= span.earliest && beat <= span.latest)
+        .sort((a, b) => a - b)
+
+    for (const beat of settled) {
+        const previous = kept[kept.length - 1]
+
+        if (
+            previous === undefined ||
+            beat - previous >= minSecondsBetweenBeats
+        ) {
+            kept.push(beat)
+        }
+    }
+
+    return kept
+}
+
+function rmssdMillisecondsFor(beatsByChannel: number[][]) {
+    const rmssdOfEachChannel = beatsByChannel
+        .map(rmssdSecondsFor)
+        .filter((rmssd) => rmssd !== undefined)
+
+    return rmssdOfEachChannel.length > 0
+        ? Math.round(meanOf(rmssdOfEachChannel) * 1000)
+        : undefined
+}
+
+function rmssdSecondsFor(beats: number[]) {
+    const intervals = beats.slice(1).map((beat, i) => beat - beats[i])
+    const isNormal = normalIntervalFlagsFor(intervals)
+
+    const squaredSuccessiveDifferences = intervals
+        .slice(1)
+        .flatMap((interval, i) =>
+            isNormal[i] && isNormal[i + 1]
+                ? [(interval - intervals[i]) ** 2]
+                : []
+        )
+
+    return squaredSuccessiveDifferences.length > 0
+        ? Math.sqrt(meanOf(squaredSuccessiveDifferences))
+        : undefined
+}
+
+function normalIntervalFlagsFor(intervals: number[]) {
+    const { min, max } = plausibleSecondsBetweenBeats
+    const recentPlausible: number[] = []
+
+    return intervals.map((interval) => {
+        if (interval < min || interval > max) {
+            return false
+        }
+
+        const typical =
+            recentPlausible.length > 0
+                ? medianOfSorted([...recentPlausible].sort((a, b) => a - b))
+                : interval
+
+        recentPlausible.push(interval)
+
+        if (recentPlausible.length > numRecentBeatsCompared) {
+            recentPlausible.shift()
+        }
+
+        return (
+            Math.abs(interval - typical) / typical <=
+            maxDeviationFromRecentBeats
+        )
+    })
+}
+
+function beatsPerMinuteFor(
+    peakTimestampsByChannel: Set<number>[],
+    earliestTimestamp: number
+) {
+    const secondsBetweenBeats = peakTimestampsByChannel
+        .flatMap((peakTimestamps) => {
+            const recent = [...peakTimestamps]
+                .filter((timestamp) => timestamp >= earliestTimestamp)
+                .sort((a, b) => a - b)
+
+            return recent.slice(1).map((timestamp, i) => timestamp - recent[i])
+        })
+        .sort((a, b) => a - b)
+
+    return secondsBetweenBeats.length > 0
+        ? Math.round(60 / medianOfSorted(secondsBetweenBeats))
+        : undefined
+}
+
+function medianOfSorted(values: number[]) {
+    const middle = Math.floor(values.length / 2)
+
+    return values.length % 2 === 1
+        ? values[middle]
+        : (values[middle - 1] + values[middle]) / 2
+}
+
+function peakTimestampsFor(
+    detector: PpgDetector,
+    values: number[],
+    timestamps: number[]
+) {
+    if (values.length < 2) {
+        return new Set<number>()
+    }
+
+    const { peaks } = detector.run(values, timestamps)
+    return new Set(peaks.map((peak) => peak.timestamp))
 }
 
 function averageBandPowersOf(powersByChannel: (number[] | undefined)[]) {
@@ -1236,287 +1330,10 @@ function hannWeightAt(index: number, length: number) {
     return 0.5 - 0.5 * Math.cos((2 * Math.PI * index) / length)
 }
 
-function sumOf(values: number[]) {
-    return values.reduce((sum, value) => sum + value, 0)
-}
-
-interface ReceivedSpan {
-    first: number
-    latest: number
-}
-
-function heartRateStatusFor(
-    peakTimestampsByChannel: Set<number>[],
-    windowSeconds: number,
-    received: ReceivedSpan
-) {
-    const countdown = countdownUntilReady(windowSeconds, received)
-
-    if (countdown) {
-        return countdown
-    }
-
-    const beatsPerMinute = beatsPerMinuteFor(
-        peakTimestampsByChannel,
-        received.latest - windowSeconds
-    )
-
-    return `${beatsPerMinute ?? '--'} bpm`
-}
-
-function hrvStatusFor(
-    hrvMilliseconds: number | undefined,
-    thresholds: {
-        reliableAfterSeconds: number
-        provisionalAfterSeconds?: number
-    },
-    received: ReceivedSpan
-) {
-    const { reliableAfterSeconds, provisionalAfterSeconds } = thresholds
-
-    const countdown = countdownUntilReady(
-        provisionalAfterSeconds ?? reliableAfterSeconds,
-        received
-    )
-
-    if (countdown) {
-        return {
-            value: countdown,
-            note:
-                provisionalAfterSeconds !== undefined
-                    ? '(unreliable)'
-                    : undefined,
-        }
-    }
-
-    const secondsUntilReliable = secondsUntil(reliableAfterSeconds, received)
-
-    return {
-        value: `${hrvMilliseconds ?? '--'} ms`,
-        note:
-            secondsUntilReliable > 0
-                ? `(unreliable, reliable in ${durationLabelFor(secondsUntilReliable)})`
-                : '(reliable)',
-    }
-}
-
-function countdownUntilReady(windowSeconds: number, received: ReceivedSpan) {
-    const seconds = secondsUntil(windowSeconds, received)
-    return seconds > 0 ? `Ready in ${durationLabelFor(seconds)}` : undefined
-}
-
-function secondsUntil(windowSeconds: number, received: ReceivedSpan) {
-    return Math.ceil(windowSeconds - (received.latest - received.first))
-}
-
 function durationLabelFor(seconds: number) {
     return seconds < 60
         ? `${seconds}s`
         : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
-}
-
-const beatSettlingSeconds = 1
-const minSecondsBetweenBeats = 0.25
-const plausibleSecondsBetweenBeats = { min: 0.3, max: 2 }
-const maxDeviationFromRecentBeats = 0.2
-const numRecentBeatsCompared = 5
-
-function withSettledBeats(
-    beats: number[],
-    detected: Set<number>,
-    span: { earliest: number; latest: number }
-) {
-    const kept = beats.filter((beat) => beat >= span.earliest)
-
-    const settled = [...detected]
-        .filter((beat) => beat >= span.earliest && beat <= span.latest)
-        .sort((a, b) => a - b)
-
-    for (const beat of settled) {
-        const previous = kept[kept.length - 1]
-
-        if (
-            previous === undefined ||
-            beat - previous >= minSecondsBetweenBeats
-        ) {
-            kept.push(beat)
-        }
-    }
-
-    return kept
-}
-
-function rmssdMillisecondsFor(beatsByChannel: number[][]) {
-    const rmssdOfEachChannel = beatsByChannel
-        .map(rmssdSecondsFor)
-        .filter((rmssd) => rmssd !== undefined)
-
-    return rmssdOfEachChannel.length > 0
-        ? Math.round(meanOf(rmssdOfEachChannel) * 1000)
-        : undefined
-}
-
-function rmssdSecondsFor(beats: number[]) {
-    const intervals = beats.slice(1).map((beat, i) => beat - beats[i])
-    const isNormal = normalIntervalFlagsFor(intervals)
-
-    const squaredSuccessiveDifferences = intervals
-        .slice(1)
-        .flatMap((interval, i) =>
-            isNormal[i] && isNormal[i + 1]
-                ? [(interval - intervals[i]) ** 2]
-                : []
-        )
-
-    return squaredSuccessiveDifferences.length > 0
-        ? Math.sqrt(meanOf(squaredSuccessiveDifferences))
-        : undefined
-}
-
-function normalIntervalFlagsFor(intervals: number[]) {
-    const { min, max } = plausibleSecondsBetweenBeats
-    const recentPlausible: number[] = []
-
-    return intervals.map((interval) => {
-        if (interval < min || interval > max) {
-            return false
-        }
-
-        const typical =
-            recentPlausible.length > 0
-                ? medianOfSorted([...recentPlausible].sort((a, b) => a - b))
-                : interval
-
-        recentPlausible.push(interval)
-
-        if (recentPlausible.length > numRecentBeatsCompared) {
-            recentPlausible.shift()
-        }
-
-        return (
-            Math.abs(interval - typical) / typical <=
-            maxDeviationFromRecentBeats
-        )
-    })
-}
-
-function meanOf(values: number[]) {
-    return sumOf(values) / values.length
-}
-
-function beatsPerMinuteFor(
-    peakTimestampsByChannel: Set<number>[],
-    earliestTimestamp: number
-) {
-    const secondsBetweenBeats = peakTimestampsByChannel
-        .flatMap((peakTimestamps) => {
-            const recent = [...peakTimestamps]
-                .filter((timestamp) => timestamp >= earliestTimestamp)
-                .sort((a, b) => a - b)
-
-            return recent.slice(1).map((timestamp, i) => timestamp - recent[i])
-        })
-        .sort((a, b) => a - b)
-
-    return secondsBetweenBeats.length > 0
-        ? Math.round(60 / medianOfSorted(secondsBetweenBeats))
-        : undefined
-}
-
-function medianOfSorted(values: number[]) {
-    const middle = Math.floor(values.length / 2)
-
-    return values.length % 2 === 1
-        ? values[middle]
-        : (values[middle - 1] + values[middle]) / 2
-}
-
-function peakTimestampsFor(
-    detector: PpgDetector,
-    values: number[],
-    timestamps: number[]
-) {
-    if (values.length < 2) {
-        return new Set<number>()
-    }
-
-    const { peaks } = detector.run(values, timestamps)
-    return new Set(peaks.map((peak) => peak.timestamp))
-}
-
-function fadingGlowFor(plot: uPlot, hexColor: string) {
-    const { top, height } = plot.bbox
-    const gradient = plot.ctx.createLinearGradient(0, top, 0, top + height)
-
-    gradient.addColorStop(0, `${hexColor}33`)
-    gradient.addColorStop(1, `${hexColor}00`)
-
-    return gradient
-}
-
-function valuesForChannel(
-    samples: number[],
-    timestamps: number[],
-    channelCount: number,
-    channel: number
-) {
-    return timestamps.map((_, i) => samples[i * channelCount + channel])
-}
-
-function decimatedIndices(
-    series: ChannelSeries,
-    firstVisible: number,
-    bucketSeconds: number
-) {
-    const { timestamps, values, peakMarkers } = series
-    const kept: number[] = []
-
-    let bucket: number | undefined
-    let minIdx = 0
-    let maxIdx = 0
-    let peakIdxs: number[] = []
-
-    const keepBucket = () => {
-        if (peakIdxs.length === 0) {
-            kept.push(Math.min(minIdx, maxIdx))
-
-            if (minIdx !== maxIdx) {
-                kept.push(Math.max(minIdx, maxIdx))
-            }
-        } else {
-            const idxs = new Set([minIdx, maxIdx, ...peakIdxs])
-            kept.push(...[...idxs].sort((a, b) => a - b))
-        }
-    }
-
-    for (let i = firstVisible; i < timestamps.length; i++) {
-        const bucketOfSample = Math.floor(timestamps[i] / bucketSeconds)
-
-        if (bucketOfSample !== bucket) {
-            if (bucket !== undefined) {
-                keepBucket()
-            }
-
-            bucket = bucketOfSample
-            minIdx = i
-            maxIdx = i
-            peakIdxs = []
-        } else if (values[i] < values[minIdx]) {
-            minIdx = i
-        } else if (values[i] > values[maxIdx]) {
-            maxIdx = i
-        }
-
-        if (peakMarkers?.[i] != null) {
-            peakIdxs.push(i)
-        }
-    }
-
-    if (bucket !== undefined) {
-        keepBucket()
-    }
-
-    return kept
 }
 
 function firstIndexAfter(timestamps: number[], timestamp: number) {
@@ -1529,7 +1346,10 @@ function firstIndexAfter(timestamps: number[], timestamp: number) {
     return index
 }
 
-function firstIndexAtOrAfter(timestamps: number[], cutoff: number) {
-    const index = timestamps.findIndex((timestamp) => timestamp >= cutoff)
-    return index === -1 ? timestamps.length : index
+function meanOf(values: number[]) {
+    return sumOf(values) / values.length
+}
+
+function sumOf(values: number[]) {
+    return values.reduce((sum, value) => sum + value, 0)
 }

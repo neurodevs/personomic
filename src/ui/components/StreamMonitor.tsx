@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 import { RecordedStream, Recording } from '../../functions/readXdfRecording'
+import DevicePanel from './DevicePanel'
+import { DeviceIdentifier } from './IdentifierInput'
 import StreamPlot, {
     BandPowerOptions,
     Downsampling,
     PeakDetectionOptions,
     YLimits,
 } from './StreamPlot'
+
+export type { DeviceIdentifier } from './IdentifierInput'
 
 export const streamColors = [
     '#3987e5',
@@ -467,6 +471,275 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
 export default StreamMonitor
 
+function quickestFirst(streams: BiosignalStream[]) {
+    return [...streams].sort(
+        (a, b) => (b.sampleRateHz ?? 0) - (a.sampleRateHz ?? 0)
+    )
+}
+
+function sharedNowTimestampFor(
+    arrivalsByPort: Record<number, LatestArrival>,
+    nowMs: number
+) {
+    const estimates = Object.values(arrivalsByPort).map(
+        (arrival) => arrival.timestamp + (nowMs - arrival.arrivedAtMs) / 1000
+    )
+
+    return estimates.length > 0 ? Math.max(...estimates) : undefined
+}
+
+const deviceStatusRetryDelayMs = 1000
+
+function retryDelayMsAfter(numFailedRetries: number) {
+    return numFailedRetries < 10 ? 1000 : 10000
+}
+
+function appendToSession(
+    session: StreamData | undefined,
+    data: StreamData
+): StreamData {
+    const isSameShape =
+        data.timestamps.length === 0 ||
+        channelCountOf(session ?? data) === channelCountOf(data)
+
+    const continued =
+        session && isSameShape ? session : { samples: [], timestamps: [] }
+
+    data.samples.forEach((sample) => continued.samples.push(sample))
+    data.timestamps.forEach((timestamp) => continued.timestamps.push(timestamp))
+
+    return continued
+}
+
+function latestSecondsOf(session: StreamData, seconds: number): StreamData {
+    const { samples, timestamps } = session
+    const channelCount = channelCountOf(session)
+    const cutoff = timestamps[timestamps.length - 1] - seconds
+
+    let firstKept = timestamps.length
+
+    while (firstKept > 0 && timestamps[firstKept - 1] >= cutoff) {
+        firstKept--
+    }
+
+    return {
+        samples: samples.slice(firstKept * channelCount),
+        timestamps: timestamps.slice(firstKept),
+    }
+}
+
+interface LatestArrival {
+    timestamp: number
+    arrivedAtMs: number
+}
+
+export interface StreamData {
+    samples: number[]
+    timestamps: number[]
+}
+
+// Test doubles
+
+export let WebSocketComponent = WebSocket
+
+export function setWebSocketComponent(component: typeof WebSocket) {
+    WebSocketComponent = component
+}
+
+export let scheduleFrame = (callback: () => void) => {
+    requestAnimationFrame(callback)
+}
+
+export function setFrameScheduler(scheduler: typeof scheduleFrame) {
+    scheduleFrame = scheduler
+}
+
+export let clock = () => performance.now()
+
+export function setClock(nextClock: typeof clock) {
+    clock = nextClock
+}
+
+export let retryTimer: RetryTimer = {
+    set: (callback, delayMs) => setTimeout(callback, delayMs),
+    clear: (id) => clearTimeout(id),
+}
+
+export function setRetryTimer(timer: RetryTimer) {
+    retryTimer = timer
+}
+
+export interface RetryTimer {
+    set(callback: () => void, delayMs: number): unknown
+    clear(id: any): void
+}
+
+export let StreamPlotComponent = StreamPlot
+
+export function setStreamPlotComponent(component: typeof StreamPlot) {
+    StreamPlotComponent = component
+}
+
+function deviceFor(
+    shown: ShownDevice,
+    gatewayDevices: GatewayDevice[],
+    streamOptions: Record<string, StreamOptions>
+): BiosignalDevice {
+    const gatewayStreams = gatewayDeviceFor(shown, gatewayDevices)?.streams
+
+    return {
+        ...shown,
+        streams: (gatewayStreams ?? []).map((stream) =>
+            streamFor(stream, streamOptions[stream.type])
+        ),
+    }
+}
+
+function streamFor(
+    stream: GatewayStream,
+    options: StreamOptions = {}
+): BiosignalStream {
+    const { type, listenPort, channelNames, sampleRateHz } = stream
+    const { detectPeaks, bandPowers, downsampling, yLimits, units } = options
+
+    return {
+        name: type,
+        wssPort: listenPort,
+        sampleRateHz,
+        channelNames: channelNames.map((channel) =>
+            withoutTypePrefix(channel, type)
+        ),
+        detectPeaks: detectPeaks && {
+            ...detectPeaks,
+            sampleRate: sampleRateHz,
+        },
+        bandPowers: bandPowers && {
+            ...bandPowers,
+            sampleRate: sampleRateHz,
+        },
+        downsampling,
+        yLimits,
+        units,
+    }
+}
+
+function withoutTypePrefix(channel: string, type: string) {
+    const prefix = `${type}_`
+    return channel.startsWith(prefix) ? channel.slice(prefix.length) : channel
+}
+
+function deviceStatusFor(
+    shown: ShownDevice,
+    gatewayDevices: GatewayDevice[]
+): DeviceStatus {
+    const gatewayDevice = gatewayDeviceFor(shown, gatewayDevices)
+
+    return gatewayDevice
+        ? deviceStatusByState[gatewayDevice.state]
+        : 'disconnected'
+}
+
+function statusWhile(
+    isConnecting: boolean,
+    reported: DeviceStatus
+): DeviceStatus {
+    return isConnecting && reported === 'disconnected' ? 'connecting' : reported
+}
+
+function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {
+    const sameNamed = gatewayDevices.filter(
+        (device) => device.deviceName === shown.name
+    )
+    return sameNamed[occurrenceOf(shown) - 1]
+}
+
+function occurrenceOf(shown: ShownDevice) {
+    return shown.key === shown.name
+        ? 1
+        : Number(shown.key.slice(shown.name.length + repeatSeparator.length))
+}
+
+const repeatSeparator = ' #'
+
+function deviceLabelFor(index: number, deviceNames: string[]) {
+    const name = deviceNames[index]
+    const isRepeated =
+        deviceNames.indexOf(name) !== deviceNames.lastIndexOf(name)
+    const occurrence = deviceNames
+        .slice(0, index + 1)
+        .filter((earlier) => earlier === name).length
+
+    return isRepeated ? `${name}${repeatSeparator}${occurrence}` : name
+}
+
+export function deviceKeysFor(deviceNames: string[]) {
+    const numSeenByName: Record<string, number> = {}
+
+    return deviceNames.map((name) => {
+        const occurrence = (numSeenByName[name] ?? 0) + 1
+        numSeenByName[name] = occurrence
+
+        return occurrence === 1
+            ? name
+            : `${name}${repeatSeparator}${occurrence}`
+    })
+}
+
+const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
+    disconnected: 'disconnected',
+    connecting: 'connecting',
+    connected: 'connected',
+    streaming: 'connected',
+}
+
+export type DeviceStatus = 'disconnected' | 'connecting' | 'connected'
+
+type GatewayDeviceState =
+    'disconnected' | 'connecting' | 'connected' | 'streaming'
+
+interface GatewayDevice {
+    deviceName: string
+    state: GatewayDeviceState
+    streams: GatewayStream[]
+}
+
+interface GatewayStream {
+    type: string
+    listenPort: number
+    channelNames: string[]
+    sampleRateHz: number
+}
+
+export interface StreamOptions {
+    detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
+    bandPowers?: Omit<BandPowerOptions, 'sampleRate'>
+    downsampling?: Downsampling
+    yLimits?: YLimits
+    units?: string
+}
+
+interface ShownDevice {
+    key: string
+    name: string
+    label: string
+}
+
+export interface BiosignalDevice extends ShownDevice {
+    streams: BiosignalStream[]
+}
+
+interface BiosignalStream {
+    name: string
+    wssPort: number
+    sampleRateHz?: number
+    detectPeaks?: PeakDetectionOptions
+    bandPowers?: BandPowerOptions
+    channelNames?: string[]
+    downsampling?: Downsampling
+    yLimits?: YLimits
+    units?: string
+}
+
 function gatewayDevicesPlaying(
     recording: Recording,
     runOutDevices: boolean[]
@@ -590,478 +863,11 @@ function samplesBetween(
     }
 }
 
-function quickestFirst(streams: BiosignalStream[]) {
-    return [...streams].sort(
-        (a, b) => (b.sampleRateHz ?? 0) - (a.sampleRateHz ?? 0)
-    )
-}
-
-function sharedNowTimestampFor(
-    arrivalsByPort: Record<number, LatestArrival>,
-    nowMs: number
-) {
-    const estimates = Object.values(arrivalsByPort).map(
-        (arrival) => arrival.timestamp + (nowMs - arrival.arrivedAtMs) / 1000
-    )
-
-    return estimates.length > 0 ? Math.max(...estimates) : undefined
-}
-
-const DevicePanel: React.FC<DevicePanelProps> = ({
-    device,
-    status,
-    hasRunOut = false,
-    onRemove,
-    identifier,
-    rememberedIdentifiers,
-    onForgetIdentifier,
-    onIdentifierChange,
-    children,
-}) => {
-    const hasStreams = device.streams.length > 0
-
-    const isLocked = onIdentifierChange === undefined
-
-    const isIdentifierShown =
-        identifier !== undefined &&
-        (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
-
-    const [arePlotsHidden, setArePlotsHidden] = useState(false)
-
-    useEffect(() => {
-        if (hasRunOut) {
-            setArePlotsHidden(true)
-        }
-    }, [hasRunOut])
-
-    const togglePlotsUnlessClickedOnContents = (event: React.MouseEvent) => {
-        const clicked = event.target as Element
-
-        if (!clicked.closest(`input, button, .${deviceStreamsClassName}`)) {
-            setArePlotsHidden((wereHidden) => !wereHidden)
-        }
-    }
-
-    return (
-        <section
-            className={`stream-monitor__device stream-monitor__device--${status}`}
-            data-testid={`device-${device.key}`}
-            onClick={togglePlotsUnlessClickedOnContents}
-        >
-            <header className="stream-monitor__device-header">
-                <DeviceStatusIndicator status={status} />
-                <span className="stream-monitor__device-name">
-                    {device.label}
-                </span>
-                {identifier && isIdentifierShown && (
-                    <IdentifierInput
-                        deviceLabel={device.label}
-                        identifier={identifier}
-                        remembered={rememberedIdentifiers}
-                        onChange={
-                            onIdentifierChange &&
-                            ((value) => onIdentifierChange(device.key, value))
-                        }
-                        onForget={
-                            onForgetIdentifier &&
-                            ((value) => onForgetIdentifier(device.name, value))
-                        }
-                    />
-                )}
-                {hasStreams && (
-                    <span className="stream-monitor__device-meta">
-                        {device.streams.length} streams
-                    </span>
-                )}
-                {onRemove && (
-                    <button
-                        type="button"
-                        className="stream-monitor__device-remove"
-                        aria-label={`Remove ${device.label}`}
-                        title={`Remove ${device.label}`}
-                        onClick={() => onRemove(device.key)}
-                    >
-                        ×
-                    </button>
-                )}
-            </header>
-            {hasStreams && !arePlotsHidden && (
-                <div className={deviceStreamsClassName}>{children}</div>
-            )}
-        </section>
-    )
-}
-
-const deviceStreamsClassName = 'stream-monitor__device-streams'
-
-interface DevicePanelProps {
-    device: BiosignalDevice
-    status: DeviceStatus
-    hasRunOut?: boolean
-    onRemove?: (name: string) => void
-    identifier?: DeviceIdentifier
-    rememberedIdentifiers?: readonly string[]
-    onForgetIdentifier?: (name: string, identifier: string) => void
-    onIdentifierChange?: (name: string, value: string) => void
-    children?: React.ReactNode
-}
-
-const IdentifierInput: React.FC<IdentifierInputProps> = ({
-    deviceLabel,
-    identifier,
-    remembered = [],
-    onChange,
-    onForget,
-}) => {
-    const [isOpen, setIsOpen] = useState(false)
-
-    const isLocked = onChange === undefined
-
-    const choose = (value: string) => {
-        onChange?.(value)
-        setIsOpen(false)
-    }
-
-    return (
-        <span className="stream-monitor__device-identifier-field">
-            <input
-                type="text"
-                className="stream-monitor__device-identifier"
-                aria-label={`${deviceLabel} ${identifier.label} (optional)`}
-                placeholder={`${identifier.label} (optional)`}
-                value={identifier.value}
-                readOnly={isLocked}
-                onChange={(event) => onChange?.(event.target.value)}
-                onFocus={() => setIsOpen(true)}
-                onClick={() => setIsOpen(true)}
-                onBlur={() => setIsOpen(false)}
-            />
-            {isOpen && !isLocked && remembered.length > 0 && (
-                <ul
-                    className="stream-monitor__device-identifier-menu"
-                    role="listbox"
-                    aria-label={`Previous ${deviceLabel} ${identifier.label} values`}
-                >
-                    {remembered.map((value) => (
-                        <li
-                            key={value}
-                            role="none"
-                            className="stream-monitor__device-identifier-row"
-                        >
-                            <button
-                                type="button"
-                                role="option"
-                                aria-selected={value === identifier.value}
-                                className="stream-monitor__device-identifier-option"
-                                onMouseDown={keepInputFocused}
-                                onClick={() => choose(value)}
-                            >
-                                {value}
-                            </button>
-                            {onForget && (
-                                <button
-                                    type="button"
-                                    className="stream-monitor__device-identifier-forget"
-                                    aria-label={`Forget ${value}`}
-                                    title={`Forget ${value}`}
-                                    onMouseDown={keepInputFocused}
-                                    onClick={() => onForget(value)}
-                                >
-                                    ×
-                                </button>
-                            )}
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </span>
-    )
-}
-
-function keepInputFocused(event: React.MouseEvent) {
-    event.preventDefault()
-}
-
-interface IdentifierInputProps {
-    deviceLabel: string
-    identifier: DeviceIdentifier
-    remembered?: readonly string[]
-    onChange?: (value: string) => void
-    onForget?: (value: string) => void
-}
-
-const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({
-    status,
-}) => (
-    <span
-        className={`stream-monitor__device-status stream-monitor__device-status--${status}`}
-        aria-label={status}
-        title={status}
-    />
-)
-
-function deviceFor(
-    shown: ShownDevice,
-    gatewayDevices: GatewayDevice[],
-    streamOptions: Record<string, StreamOptions>
-): BiosignalDevice {
-    const gatewayStreams = gatewayDeviceFor(shown, gatewayDevices)?.streams
-
-    return {
-        ...shown,
-        streams: (gatewayStreams ?? []).map((stream) =>
-            streamFor(stream, streamOptions[stream.type])
-        ),
-    }
-}
-
-function streamFor(
-    stream: GatewayStream,
-    options: StreamOptions = {}
-): BiosignalStream {
-    const { type, listenPort, channelNames, sampleRateHz } = stream
-    const { detectPeaks, bandPowers, downsampling, yLimits, units } = options
-
-    return {
-        name: type,
-        wssPort: listenPort,
-        sampleRateHz,
-        channelNames: channelNames.map((channel) =>
-            withoutTypePrefix(channel, type)
-        ),
-        detectPeaks: detectPeaks && {
-            ...detectPeaks,
-            sampleRate: sampleRateHz,
-        },
-        bandPowers: bandPowers && {
-            ...bandPowers,
-            sampleRate: sampleRateHz,
-        },
-        downsampling,
-        yLimits,
-        units,
-    }
-}
-
-function withoutTypePrefix(channel: string, type: string) {
-    const prefix = `${type}_`
-    return channel.startsWith(prefix) ? channel.slice(prefix.length) : channel
-}
-
-function deviceStatusFor(
-    shown: ShownDevice,
-    gatewayDevices: GatewayDevice[]
-): DeviceStatus {
-    const gatewayDevice = gatewayDeviceFor(shown, gatewayDevices)
-
-    return gatewayDevice
-        ? deviceStatusByState[gatewayDevice.state]
-        : 'disconnected'
-}
-
-function statusWhile(
-    isConnecting: boolean,
-    reported: DeviceStatus
-): DeviceStatus {
-    return isConnecting && reported === 'disconnected' ? 'connecting' : reported
-}
-
-function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {
-    const sameNamed = gatewayDevices.filter(
-        (device) => device.deviceName === shown.name
-    )
-    return sameNamed[occurrenceOf(shown) - 1]
-}
-
-function occurrenceOf(shown: ShownDevice) {
-    return shown.key === shown.name
-        ? 1
-        : Number(shown.key.slice(shown.name.length + repeatSeparator.length))
-}
-
-const repeatSeparator = ' #'
-
-function deviceLabelFor(index: number, deviceNames: string[]) {
-    const name = deviceNames[index]
-    const isRepeated =
-        deviceNames.indexOf(name) !== deviceNames.lastIndexOf(name)
-    const occurrence = deviceNames
-        .slice(0, index + 1)
-        .filter((earlier) => earlier === name).length
-
-    return isRepeated ? `${name}${repeatSeparator}${occurrence}` : name
-}
-
-export function deviceKeysFor(deviceNames: string[]) {
-    const numSeenByName: Record<string, number> = {}
-
-    return deviceNames.map((name) => {
-        const occurrence = (numSeenByName[name] ?? 0) + 1
-        numSeenByName[name] = occurrence
-
-        return occurrence === 1
-            ? name
-            : `${name}${repeatSeparator}${occurrence}`
-    })
-}
-
-const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
-    disconnected: 'disconnected',
-    connecting: 'connecting',
-    connected: 'connected',
-    streaming: 'connected',
-}
-
-const deviceStatusRetryDelayMs = 1000
-
-function retryDelayMsAfter(numFailedRetries: number) {
-    return numFailedRetries < 10 ? 1000 : 10000
-}
-
-function appendToSession(
-    session: StreamData | undefined,
-    data: StreamData
-): StreamData {
-    const isSameShape =
-        data.timestamps.length === 0 ||
-        channelCountOf(session ?? data) === channelCountOf(data)
-
-    const continued =
-        session && isSameShape ? session : { samples: [], timestamps: [] }
-
-    data.samples.forEach((sample) => continued.samples.push(sample))
-    data.timestamps.forEach((timestamp) => continued.timestamps.push(timestamp))
-
-    return continued
-}
-
-function latestSecondsOf(session: StreamData, seconds: number): StreamData {
-    const { samples, timestamps } = session
-    const channelCount = channelCountOf(session)
-    const cutoff = timestamps[timestamps.length - 1] - seconds
-
-    let firstKept = timestamps.length
-
-    while (firstKept > 0 && timestamps[firstKept - 1] >= cutoff) {
-        firstKept--
-    }
-
-    return {
-        samples: samples.slice(firstKept * channelCount),
-        timestamps: timestamps.slice(firstKept),
-    }
-}
-
-function channelCountOf(data: StreamData) {
-    return data.samples.length / data.timestamps.length
-}
-
-interface LatestArrival {
-    timestamp: number
-    arrivedAtMs: number
-}
-
-export interface StreamData {
-    samples: number[]
-    timestamps: number[]
-}
-
 export interface PlaybackProgress {
     elapsedSeconds: number
     totalSeconds: number
 }
 
-export type DeviceStatus = 'disconnected' | 'connecting' | 'connected'
-
-type GatewayDeviceState =
-    'disconnected' | 'connecting' | 'connected' | 'streaming'
-
-interface GatewayDevice {
-    deviceName: string
-    state: GatewayDeviceState
-    streams: GatewayStream[]
-}
-
-interface GatewayStream {
-    type: string
-    listenPort: number
-    channelNames: string[]
-    sampleRateHz: number
-}
-
-export interface DeviceIdentifier {
-    label: string
-    value: string
-}
-
-export interface StreamOptions {
-    detectPeaks?: Omit<PeakDetectionOptions, 'sampleRate'>
-    bandPowers?: Omit<BandPowerOptions, 'sampleRate'>
-    downsampling?: Downsampling
-    yLimits?: YLimits
-    units?: string
-}
-
-interface ShownDevice {
-    key: string
-    name: string
-    label: string
-}
-
-interface BiosignalDevice extends ShownDevice {
-    streams: BiosignalStream[]
-}
-
-interface BiosignalStream {
-    name: string
-    wssPort: number
-    sampleRateHz?: number
-    detectPeaks?: PeakDetectionOptions
-    bandPowers?: BandPowerOptions
-    channelNames?: string[]
-    downsampling?: Downsampling
-    yLimits?: YLimits
-    units?: string
-}
-
-// Test doubles
-
-export let WebSocketComponent = WebSocket
-
-export function setWebSocketComponent(component: typeof WebSocket) {
-    WebSocketComponent = component
-}
-
-export let scheduleFrame = (callback: () => void) => {
-    requestAnimationFrame(callback)
-}
-
-export function setFrameScheduler(scheduler: typeof scheduleFrame) {
-    scheduleFrame = scheduler
-}
-
-export let clock = () => performance.now()
-
-export function setClock(nextClock: typeof clock) {
-    clock = nextClock
-}
-
-export let retryTimer: RetryTimer = {
-    set: (callback, delayMs) => setTimeout(callback, delayMs),
-    clear: (id) => clearTimeout(id),
-}
-
-export function setRetryTimer(timer: RetryTimer) {
-    retryTimer = timer
-}
-
-export interface RetryTimer {
-    set(callback: () => void, delayMs: number): unknown
-    clear(id: any): void
-}
-
-export let StreamPlotComponent = StreamPlot
-
-export function setStreamPlotComponent(component: typeof StreamPlot) {
-    StreamPlotComponent = component
+function channelCountOf(data: { samples: number[]; timestamps: number[] }) {
+    return data.samples.length / data.timestamps.length
 }

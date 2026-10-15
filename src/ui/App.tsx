@@ -1,10 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 
 import familyOf from '../functions/familyOf'
 import readXdfRecording, { Recording } from '../functions/readXdfRecording'
 import AddBiosensorButton from './components/AddBiosensorButton'
+import PlaybackControls from './components/PlaybackControls'
+import PlayRecordingButton from './components/PlayRecordingButton'
+import RecordPathFields, {
+    defaultRecordDirectory,
+    defaultRecordName,
+    now,
+    recordFileSuffixFor,
+} from './components/RecordPathFields'
 import StreamMonitor, {
     deviceKeysFor,
     PlaybackProgress,
@@ -40,10 +48,6 @@ const identifierLabels: Record<string, string> = {
 const orchestratorUnreachableMessage =
     'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
 
-const defaultRecordDirectory = '~/Documents/Personomic'
-const recordDirectoryLabel = 'Recordings folder'
-const defaultRecordName = 'session'
-const recordNameLabel = 'Recording name'
 const recordDirectoryStorageKey = 'personomic.recordDirectory'
 const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
@@ -78,10 +82,6 @@ const sessionButtonLabels: Record<SessionState, string> = {
     playing: 'Stop',
 }
 
-const playRecordingLabel = 'Play recording…'
-const recordingToPlayLabel = 'Recording to play'
-const playbackSpeeds = [1, 2, 5, 10, 20, 50, 100]
-
 export interface AppProps {
     downsampling?: Downsampling
 }
@@ -108,7 +108,6 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [numMonitorResets, setNumMonitorResets] = useState(0)
     const [playing, setPlaying] = useState<PlayingRecording>()
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
-    const recordingToPlayInput = useRef<HTMLInputElement>(null)
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -337,17 +336,6 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         }
     }
 
-    const playChosenRecording = (
-        event: React.ChangeEvent<HTMLInputElement>
-    ) => {
-        const [file] = event.target.files ?? []
-        event.target.value = ''
-
-        if (file) {
-            void playRecordingIn(file)
-        }
-    }
-
     const stopPlaying = () => {
         setDevices(playing?.devicesChosenBefore ?? [])
         setPlaying(undefined)
@@ -395,63 +383,19 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     {sessionButtonLabels[session]}
                 </button>
                 {!isLocked && (
-                    <>
-                        <button
-                            type="button"
-                            className="connect-devices__play"
-                            onClick={() =>
-                                recordingToPlayInput.current?.click()
-                            }
-                        >
-                            {playRecordingLabel}
-                        </button>
-                        <input
-                            ref={recordingToPlayInput}
-                            type="file"
-                            accept=".xdf"
-                            hidden
-                            aria-label={recordingToPlayLabel}
-                            onChange={playChosenRecording}
-                        />
-                    </>
+                    <PlayRecordingButton
+                        onChoose={(file) => void playRecordingIn(file)}
+                    />
                 )}
                 {playing && (
-                    <>
-                        <span className="connect-devices__playing">
-                            {playing.hasEnded ? 'Finished' : 'Playing'}{' '}
-                            {playing.fileName}
-                        </span>
-                        {playing.progress && (
-                            <span className="connect-devices__position">
-                                {timecodeOf(playing.progress.elapsedSeconds)} /{' '}
-                                {timecodeOf(playing.progress.totalSeconds)}
-                            </span>
-                        )}
-                        <button
-                            type="button"
-                            className="connect-devices__play"
-                            onClick={replay}
-                        >
-                            Replay
-                        </button>
-                        <span
-                            className="connect-devices__speeds"
-                            role="group"
-                            aria-label="Playback speed"
-                        >
-                            {playbackSpeeds.map((speed) => (
-                                <button
-                                    key={speed}
-                                    type="button"
-                                    className="connect-devices__speed"
-                                    aria-pressed={speed === playbackSpeed}
-                                    onClick={() => setPlaybackSpeed(speed)}
-                                >
-                                    {speed}×
-                                </button>
-                            ))}
-                        </span>
-                    </>
+                    <PlaybackControls
+                        fileName={playing.fileName}
+                        hasEnded={playing.hasEnded}
+                        progress={playing.progress}
+                        speed={playbackSpeed}
+                        onReplay={replay}
+                        onSpeedChange={setPlaybackSpeed}
+                    />
                 )}
                 {!isPlaying && (
                     <label className="connect-devices__record-toggle">
@@ -467,49 +411,20 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     </label>
                 )}
                 {isRecordEnabled && !recordingPath && !isPlaying && (
-                    <>
-                        <input
-                            type="text"
-                            className="connect-devices__record-directory"
-                            aria-label={recordDirectoryLabel}
-                            placeholder={defaultRecordDirectory}
-                            value={recordDirectory}
-                            readOnly={isLocked}
-                            onChange={(event) =>
-                                rememberRecordDirectory(event.target.value)
-                            }
-                        />
-                        {!isLocked && (
-                            <button
-                                type="button"
-                                className="connect-devices__browse"
-                                disabled={isBrowsing}
-                                onClick={chooseRecordDirectory}
-                            >
-                                Browse…
-                            </button>
-                        )}
-                        <span className="connect-devices__record-file">
-                            <input
-                                type="text"
-                                className="connect-devices__record-name"
-                                aria-label={recordNameLabel}
-                                placeholder={defaultRecordName}
-                                value={recordName}
-                                readOnly={isLocked}
-                                onChange={(event) =>
-                                    setRecordName(event.target.value)
-                                }
-                            />
-                            <RecordTimestamp
-                                frozenAt={
-                                    session === 'connecting'
-                                        ? recordStartedAt
-                                        : undefined
-                                }
-                            />
-                        </span>
-                    </>
+                    <RecordPathFields
+                        directory={recordDirectory}
+                        name={recordName}
+                        isLocked={isLocked}
+                        isBrowsing={isBrowsing}
+                        startedAt={
+                            session === 'connecting'
+                                ? recordStartedAt
+                                : undefined
+                        }
+                        onDirectoryChange={rememberRecordDirectory}
+                        onNameChange={setRecordName}
+                        onBrowse={chooseRecordDirectory}
+                    />
                 )}
                 {recordingPath && (
                     <span className="connect-devices__recording">
@@ -568,40 +483,16 @@ interface PlayingRecording {
     progress?: PlaybackProgress
 }
 
-function timecodeOf(seconds: number) {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const paddedSeconds = String(seconds % 60).padStart(2, '0')
+function recordPathFor(directory: string, name: string, startedAt: Date) {
+    const folder =
+        directory.trim().replace(/\/+$/, '') || defaultRecordDirectory
+    const prefix = withoutIllegalFileNameCharacters(name) || defaultRecordName
 
-    return hours > 0
-        ? `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`
-        : `${minutes}:${paddedSeconds}`
+    return `${folder}/${prefix}${recordFileSuffixFor(startedAt)}`
 }
 
-interface RecordTimestampProps {
-    frozenAt?: Date
-}
-
-const RecordTimestamp: React.FC<RecordTimestampProps> = (
-    props: RecordTimestampProps
-) => {
-    const { frozenAt } = props
-
-    const [tickedAt, setTickedAt] = useState(now)
-
-    useEffect(() => {
-        if (frozenAt) {
-            return undefined
-        }
-
-        return everySecond(() => setTickedAt(now()))
-    }, [frozenAt])
-
-    return (
-        <span className="connect-devices__record-timestamp">
-            {recordFileSuffixFor(frozenAt ?? tickedAt)}
-        </span>
-    )
+function withoutIllegalFileNameCharacters(name: string) {
+    return name.trim().replace(/[\\/:*?"<>|]/g, '-')
 }
 
 function requestedFrom(request: DeviceRequest): DeviceRequest {
@@ -677,31 +568,6 @@ function withoutIdentifier(
         : ofOtherDevices
 }
 
-function recordPathFor(directory: string, name: string, startedAt: Date) {
-    const folder =
-        directory.trim().replace(/\/+$/, '') || defaultRecordDirectory
-    const prefix = withoutIllegalFileNameCharacters(name) || defaultRecordName
-
-    return `${folder}/${prefix}${recordFileSuffixFor(startedAt)}`
-}
-
-function recordFileSuffixFor(date: Date) {
-    return `_${timestampFor(date)}.xdf`
-}
-
-function withoutIllegalFileNameCharacters(name: string) {
-    return name.trim().replace(/[\\/:*?"<>|]/g, '-')
-}
-
-function timestampFor(date: Date) {
-    const padded = (value: number) => String(value).padStart(2, '0')
-
-    const day = [date.getFullYear(), date.getMonth() + 1, date.getDate()]
-    const time = [date.getHours(), date.getMinutes(), date.getSeconds()]
-
-    return `${day.map(padded).join('-')}_${time.map(padded).join('-')}`
-}
-
 function sendToOrchestrator(
     message: object,
     handlers: OrchestratorReplyHandlers
@@ -761,17 +627,9 @@ export function setStreamMonitorComponent(component: typeof StreamMonitor) {
     StreamMonitorComponent = component
 }
 
-export let now = () => new Date()
-
-export function setNow(nextNow: typeof now) {
-    now = nextNow
-}
-
-export let everySecond = (callback: () => void) => {
-    const id = setInterval(callback, 1000)
-    return () => clearInterval(id)
-}
-
-export function setEverySecond(nextEverySecond: typeof everySecond) {
-    everySecond = nextEverySecond
-}
+export {
+    everySecond,
+    now,
+    setEverySecond,
+    setNow,
+} from './components/RecordPathFields'
