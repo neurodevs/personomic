@@ -9,7 +9,6 @@
   ],
   "license": "MIT",
   "author": "Eric Yates <hello@ericthecurious.com>",
-  "homepage": "https://github.com/neurodevs/personomic",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/neurodevs/personomic.git"
