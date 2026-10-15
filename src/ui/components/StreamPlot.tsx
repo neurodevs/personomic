@@ -159,6 +159,19 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const isPeakChannel = (channel: number) =>
         peakChannels?.includes(labelFor(channel)) ?? true
 
+    const shownChannels = Array.from(
+        { length: plottedChannelCount },
+        (_, channel) => channel
+    ).sort(
+        (a, b) => Number(isShownBelowPeaks(a)) - Number(isShownBelowPeaks(b))
+    )
+
+    function isShownBelowPeaks(channel: number) {
+        return detectPeaks !== undefined && !isPeakChannel(channel)
+    }
+
+    const lastShownChannel = shownChannels[shownChannels.length - 1]
+
     const detectedPeakTimestampsByChannel = useMemo(
         () =>
             peakDetector &&
@@ -349,7 +362,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                     channelPlotOptionsFor({
                         width: plotWidth,
                         height,
-                        labelsTime: channel === plottedChannelCount - 1,
+                        labelsTime: channel === lastShownChannel,
                         color,
                         hasPeakMarkers,
                         yLimits: { min: yMinLimit, max: yMaxLimit },
@@ -363,19 +376,23 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current = plots
 
         return () => plots.forEach((plot) => plot.destroy())
-    }, [plottedChannelCount, color, hasPeakMarkers, yMinLimit, yMaxLimit])
+    }, [
+        plottedChannelCount,
+        lastShownChannel,
+        color,
+        hasPeakMarkers,
+        yMinLimit,
+        yMaxLimit,
+    ])
 
     useEffect(() => {
         plotsRef.current.forEach((plot, channel) =>
             plot.setSize({
                 width: plotWidth,
-                height: heightWithXAxis(
-                    height,
-                    channel === plottedChannelCount - 1
-                ),
+                height: heightWithXAxis(height, channel === lastShownChannel),
             })
         )
-    }, [plotWidth, height, plottedChannelCount])
+    }, [plotWidth, height, plottedChannelCount, lastShownChannel])
 
     useEffect(() => {
         const rightEdgeTimestamp =
@@ -506,7 +523,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                 </span>
             </header>
             <div ref={channelsRef} className="stream-plot__channels">
-                {Array.from({ length: plottedChannelCount }, (_, channel) => (
+                {shownChannels.map((channel) => (
                     <div
                         key={channel}
                         ref={(container) => {

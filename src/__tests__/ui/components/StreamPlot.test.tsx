@@ -108,6 +108,50 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsPeakChannelsAboveOtherChannels() {
+        await this.render({
+            samples: [1, 2, 3, 4, 5, 6],
+            timestamps: [0, 1],
+            channelNames: ['AMBIENT', 'INFRARED', 'RED'],
+            detectPeaks: { sampleRate: 64, channels: ['INFRARED'] },
+        })
+
+        assert.isEqualDeep(
+            this.channelNames,
+            ['INFRARED', 'AMBIENT', 'RED'],
+            'Did not show peak channels above other channels!'
+        )
+    }
+
+    @test()
+    protected static async keepsTimeLabelsBelowChannelShownLast() {
+        await this.render({
+            ...this.twoChannels,
+            width: 100,
+            height: 50,
+            channelNames: ['RED', 'INFRARED'],
+            detectPeaks: { sampleRate: 64, channels: ['INFRARED'] },
+        })
+        const labeledXAxisHeight = FakeUPlot.instances[0].options.axes?.[0]
+            .size as number
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => ({
+                created: plot.options.height,
+                resized: plot.size?.height,
+            })),
+            [
+                {
+                    created: 50 + labeledXAxisHeight,
+                    resized: 50 + labeledXAxisHeight,
+                },
+                { created: 50, resized: 50 },
+            ],
+            'Did not keep time labels below channel shown last!'
+        )
+    }
+
+    @test()
     protected static async showsYAxisOnLeftAndXAxisBelowEachChannel() {
         await this.render(this.twoChannels)
 
