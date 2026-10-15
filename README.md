@@ -34,6 +34,8 @@ needed when more than one USB serial device is plugged in. The script starts a
 `ws://localhost:8764` and streams from `ws://localhost:8765`. Each status dot
 follows its own device: yellow while it connects, green once it has.
 
+If you don't know which Muse you have, pick "Muse (auto-detect, slower)". Detecting takes a few seconds more each time, so pick the model itself once you know it. If the Muse doesn't answer, Connect shows why and leaves it so you can try again.
+
 Connect locks the protocol: biosensors can no longer be added or removed, and
 the identifiers you typed stay visible but read-only. Click Stop to end the session
 and unlock it, then make your changes and Connect again.
