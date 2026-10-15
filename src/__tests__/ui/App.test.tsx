@@ -2062,6 +2062,60 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsFinishedButKeepsRecordingOpenOncePlaybackEnds() {
+        render(<App />)
+
+        await this.chooseRecording(this.museRecordingFile, 'morning.xdf')
+        const numMountsWhilePlaying = numStreamMonitorMounts
+        this.endPlayback()
+
+        assert.isEqualDeep(
+            {
+                isFinishedShown:
+                    screen.queryByText('Finished morning.xdf') !== null,
+                isRecordingStillPassed:
+                    lastStreamMonitorProps?.recording !== undefined,
+                numNewMounts: numStreamMonitorMounts - numMountsWhilePlaying,
+                button: this.lockState.button,
+            },
+            {
+                isFinishedShown: true,
+                isRecordingStillPassed: true,
+                numNewMounts: 0,
+                button: { text: 'Stop', isDisabled: false },
+            },
+            'Did not show finished but keep recording open once playback ended!'
+        )
+    }
+
+    @test()
+    protected static async replaysRecordingFromStartWhenReplayIsClicked() {
+        render(<App />)
+
+        await this.chooseRecording(this.museRecordingFile, 'morning.xdf')
+        const recording = lastStreamMonitorProps?.recording
+        this.endPlayback()
+        const numMountsBefore = numStreamMonitorMounts
+        fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
+
+        assert.isEqualDeep(
+            {
+                isSameRecording:
+                    lastStreamMonitorProps?.recording === recording,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+                isPlayingShown:
+                    screen.queryByText('Playing morning.xdf') !== null,
+            },
+            { isSameRecording: true, numNewMounts: 1, isPlayingShown: true },
+            'Did not replay recording from start when replay was clicked!'
+        )
+    }
+
+    private static endPlayback() {
+        act(() => lastStreamMonitorProps?.onPlaybackEnd?.())
+    }
+
     private static get offeredPlaybackSpeeds() {
         const group = screen.queryByRole('group', { name: 'Playback speed' })
 

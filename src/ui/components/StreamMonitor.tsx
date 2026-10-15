@@ -24,6 +24,7 @@ export interface StreamMonitorProps {
     deviceStatusPort: number
     recording?: Recording
     playbackSpeed?: number
+    onPlaybackEnd?: () => void
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     windowSecondsByDevice?: Record<string, number>
@@ -44,6 +45,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         deviceStatusPort,
         recording: recording,
         playbackSpeed = 1,
+        onPlaybackEnd,
         streamOptions = {},
         windowSeconds = 10,
         windowSecondsByDevice = {},
@@ -66,9 +68,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     >({})
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
+    const [hasPlaybackEnded, setHasPlaybackEnded] = useState(false)
 
     const reportedDevices = recording
-        ? gatewayDevicesPlaying(recording)
+        ? gatewayDevicesPlaying(
+              recording,
+              hasPlaybackEnded ? 'disconnected' : 'streaming'
+          )
         : gatewayDevices
     const isReportingDevices = isGatewayConnected || recording !== undefined
 
@@ -106,6 +112,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const playbackSpeedRef = useRef(playbackSpeed)
     playbackSpeedRef.current = playbackSpeed
 
+    const onPlaybackEndRef = useRef(onPlaybackEnd)
+    onPlaybackEndRef.current = onPlaybackEnd
+
     const retainedSecondsFor = (port: number, windowSeconds: number) => {
         const stream = streams.find((stream) => stream.wssPort === port)
 
@@ -142,6 +151,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         const latestArrivalByPort: Record<number, LatestArrival> = {}
         let isFrameScheduled = false
         let isClosed = false
+        let hasPlaybackEnded = false
 
         const playback = recording && playbackOf(recording, clock())
 
@@ -171,6 +181,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             if (isAnyDataStillOnScreen(frameMs) || playback?.isUnfinished()) {
                 scheduleNextFrame()
+            }
+
+            if (playback && !playback.isUnfinished() && !hasPlaybackEnded) {
+                hasPlaybackEnded = true
+                setHasPlaybackEnded(true)
+                onPlaybackEndRef.current?.()
             }
         }
 
@@ -412,12 +428,15 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
 export default StreamMonitor
 
-function gatewayDevicesPlaying(recording: Recording): GatewayDevice[] {
+function gatewayDevicesPlaying(
+    recording: Recording,
+    state: GatewayDeviceState
+): GatewayDevice[] {
     let numStreamsBefore = 0
 
     return recording.devices.map(({ deviceName, streams }) => ({
         deviceName,
-        state: 'streaming',
+        state,
         streams: streams.map(({ type, channelNames, sampleRateHz }) => ({
             type,
             channelNames,

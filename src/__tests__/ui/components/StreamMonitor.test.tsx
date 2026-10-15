@@ -2204,6 +2204,40 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysPlaybackEndedOnceLastSampleIsPlayed() {
+        let numEnds = 0
+        await this.play(this.recording, { onPlaybackEnd: () => numEnds++ })
+
+        this.nowMs = 2900
+        await this.runFrame()
+        const beforeLastSample = numEnds
+        this.nowMs = 3000
+        await this.runFrame()
+        this.nowMs = 4000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            { beforeLastSample, afterLastSample: numEnds },
+            { beforeLastSample: 0, afterLastSample: 1 },
+            'Did not say playback ended once last sample was played!'
+        )
+    }
+
+    @test()
+    protected static async showsRecordedDevicesAsDisconnectedOncePlaybackEnds() {
+        await this.play()
+
+        this.nowMs = 3000
+        await this.runFrame()
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            'disconnected',
+            'Did not show recorded devices as disconnected once playback ended!'
+        )
+    }
+
     private static get recording(): Recording {
         return {
             devices: [

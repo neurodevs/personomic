@@ -309,6 +309,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 fileName: file.name,
                 recording,
                 devicesChosenBefore: devices,
+                hasEnded: false,
             })
             setDevices(
                 recording.devices.map(({ deviceName }) => ({
@@ -344,6 +345,14 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     }
 
     const endSession = isPlaying ? stopPlaying : stopSession
+
+    const markPlaybackEnded = () =>
+        setPlaying((previous) => previous && { ...previous, hasEnded: true })
+
+    const replay = () => {
+        setPlaying((previous) => previous && { ...previous, hasEnded: false })
+        resetMonitor()
+    }
 
     return (
         <main className="app">
@@ -388,8 +397,16 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 {playing && (
                     <>
                         <span className="connect-devices__playing">
-                            Playing {playing.fileName}
+                            {playing.hasEnded ? 'Finished' : 'Playing'}{' '}
+                            {playing.fileName}
                         </span>
+                        <button
+                            type="button"
+                            className="connect-devices__play"
+                            onClick={replay}
+                        >
+                            Replay
+                        </button>
                         <span
                             className="connect-devices__speeds"
                             role="group"
@@ -493,6 +510,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceNames={deviceNames}
                 recording={playing?.recording}
                 playbackSpeed={playbackSpeed}
+                onPlaybackEnd={markPlaybackEnded}
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
@@ -518,6 +536,7 @@ interface PlayingRecording {
     fileName: string
     recording: Recording
     devicesChosenBefore: SelectedDevice[]
+    hasEnded: boolean
 }
 
 interface RecordTimestampProps {
