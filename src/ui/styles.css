@@ -226,6 +226,43 @@ body {
   font-size: 11px;
 }
 
+.connect-devices__speeds {
+  display: flex;
+}
+
+.connect-devices__speed {
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  background: none;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.connect-devices__speed + .connect-devices__speed {
+  border-left: none;
+}
+
+.connect-devices__speed:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.connect-devices__speed:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.connect-devices__speed[aria-pressed='true'] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
+.connect-devices__speed:hover,
+.connect-devices__speed:focus-visible {
+  color: var(--text-primary);
+  outline: none;
+}
+
 .connect-devices__recording-path {
   padding: 0;
   border: none;

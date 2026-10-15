@@ -68,6 +68,7 @@ const sessionButtonLabels: Record<SessionState, string> = {
 
 const playRecordingLabel = 'Play recording…'
 const recordingToPlayLabel = 'Recording to play'
+const playbackSpeeds = [1, 2, 5, 10, 20, 50, 100]
 
 export interface AppProps {
     downsampling?: Downsampling
@@ -94,6 +95,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
     const [playing, setPlaying] = useState<PlayingRecording>()
+    const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const recordingToPlayInput = useRef<HTMLInputElement>(null)
 
     const isLocked = session !== 'unlocked'
@@ -355,6 +357,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceStatusPort={8764}
                 deviceNames={deviceNames}
                 recording={playing?.recording}
+                playbackSpeed={playbackSpeed}
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
@@ -402,9 +405,28 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     </>
                 )}
                 {playing && (
-                    <span className="connect-devices__playing">
-                        Playing {playing.fileName}
-                    </span>
+                    <>
+                        <span className="connect-devices__playing">
+                            Playing {playing.fileName}
+                        </span>
+                        <span
+                            className="connect-devices__speeds"
+                            role="group"
+                            aria-label="Playback speed"
+                        >
+                            {playbackSpeeds.map((speed) => (
+                                <button
+                                    key={speed}
+                                    type="button"
+                                    className="connect-devices__speed"
+                                    aria-pressed={speed === playbackSpeed}
+                                    onClick={() => setPlaybackSpeed(speed)}
+                                >
+                                    {speed}×
+                                </button>
+                            ))}
+                        </span>
+                    </>
                 )}
                 {!isPlaying && (
                     <label className="connect-devices__record-toggle">

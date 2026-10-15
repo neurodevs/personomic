@@ -2162,6 +2162,48 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async playsAtChosenSpeed() {
+        await this.play(this.recording, { playbackSpeed: 2 })
+
+        this.nowMs = 500
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4, 5, 6], timestamps: [100, 100.5, 101] },
+            'Did not play at chosen speed!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromSamePlaceWhenSpeedChanges() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 500
+        await this.runFrame()
+        await rerender(this.playing(recording, { playbackSpeed: 2 }))
+        this.nowMs = 600
+        await this.runFrame()
+        const justAfterChange = this.latestFirstPlotChunk.timestamps
+        this.nowMs = 750
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                justAfterChange,
+                onceFasterHalfSecondPlayed:
+                    this.latestFirstPlotChunk.timestamps,
+            },
+            {
+                justAfterChange: [100, 100.5],
+                onceFasterHalfSecondPlayed: [100, 100.5, 101],
+            },
+            'Did not play on from same place when speed changed!'
+        )
+    }
+
     private static get recording(): Recording {
         return {
             devices: [
@@ -2207,12 +2249,28 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         }
     }
 
-    private static async play(recording = this.recording) {
+    private static async play(
+        recording = this.recording,
+        props: Partial<StreamMonitorProps> = {}
+    ) {
         this.setFakeStreamPlot()
 
-        await this.mount(
-            recording.devices.map((device) => device.deviceName),
-            { recording: recording }
+        return await render(this.playing(recording, props))
+    }
+
+    private static playing(
+        recording: Recording,
+        props: Partial<StreamMonitorProps> = {}
+    ) {
+        return (
+            <StreamMonitor
+                deviceNames={recording.devices.map(
+                    (device) => device.deviceName
+                )}
+                deviceStatusPort={this.deviceStatusPort}
+                recording={recording}
+                {...props}
+            />
         )
     }
 

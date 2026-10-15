@@ -60,5 +60,8 @@ session, with the timing it was recorded with, so it needs neither biosensors
 nor the orchestrator. The biosensors in the recording replace the ones you
 picked until you click Stop.
 
+While it plays, the 1×–20× buttons beside its name speed it up without losing
+its place.
+
 A recording does not say which Muse made it: one with IMU or optics streams
 shows as "Muse S Athena", and any other as "Muse".

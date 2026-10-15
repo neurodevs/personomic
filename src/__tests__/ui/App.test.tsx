@@ -2003,6 +2003,82 @@ export default class AppTest extends AbstractPackageTest {
         },
     ])
 
+    @test()
+    protected static async offersPlaybackSpeedsOnlyWhilePlaying() {
+        render(<App />)
+        const beforePlaying = this.offeredPlaybackSpeeds
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            { beforePlaying, whilePlaying: this.offeredPlaybackSpeeds },
+            {
+                beforePlaying: [],
+                whilePlaying: ['1×', '2×', '5×', '10×', '20×', '50×', '100×'],
+            },
+            'Did not offer playback speeds only while playing!'
+        )
+    }
+
+    @test()
+    protected static async playsAtNormalSpeedUntilAnotherIsChosen() {
+        render(<App />)
+
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            this.playbackSpeedState,
+            { passed: 1, pressed: ['1×'] },
+            'Did not play at normal speed until another was chosen!'
+        )
+    }
+
+    @test()
+    protected static async playsAtChosenSpeed() {
+        render(<App />)
+
+        await this.chooseRecording()
+        fireEvent.click(screen.getByRole('button', { name: '5×' }))
+
+        assert.isEqualDeep(
+            this.playbackSpeedState,
+            { passed: 5, pressed: ['5×'] },
+            'Did not play at chosen speed!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlayingRecordingWhenSpeedChanges() {
+        render(<App />)
+
+        await this.chooseRecording()
+        const numMountsBefore = numStreamMonitorMounts
+        fireEvent.click(screen.getByRole('button', { name: '10×' }))
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore,
+            'Restarted recording when speed changed!'
+        )
+    }
+
+    private static get offeredPlaybackSpeeds() {
+        const group = screen.queryByRole('group', { name: 'Playback speed' })
+
+        return [...(group?.querySelectorAll('button') ?? [])].map(
+            (button) => button.textContent
+        )
+    }
+
+    private static get playbackSpeedState() {
+        return {
+            passed: lastStreamMonitorProps?.playbackSpeed,
+            pressed: screen
+                .queryAllByRole('button', { pressed: true })
+                .map((button) => button.textContent),
+        }
+    }
+
     private static async chooseRecording(
         contents = this.museRecordingFile,
         name = 'session.xdf'

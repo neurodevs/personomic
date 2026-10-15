@@ -23,6 +23,7 @@ export interface StreamMonitorProps {
     deviceNames: string[]
     deviceStatusPort: number
     recording?: Recording
+    playbackSpeed?: number
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     windowSecondsByDevice?: Record<string, number>
@@ -42,6 +43,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         deviceNames,
         deviceStatusPort,
         recording: recording,
+        playbackSpeed = 1,
         streamOptions = {},
         windowSeconds = 10,
         windowSecondsByDevice = {},
@@ -101,6 +103,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     const sessionByPortRef = useRef<Record<number, StreamData>>({})
 
+    const playbackSpeedRef = useRef(playbackSpeed)
+    playbackSpeedRef.current = playbackSpeed
+
     const retainedSecondsFor = (port: number, windowSeconds: number) => {
         const stream = streams.find((stream) => stream.wssPort === port)
 
@@ -154,7 +159,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 return
             }
 
-            const frameMs = clock()
+            const frameMs = playback
+                ? playback.pacedClockAt(clock(), playbackSpeedRef.current)
+                : clock()
             const batches = playback?.takeSamplesDueBy(frameMs) ?? pendingByPort
             pendingByPort = {}
 
@@ -430,6 +437,14 @@ function playbackOf(recording: Recording, startedAtMs: number) {
     const recordingStart = Math.min(
         ...streams.map((stream) => stream.timestamps[0])
     )
+    let lastClockMs = startedAtMs
+    let pacedMs = startedAtMs
+
+    const pacedClockAt = (clockMs: number, speed: number) => {
+        pacedMs += (clockMs - lastClockMs) * speed
+        lastClockMs = clockMs
+        return pacedMs
+    }
 
     const takeSamplesDueBy = (nowMs: number) => {
         const dueBy = recordingStart + (nowMs - startedAtMs) / 1000
@@ -455,7 +470,7 @@ function playbackOf(recording: Recording, startedAtMs: number) {
             (stream, index) => numPlayed[index] < stream.timestamps.length
         )
 
-    return { takeSamplesDueBy, isUnfinished }
+    return { pacedClockAt, takeSamplesDueBy, isUnfinished }
 }
 
 function endOfSamplesDueBy(
