@@ -58,7 +58,7 @@ const streamOptions: Record<string, StreamOptions> = {
     },
     PPG: {
         detectPeaks: {
-            channels: ['AMBIENT', 'INFRARED'],
+            channels: ['INFRARED'],
             heartRateWindowSeconds: 30,
             hrvWindowSeconds: 300,
             hrvProvisionalAfterSeconds: 30,

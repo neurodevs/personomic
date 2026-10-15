@@ -77,13 +77,13 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async detectsPeaksOnAmbientAndInfraredPpg() {
+    protected static async detectsPeaksOnlyOnInfraredPpg() {
         render(<App />)
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.streamOptions?.PPG?.detectPeaks?.channels,
-            ['AMBIENT', 'INFRARED'],
-            'Did not detect peaks on ambient and infrared PPG!'
+            ['INFRARED'],
+            'Did not detect peaks only on infrared PPG!'
         )
     }
 
