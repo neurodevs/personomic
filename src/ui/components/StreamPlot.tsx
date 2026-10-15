@@ -22,6 +22,7 @@ export interface StreamPlotProps {
     nowTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
+    knownPeakTimestamps?: number[][]
     bandPowers?: BandPowerOptions
     channelNames?: string[]
     downsampling?: Downsampling
@@ -62,6 +63,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         nowTimestamp,
         color = '#8b93a7',
         detectPeaks,
+        knownPeakTimestamps,
         bandPowers,
         channelNames,
         downsampling,
@@ -154,11 +156,15 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         timestamps[timestamps.length - 1] / peakDetectionIntervalSeconds
     )
 
-    const peakTimestampsByChannel = useMemo(
+    const isPeakChannel = (channel: number) =>
+        peakChannels?.includes(labelFor(channel)) ?? true
+
+    const detectedPeakTimestampsByChannel = useMemo(
         () =>
             peakDetector &&
+            !knownPeakTimestamps &&
             valuesByChannel.map((values, channel) =>
-                (peakChannels?.includes(labelFor(channel)) ?? true)
+                isPeakChannel(channel)
                     ? peakTimestampsFor(peakDetector, values, timestamps)
                     : new Set<number>()
             ),
@@ -168,8 +174,36 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             channelCount,
             peakChannels,
             channelNames,
+            knownPeakTimestamps,
         ]
     )
+
+    const knownPeakTimestampsByChannel = useMemo(
+        () =>
+            peakDetector &&
+            knownPeakTimestamps &&
+            valuesByChannel.map((_, channel) =>
+                isPeakChannel(channel)
+                    ? peakTimestampsWithin(
+                          knownPeakTimestamps[channel] ?? [],
+                          timestamps
+                      )
+                    : new Set<number>()
+            ),
+        [
+            peakDetector,
+            knownPeakTimestamps,
+            timestamps,
+            channelCount,
+            peakChannels,
+            channelNames,
+        ]
+    )
+
+    const peakTimestampsByChannel =
+        knownPeakTimestampsByChannel ||
+        detectedPeakTimestampsByChannel ||
+        undefined
 
     const peakMarkersByChannel = useMemo(
         () =>
@@ -1229,6 +1263,17 @@ function medianOfSorted(values: number[]) {
     return values.length % 2 === 1
         ? values[middle]
         : (values[middle - 1] + values[middle]) / 2
+}
+
+function peakTimestampsWithin(peakTimestamps: number[], timestamps: number[]) {
+    const first = timestamps[0]
+    const latest = timestamps[timestamps.length - 1]
+
+    return new Set(
+        peakTimestamps.filter(
+            (timestamp) => timestamp >= first && timestamp <= latest
+        )
+    )
 }
 
 function peakTimestampsFor(

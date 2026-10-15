@@ -7,6 +7,7 @@ import FakeStreamPlot, {
     resetStreamPlotProps,
 } from '../../../testDoubles/StreamPlot/FakeStreamPlot'
 import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
+import FakePpgDetector from '../../../testDoubles/PpgDetector/FakePpgDetector'
 import FakeRetryTimer from '../../../testDoubles/RetryTimer/FakeRetryTimer'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
@@ -2212,6 +2213,65 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             [{ elapsedSeconds: 2, totalSeconds: 3 }],
             'Did not report progress from chosen start of playback!'
         )
+    }
+
+    @test()
+    protected static async detectsPeaksOverWholeRecordingBeforePlaying() {
+        await this.play(this.recording, this.peakDetectionOnFirstStream)
+
+        assert.isEqualDeep(
+            FakePpgDetector.callsToRun,
+            [
+                { rawSignal: [1, 3, 5], timestamps: [100, 100.5, 101] },
+                { rawSignal: [2, 4, 6], timestamps: [100, 100.5, 101] },
+            ],
+            'Did not detect peaks over whole recording before playing!'
+        )
+    }
+
+    @test()
+    protected static async givesPlotsPeaksKnownFromWholeRecording() {
+        FakePpgDetector.peakTimestamps = [100.5]
+        await this.play(this.recording, this.peakDetectionOnFirstStream)
+
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) =>
+                    this.latestPlotPropsFor(stream.name)?.knownPeakTimestamps
+            ),
+            [[[100.5], [100.5]], undefined],
+            'Did not give plots peaks known from whole recording!'
+        )
+    }
+
+    @test()
+    protected static async knowsNoPeaksAheadOfLiveStreams() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), {
+            streamOptions: {
+                [this.streams[0].name]: { detectPeaks: {} },
+            },
+        })
+
+        assert.isEqualDeep(
+            {
+                known: this.latestPlotPropsFor(this.streams[0].name)
+                    ?.knownPeakTimestamps,
+                numDetections: FakePpgDetector.callsToRun.length,
+            },
+            { known: undefined, numDetections: 0 },
+            'Did not know no peaks ahead of live streams!'
+        )
+    }
+
+    private static get peakDetectionOnFirstStream() {
+        return {
+            streamOptions: {
+                [this.streams[0].name]: { detectPeaks: {} },
+            },
+        }
     }
 
     @test()

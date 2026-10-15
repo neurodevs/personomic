@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react'
+import PpgPeakDetector from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 import { RecordedStream, Recording } from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
@@ -163,6 +164,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     }
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
+
+    const knownPeakTimestampsByPort = useMemo(
+        () => (recording ? knownPeakTimestampsIn(recording, streams) : {}),
+        [recording, wssPorts]
+    )
 
     useEffect(() => {
         let pendingByPort: Record<number, StreamData[]> = {}
@@ -508,6 +514,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             <StreamPlotComponent
                                 key={stream.name}
                                 {...stream}
+                                knownPeakTimestamps={
+                                    knownPeakTimestampsByPort[stream.wssPort]
+                                }
                                 downsampling={
                                     stream.downsampling ?? downsampling
                                 }
@@ -916,6 +925,50 @@ function playbackOf(recording: Recording, clockMs: number) {
 }
 
 type Playback = ReturnType<typeof playbackOf>
+
+function knownPeakTimestampsIn(
+    recording: Recording,
+    streams: BiosignalStream[]
+) {
+    const recorded = recording.devices.flatMap((device) => device.streams)
+    const knownByPort: Record<number, number[][]> = {}
+
+    recorded.forEach((stream, index) => {
+        const port = playbackPortOf(index)
+        const detectPeaks = streams.find(
+            (shown) => shown.wssPort === port
+        )?.detectPeaks
+
+        if (detectPeaks) {
+            knownByPort[port] = peakTimestampsOfEachChannel(
+                stream,
+                detectPeaks.sampleRate
+            )
+        }
+    })
+
+    return knownByPort
+}
+
+function peakTimestampsOfEachChannel(
+    stream: RecordedStream,
+    sampleRate: number
+) {
+    const detector = PpgPeakDetector.Create({ sampleRate })
+    const channelCount = channelCountOf(stream)
+
+    return Array.from({ length: channelCount }, (_, channel) => {
+        const values = stream.timestamps.map(
+            (_, i) => stream.samples[i * channelCount + channel]
+        )
+
+        return values.length < 2
+            ? []
+            : detector
+                  .run(values, stream.timestamps)
+                  .peaks.map((peak) => peak.timestamp)
+    })
+}
 
 function endOfSamplesBefore(cutoff: number, stream: RecordedStream) {
     const index = stream.timestamps.findIndex(

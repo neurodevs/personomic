@@ -1819,6 +1819,65 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async marksKnownPeaksWithoutDetecting() {
+        await this.render({
+            ...this.twoChannels,
+            detectPeaks: { sampleRate: 64 },
+            knownPeakTimestamps: [[1], [0, 2]],
+        })
+
+        assert.isEqualDeep(
+            {
+                markers: FakeUPlot.instances.map((plot) => plot.data[2]),
+                numDetections: FakePpgDetector.callsToRun.length,
+            },
+            {
+                markers: [
+                    [null, 2, null],
+                    [10, null, 30],
+                ],
+                numDetections: 0,
+            },
+            'Did not mark known peaks without detecting!'
+        )
+    }
+
+    @test()
+    protected static async marksKnownPeaksOnlyInPeakChannels() {
+        await this.render({
+            ...this.twoChannels,
+            channelNames: ['INFRARED', 'RED'],
+            detectPeaks: { sampleRate: 64, channels: ['INFRARED'] },
+            knownPeakTimestamps: [[1], [1]],
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.data[2]),
+            [
+                [null, 2, null],
+                [null, null, null],
+            ],
+            'Did not mark known peaks only in peak channels!'
+        )
+    }
+
+    @test()
+    protected static async derivesHeartRateOnlyFromKnownPeaksPlayedSoFar() {
+        await this.render({
+            samples: [1, 1, 1, 1, 1],
+            timestamps: [0, 10, 11, 12, 30],
+            detectPeaks: this.heartRateOverThirtySeconds,
+            knownPeakTimestamps: [[10, 11, 12, 30.5, 30.9, 31.3, 31.7, 32.1]],
+        })
+
+        assert.isEqual(
+            this.heartRate,
+            '60 bpm',
+            'Did not derive heart rate only from known peaks played so far!'
+        )
+    }
+
+    @test()
     protected static async keepsEverySampleWithoutDownsampling() {
         await this.render({ ...this.oneChannelMaxBeforeMin, width: 1 })
 

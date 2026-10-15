@@ -68,6 +68,10 @@ slider freezes playback, and dragging it moves the plots to wherever it is, so
 they show everything recorded up to that point. Let go to play on from there.
 Click Pause to freeze playback and Play to carry on.
 
+Heartbeats in a recording's PPG are detected once over the whole recording when
+it is chosen, so the peak markers stay put as it plays, and heart rate and HRV
+count only the beats played so far.
+
 Each biosensor whose data runs out turns red and folds down to its name, while
 the others play on; click it to open its plots again, or slide back to before
 its data ran out to open it automatically. Once all of them run out, the
