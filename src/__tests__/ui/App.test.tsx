@@ -2174,6 +2174,22 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async playsNextRecordingAtNormalSpeed() {
+        render(<App />)
+
+        await this.chooseRecording()
+        fireEvent.click(screen.getByRole('button', { name: '100×' }))
+        this.clickStop()
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            this.playbackSpeedState,
+            { passed: 1, pressed: ['1×'] },
+            'Did not play next recording at normal speed!'
+        )
+    }
+
+    @test()
     protected static async keepsPlayingRecordingWhenSpeedChanges() {
         render(<App />)
 

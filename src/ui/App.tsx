@@ -321,6 +321,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 devicesChosenBefore: devices,
                 hasEnded: false,
             })
+            setPlaybackSpeed(1)
             setDevices(
                 recording.devices.map(({ deviceName }) => ({
                     name: deviceName,
