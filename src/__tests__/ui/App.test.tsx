@@ -2112,6 +2112,67 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test('in minutes', 83, 300, '1:23 / 5:00')
+    @test('in hours', 3725, 7200, '1:02:05 / 2:00:00')
+    @test('from start', 0, 9, '0:00 / 0:09')
+    protected static async showsPlaybackPositionOutOfTotal(
+        elapsedSeconds: number,
+        totalSeconds: number,
+        expected: string
+    ) {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(elapsedSeconds, totalSeconds)
+
+        assert.isTruthy(
+            screen.queryByText(expected),
+            'Did not show playback position out of total!'
+        )
+    }
+
+    @test()
+    protected static async forgetsPlaybackPositionOnReplay() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.endPlayback()
+        fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
+
+        assert.isNull(
+            screen.queryByText('1:23 / 5:00'),
+            'Did not forget playback position on replay!'
+        )
+    }
+
+    @test()
+    protected static async forgetsPlaybackPositionOfPreviousRecording() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+        await this.chooseRecording()
+
+        assert.isNull(
+            screen.queryByText('1:23 / 5:00'),
+            'Did not forget playback position of previous recording!'
+        )
+    }
+
+    private static reportPlaybackProgress(
+        elapsedSeconds: number,
+        totalSeconds: number
+    ) {
+        act(() =>
+            lastStreamMonitorProps?.onPlaybackProgress?.({
+                elapsedSeconds,
+                totalSeconds,
+            })
+        )
+    }
+
     private static endPlayback() {
         act(() => lastStreamMonitorProps?.onPlaybackEnd?.())
     }

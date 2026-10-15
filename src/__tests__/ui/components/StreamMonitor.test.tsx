@@ -9,6 +9,7 @@ import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameSch
 import FakeRetryTimer from '../../../testDoubles/RetryTimer/FakeRetryTimer'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import StreamMonitor, {
+    PlaybackProgress,
     setClock,
     setFrameScheduler,
     setRetryTimer,
@@ -2103,6 +2104,64 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.latestFirstPlotChunk,
             { samples: [1, 2, 3, 4, 5, 6], timestamps: [100, 100.5, 101] },
             'Did not play on from where last frame left off!'
+        )
+    }
+
+    @test()
+    protected static async reportsPlaybackProgressOncePerWholeSecond() {
+        const reported: PlaybackProgress[] = []
+        await this.play(this.recording, {
+            onPlaybackProgress: (progress) => reported.push(progress),
+        })
+
+        for (const nowMs of [600, 1000, 1500, 2100]) {
+            this.nowMs = nowMs
+            await this.runFrame()
+        }
+
+        assert.isEqualDeep(
+            reported,
+            [
+                { elapsedSeconds: 0, totalSeconds: 3 },
+                { elapsedSeconds: 1, totalSeconds: 3 },
+                { elapsedSeconds: 2, totalSeconds: 3 },
+            ],
+            'Did not report playback progress once per whole second!'
+        )
+    }
+
+    @test()
+    protected static async reportsPlaybackProgressAtPlaybackSpeed() {
+        const reported: PlaybackProgress[] = []
+        await this.play(this.recording, {
+            playbackSpeed: 2,
+            onPlaybackProgress: (progress) => reported.push(progress),
+        })
+
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            reported.at(-1),
+            { elapsedSeconds: 2, totalSeconds: 3 },
+            'Did not report playback progress at playback speed!'
+        )
+    }
+
+    @test()
+    protected static async reportsNoProgressPastEndOfRecording() {
+        const reported: PlaybackProgress[] = []
+        await this.play(this.recording, {
+            onPlaybackProgress: (progress) => reported.push(progress),
+        })
+
+        this.nowMs = 10000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            reported.at(-1),
+            { elapsedSeconds: 3, totalSeconds: 3 },
+            'Reported progress past end of recording!'
         )
     }
 

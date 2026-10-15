@@ -25,6 +25,7 @@ export interface StreamMonitorProps {
     recording?: Recording
     playbackSpeed?: number
     onPlaybackEnd?: () => void
+    onPlaybackProgress?: (progress: PlaybackProgress) => void
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     windowSecondsByDevice?: Record<string, number>
@@ -46,6 +47,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         recording: recording,
         playbackSpeed = 1,
         onPlaybackEnd,
+        onPlaybackProgress,
         streamOptions = {},
         windowSeconds = 10,
         windowSecondsByDevice = {},
@@ -112,6 +114,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const onPlaybackEndRef = useRef(onPlaybackEnd)
     onPlaybackEndRef.current = onPlaybackEnd
 
+    const onPlaybackProgressRef = useRef(onPlaybackProgress)
+    onPlaybackProgressRef.current = onPlaybackProgress
+
     const retainedSecondsFor = (port: number, windowSeconds: number) => {
         const stream = streams.find((stream) => stream.wssPort === port)
 
@@ -150,6 +155,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         let isClosed = false
         let numRunOutDevices = 0
         let hasPlaybackEnded = false
+        let reportedElapsedSeconds: number | undefined
 
         const playback = recording && playbackOf(recording, clock())
 
@@ -183,11 +189,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             if (playback) {
                 showDevicesThatRanOut(playback.runOutDevices())
+                reportProgressEachWholeSecond(playback.progressAt(frameMs))
             }
 
             if (playback && !playback.isUnfinished() && !hasPlaybackEnded) {
                 hasPlaybackEnded = true
                 onPlaybackEndRef.current?.()
+            }
+        }
+
+        const reportProgressEachWholeSecond = (progress: PlaybackProgress) => {
+            if (progress.elapsedSeconds !== reportedElapsedSeconds) {
+                reportedElapsedSeconds = progress.elapsedSeconds
+                onPlaybackProgressRef.current?.(progress)
             }
         }
 
@@ -481,6 +495,10 @@ function playbackOf(recording: Recording, startedAtMs: number) {
     const recordingStart = Math.min(
         ...streams.map((stream) => stream.timestamps[0])
     )
+    const recordingEnd = Math.max(
+        ...streams.map((stream) => stream.timestamps.at(-1)!)
+    )
+    const totalSeconds = Math.floor(recordingEnd - recordingStart)
     let lastClockMs = startedAtMs
     let pacedMs = startedAtMs
 
@@ -509,6 +527,14 @@ function playbackOf(recording: Recording, startedAtMs: number) {
         return due
     }
 
+    const progressAt = (nowMs: number): PlaybackProgress => ({
+        elapsedSeconds: Math.min(
+            Math.floor((nowMs - startedAtMs) / 1000),
+            totalSeconds
+        ),
+        totalSeconds,
+    })
+
     const isUnfinished = () =>
         streams.some(
             (stream, index) => numPlayed[index] < stream.timestamps.length
@@ -527,7 +553,13 @@ function playbackOf(recording: Recording, startedAtMs: number) {
             )
         )
 
-    return { pacedClockAt, takeSamplesDueBy, isUnfinished, runOutDevices }
+    return {
+        pacedClockAt,
+        takeSamplesDueBy,
+        progressAt,
+        isUnfinished,
+        runOutDevices,
+    }
 }
 
 function endOfSamplesDueBy(
@@ -932,6 +964,11 @@ interface LatestArrival {
 export interface StreamData {
     samples: number[]
     timestamps: number[]
+}
+
+export interface PlaybackProgress {
+    elapsedSeconds: number
+    totalSeconds: number
 }
 
 export type DeviceStatus = 'disconnected' | 'connecting' | 'connected'

@@ -226,6 +226,13 @@ body {
   font-size: 11px;
 }
 
+.connect-devices__position {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .connect-devices__speeds {
   display: flex;
 }

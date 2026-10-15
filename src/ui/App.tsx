@@ -7,6 +7,7 @@ import readXdfRecording, { Recording } from '../functions/readXdfRecording'
 import AddBiosensorButton from './components/AddBiosensorButton'
 import StreamMonitor, {
     deviceKeysFor,
+    PlaybackProgress,
     StreamOptions,
     WebSocketComponent,
 } from './components/StreamMonitor'
@@ -346,11 +347,21 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 
     const endSession = isPlaying ? stopPlaying : stopSession
 
+    const showPlaybackProgress = (progress: PlaybackProgress) =>
+        setPlaying((previous) => previous && { ...previous, progress })
+
     const markPlaybackEnded = () =>
         setPlaying((previous) => previous && { ...previous, hasEnded: true })
 
     const replay = () => {
-        setPlaying((previous) => previous && { ...previous, hasEnded: false })
+        setPlaying(
+            (previous) =>
+                previous && {
+                    ...previous,
+                    hasEnded: false,
+                    progress: undefined,
+                }
+        )
         resetMonitor()
     }
 
@@ -400,6 +411,12 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                             {playing.hasEnded ? 'Finished' : 'Playing'}{' '}
                             {playing.fileName}
                         </span>
+                        {playing.progress && (
+                            <span className="connect-devices__position">
+                                {timecodeOf(playing.progress.elapsedSeconds)} /{' '}
+                                {timecodeOf(playing.progress.totalSeconds)}
+                            </span>
+                        )}
                         <button
                             type="button"
                             className="connect-devices__play"
@@ -511,6 +528,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 recording={playing?.recording}
                 playbackSpeed={playbackSpeed}
                 onPlaybackEnd={markPlaybackEnded}
+                onPlaybackProgress={showPlaybackProgress}
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
@@ -537,6 +555,17 @@ interface PlayingRecording {
     recording: Recording
     devicesChosenBefore: SelectedDevice[]
     hasEnded: boolean
+    progress?: PlaybackProgress
+}
+
+function timecodeOf(seconds: number) {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const paddedSeconds = String(seconds % 60).padStart(2, '0')
+
+    return hours > 0
+        ? `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`
+        : `${minutes}:${paddedSeconds}`
 }
 
 interface RecordTimestampProps {
