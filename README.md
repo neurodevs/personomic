@@ -61,9 +61,10 @@ nor the orchestrator. The biosensors in the recording replace the ones you
 picked until you click Stop.
 
 While it plays, the 1×–100× buttons beside its name speed it up without losing
-its place. Once it runs out, its biosensors' lights turn red and it shows as
-"Finished", with its plots left open until you click Stop. Click Replay to play
-it again from the start.
+its place. Each biosensor whose data runs out turns red and folds down to its
+name, while the others play on; click it to open its plots again. Once all of
+them run out, the recording shows as "Finished" until you click Stop. Click
+Replay to play it again from the start.
 
 A recording does not say which Muse made it: one with IMU or optics streams
 shows as "Muse S Athena", and any other as "Muse".

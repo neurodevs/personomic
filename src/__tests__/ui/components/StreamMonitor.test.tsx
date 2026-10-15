@@ -2238,6 +2238,59 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsDeviceAsDisconnectedOnceItsDataRunsOut() {
+        await this.playTwoDevicesUntilFirstRunsOut()
+
+        assert.isEqualDeep(
+            this.twoDevices.map((device) => this.deviceStatusOf(device.name)),
+            ['disconnected', 'connected'],
+            'Did not show device as disconnected once its data ran out!'
+        )
+    }
+
+    @test()
+    protected static async collapsesDeviceOnceItsDataRunsOut() {
+        await this.playTwoDevicesUntilFirstRunsOut()
+
+        assert.isEqualDeep(
+            this.twoDevices.map((device) => this.shownPlotsOf(device.name)),
+            [[], this.plotIdsFor(this.twoDevices[1].streams)],
+            'Did not collapse device once its data ran out!'
+        )
+    }
+
+    @test()
+    protected static async showsPlotsOfRunOutDeviceWhenItIsClicked() {
+        await this.playTwoDevicesUntilFirstRunsOut()
+
+        this.clickDeviceCard(this.twoDevices[0].name)
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.twoDevices[0].name),
+            this.plotIdsFor(this.twoDevices[0].streams),
+            'Did not show plots of run out device when it was clicked!'
+        )
+    }
+
+    private static async playTwoDevicesUntilFirstRunsOut() {
+        await this.play(this.recordingOfTwoDevices)
+
+        this.nowMs = 1000
+        await this.runFrame()
+    }
+
+    private static get recordingOfTwoDevices(): Recording {
+        const [first, second] = this.recording.devices[0].streams
+
+        return {
+            devices: [
+                { deviceName: this.twoDevices[0].name, streams: [first] },
+                { deviceName: this.twoDevices[1].name, streams: [second] },
+            ],
+        }
+    }
+
     private static get recording(): Recording {
         return {
             devices: [

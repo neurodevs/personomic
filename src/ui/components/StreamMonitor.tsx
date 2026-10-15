@@ -68,13 +68,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     >({})
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
-    const [hasPlaybackEnded, setHasPlaybackEnded] = useState(false)
+    const [runOutDevices, setRunOutDevices] = useState<boolean[]>([])
 
     const reportedDevices = recording
-        ? gatewayDevicesPlaying(
-              recording,
-              hasPlaybackEnded ? 'disconnected' : 'streaming'
-          )
+        ? gatewayDevicesPlaying(recording, runOutDevices)
         : gatewayDevices
     const isReportingDevices = isGatewayConnected || recording !== undefined
 
@@ -151,6 +148,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         const latestArrivalByPort: Record<number, LatestArrival> = {}
         let isFrameScheduled = false
         let isClosed = false
+        let numRunOutDevices = 0
         let hasPlaybackEnded = false
 
         const playback = recording && playbackOf(recording, clock())
@@ -183,10 +181,22 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 scheduleNextFrame()
             }
 
+            if (playback) {
+                showDevicesThatRanOut(playback.runOutDevices())
+            }
+
             if (playback && !playback.isUnfinished() && !hasPlaybackEnded) {
                 hasPlaybackEnded = true
-                setHasPlaybackEnded(true)
                 onPlaybackEndRef.current?.()
+            }
+        }
+
+        const showDevicesThatRanOut = (runOut: boolean[]) => {
+            const numRunOut = runOut.filter(Boolean).length
+
+            if (numRunOut > numRunOutDevices) {
+                numRunOutDevices = numRunOut
+                setRunOutDevices(runOut)
             }
         }
 
@@ -388,40 +398,55 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
-            {devices.map((device) => (
-                <DevicePanel
-                    key={device.key}
-                    device={device}
-                    status={statusWhile(
-                        isConnecting,
-                        isReportingDevices
-                            ? deviceStatusFor(device, reportedDevices)
-                            : 'disconnected'
-                    )}
-                    onRemove={onRemoveDevice}
-                    identifier={identifiers[device.key]}
-                    rememberedIdentifiers={rememberedIdentifiers[device.name]}
-                    onForgetIdentifier={onForgetIdentifier}
-                    onIdentifierChange={onIdentifierChange}
-                >
-                    {quickestFirst(device.streams).map((stream) => (
-                        <StreamPlotComponent
-                            key={stream.name}
-                            {...stream}
-                            downsampling={stream.downsampling ?? downsampling}
-                            color={
-                                streamColors[streamNames.indexOf(stream.name)]
-                            }
-                            {...dataByPort[stream.wssPort]}
-                            windowSeconds={windowSecondsByPort[stream.wssPort]}
-                            onWindowSecondsChange={(seconds) =>
-                                chooseWindowSeconds(stream.wssPort, seconds)
-                            }
-                            nowTimestamp={sharedNowTimestamp}
-                        />
-                    ))}
-                </DevicePanel>
-            ))}
+            {devices.map((device) => {
+                const status = statusWhile(
+                    isConnecting,
+                    isReportingDevices
+                        ? deviceStatusFor(device, reportedDevices)
+                        : 'disconnected'
+                )
+
+                return (
+                    <DevicePanel
+                        key={device.key}
+                        device={device}
+                        status={status}
+                        hasRunOut={
+                            recording !== undefined && status === 'disconnected'
+                        }
+                        onRemove={onRemoveDevice}
+                        identifier={identifiers[device.key]}
+                        rememberedIdentifiers={
+                            rememberedIdentifiers[device.name]
+                        }
+                        onForgetIdentifier={onForgetIdentifier}
+                        onIdentifierChange={onIdentifierChange}
+                    >
+                        {quickestFirst(device.streams).map((stream) => (
+                            <StreamPlotComponent
+                                key={stream.name}
+                                {...stream}
+                                downsampling={
+                                    stream.downsampling ?? downsampling
+                                }
+                                color={
+                                    streamColors[
+                                        streamNames.indexOf(stream.name)
+                                    ]
+                                }
+                                {...dataByPort[stream.wssPort]}
+                                windowSeconds={
+                                    windowSecondsByPort[stream.wssPort]
+                                }
+                                onWindowSecondsChange={(seconds) =>
+                                    chooseWindowSeconds(stream.wssPort, seconds)
+                                }
+                                nowTimestamp={sharedNowTimestamp}
+                            />
+                        ))}
+                    </DevicePanel>
+                )
+            })}
         </div>
     )
 }
@@ -430,13 +455,13 @@ export default StreamMonitor
 
 function gatewayDevicesPlaying(
     recording: Recording,
-    state: GatewayDeviceState
+    runOutDevices: boolean[]
 ): GatewayDevice[] {
     let numStreamsBefore = 0
 
-    return recording.devices.map(({ deviceName, streams }) => ({
+    return recording.devices.map(({ deviceName, streams }, index) => ({
         deviceName,
-        state,
+        state: runOutDevices[index] ? 'disconnected' : 'streaming',
         streams: streams.map(({ type, channelNames, sampleRateHz }) => ({
             type,
             channelNames,
@@ -489,7 +514,20 @@ function playbackOf(recording: Recording, startedAtMs: number) {
             (stream, index) => numPlayed[index] < stream.timestamps.length
         )
 
-    return { pacedClockAt, takeSamplesDueBy, isUnfinished }
+    const deviceIndexOfStream = recording.devices.flatMap((device, index) =>
+        device.streams.map(() => index)
+    )
+
+    const runOutDevices = () =>
+        recording.devices.map((_, deviceIndex) =>
+            streams.every(
+                (stream, index) =>
+                    deviceIndexOfStream[index] !== deviceIndex ||
+                    numPlayed[index] >= stream.timestamps.length
+            )
+        )
+
+    return { pacedClockAt, takeSamplesDueBy, isUnfinished, runOutDevices }
 }
 
 function endOfSamplesDueBy(
@@ -540,6 +578,7 @@ function sharedNowTimestampFor(
 const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
+    hasRunOut = false,
     onRemove,
     identifier,
     rememberedIdentifiers,
@@ -556,6 +595,12 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
         (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
+
+    useEffect(() => {
+        if (hasRunOut) {
+            setArePlotsHidden(true)
+        }
+    }, [hasRunOut])
 
     const togglePlotsUnlessClickedOnContents = (event: React.MouseEvent) => {
         const clicked = event.target as Element
@@ -620,6 +665,7 @@ const deviceStreamsClassName = 'stream-monitor__device-streams'
 interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
+    hasRunOut?: boolean
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier
     rememberedIdentifiers?: readonly string[]
