@@ -69,8 +69,9 @@ they show everything recorded up to that point. Let go to play on from there.
 Click Pause to freeze playback and Play to carry on.
 
 Each biosensor whose data runs out turns red and folds down to its name, while
-the others play on; click it to open its plots again. Once all of them run out,
-the recording shows as "Finished" and Pause becomes Replay, which plays it again
+the others play on; click it to open its plots again, or slide back to before
+its data ran out to open it automatically. Once all of them run out, the
+recording shows as "Finished" and Pause becomes Replay, which plays it again
 from the start.
 
 A recording names the Muse that made it, such as "Muse S Gen 2", when its

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import type { BiosignalDevice, DeviceStatus } from './StreamMonitor'
 import IdentifierInput, { DeviceIdentifier } from './IdentifierInput'
@@ -23,10 +23,15 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
         (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
+    const wereHiddenByRunningOut = useRef(false)
 
     useEffect(() => {
         if (hasRunOut) {
             setArePlotsHidden(true)
+            wereHiddenByRunningOut.current = true
+        } else if (wereHiddenByRunningOut.current) {
+            setArePlotsHidden(false)
+            wereHiddenByRunningOut.current = false
         }
     }, [hasRunOut])
 
@@ -34,6 +39,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
         const clicked = event.target as Element
 
         if (!clicked.closest(`input, button, .${deviceStreamsClassName}`)) {
+            wereHiddenByRunningOut.current = false
             setArePlotsHidden((wereHidden) => !wereHidden)
         }
     }

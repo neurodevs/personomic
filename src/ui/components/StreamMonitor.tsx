@@ -254,16 +254,26 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
 
         const showDevicesThatRanOut = (runOut: boolean[]) => {
-            const hasChanged = runOut.some(
+            const shown = isPlaybackPausedRef.current
+                ? withoutNewlyRunOut(runOut)
+                : runOut
+
+            const hasChanged = shown.some(
                 (hasRunOut, index) =>
                     hasRunOut !== (shownRunOutDevices[index] ?? false)
             )
 
-            if (hasChanged && !isPlaybackPausedRef.current) {
-                shownRunOutDevices = runOut
-                setRunOutDevices(runOut)
+            if (hasChanged) {
+                shownRunOutDevices = shown
+                setRunOutDevices(shown)
             }
         }
+
+        const withoutNewlyRunOut = (runOut: boolean[]) =>
+            runOut.map(
+                (hasRunOut, index) =>
+                    hasRunOut && (shownRunOutDevices[index] ?? false)
+            )
 
         const recordLatestArrivals = (
             batches: Record<number, StreamData[]>,

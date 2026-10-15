@@ -3,6 +3,8 @@ import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'
 
+import FakeFrameScheduler from '../../testDoubles/FrameScheduler/FakeFrameScheduler'
+import FakeStreamPlot from '../../testDoubles/StreamPlot/FakeStreamPlot'
 import FakeStreamMonitor, {
     lastStreamMonitorProps,
     numStreamMonitorMounts,
@@ -14,7 +16,12 @@ import App, {
     setNow,
     setStreamMonitorComponent,
 } from '../../ui/App'
-import { setWebSocketComponent } from '../../ui/components/StreamMonitor'
+import StreamMonitor, {
+    setClock,
+    setFrameScheduler,
+    setStreamPlotComponent,
+    setWebSocketComponent,
+} from '../../ui/components/StreamMonitor'
 import AbstractPackageTest from '../AbstractPackageTest'
 
 export default class AppTest extends AbstractPackageTest {
@@ -2538,6 +2545,39 @@ export default class AppTest extends AbstractPackageTest {
             { isPaused: false, seekSeconds: 150 },
             'Did not play on from dragged position once released!'
         )
+    }
+
+    @test()
+    protected static async showsPlotsOfFinishedRecordingAgainOnReplay() {
+        let nowMs = 0
+        setClock(() => nowMs)
+        setFrameScheduler(FakeFrameScheduler.schedule)
+        FakeFrameScheduler.resetTestDouble()
+        setStreamPlotComponent(FakeStreamPlot)
+        setStreamMonitorComponent(StreamMonitor)
+        render(
+            <React.StrictMode>
+                <App />
+            </React.StrictMode>
+        )
+
+        await this.chooseRecording()
+        await act(() => FakeFrameScheduler.runFrame())
+        nowMs = 5000
+        await act(() => FakeFrameScheduler.runFrame())
+        const onceFinished = this.numShownPlots
+        fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
+        await act(() => FakeFrameScheduler.runFrame())
+
+        assert.isEqualDeep(
+            { onceFinished, onReplay: this.numShownPlots },
+            { onceFinished: 0, onReplay: 1 },
+            'Did not show plots of finished recording again on replay!'
+        )
+    }
+
+    private static get numShownPlots() {
+        return document.querySelectorAll('[data-testid^="stream-plot-"]').length
     }
 
     @test()

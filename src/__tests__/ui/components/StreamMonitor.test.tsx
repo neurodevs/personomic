@@ -2585,6 +2585,74 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async reopensRunOutDeviceWhenSeekingBackBeforeItRanOut() {
+        const recording = this.recordingOfTwoDevices
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 1000
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 0 } })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                status: this.deviceStatusOf(this.twoDevices[0].name),
+                plots: this.shownPlotsOf(this.twoDevices[0].name),
+            },
+            {
+                status: 'connected',
+                plots: this.plotIdsFor(this.twoDevices[0].streams),
+            },
+            'Did not reopen run out device when seeking back before it ran out!'
+        )
+    }
+
+    @test()
+    protected static async reopensRunOutDeviceWhileScrubbingBack() {
+        const recording = this.recordingOfTwoDevices
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 1000
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, {
+                playbackSeek: { seconds: 0 },
+                isPlaybackPaused: true,
+            })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.twoDevices[0].name),
+            this.plotIdsFor(this.twoDevices[0].streams),
+            'Did not reopen run out device while scrubbing back!'
+        )
+    }
+
+    @test()
+    protected static async keepsDeviceCollapsedByClickWhenSeekingBack() {
+        const recording = this.recordingOfTwoDevices
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 1000
+        await this.runFrame()
+        this.clickDeviceCard(this.twoDevices[0].name)
+        this.clickDeviceCard(this.twoDevices[0].name)
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 0 } })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.twoDevices[0].name),
+            [],
+            'Did not keep device collapsed by click when seeking back!'
+        )
+    }
+
     private static async playTwoDevicesUntilFirstRunsOut() {
         await this.play(this.recordingOfTwoDevices)
 
