@@ -148,3 +148,6 @@ build/
 .DS_Store
 *.pem
 
+
+# Claude Code agent worktrees
+.claude/worktrees/
