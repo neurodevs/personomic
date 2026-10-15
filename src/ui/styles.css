@@ -226,6 +226,14 @@ body {
   font-size: 11px;
 }
 
+.connect-devices__seek {
+  flex: 1 1 200px;
+  min-width: 160px;
+  margin: 0;
+  accent-color: var(--text-secondary);
+  cursor: pointer;
+}
+
 .connect-devices__position {
   color: var(--text-secondary);
   font-family: var(--font-mono);

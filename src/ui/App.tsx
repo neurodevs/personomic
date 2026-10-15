@@ -16,6 +16,7 @@ import RecordPathFields, {
 import StreamMonitor, {
     deviceKeysFor,
     PlaybackProgress,
+    PlaybackSeek,
     StreamOptions,
     WebSocketComponent,
 } from './components/StreamMonitor'
@@ -108,6 +109,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [numMonitorResets, setNumMonitorResets] = useState(0)
     const [playing, setPlaying] = useState<PlayingRecording>()
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
+    const [isPositionHeld, setIsPositionHeld] = useState(false)
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -358,10 +360,26 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 previous && {
                     ...previous,
                     hasEnded: false,
+                    seek: undefined,
                     progress: undefined,
                 }
         )
         resetMonitor()
+    }
+
+    const seek = (seconds: number) => {
+        setPlaying(
+            (previous) =>
+                previous && {
+                    ...previous,
+                    hasEnded: false,
+                    seek: { seconds },
+                    progress: previous.progress && {
+                        ...previous.progress,
+                        elapsedSeconds: seconds,
+                    },
+                }
+        )
     }
 
     return (
@@ -395,6 +413,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                         progress={playing.progress}
                         speed={playbackSpeed}
                         onReplay={replay}
+                        onSeek={seek}
+                        onHold={() => setIsPositionHeld(true)}
+                        onRelease={() => setIsPositionHeld(false)}
                         onSpeedChange={setPlaybackSpeed}
                     />
                 )}
@@ -453,6 +474,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 deviceNames={deviceNames}
                 recording={playing?.recording}
                 playbackSpeed={playbackSpeed}
+                playbackSeek={playing?.seek}
+                isPlaybackPaused={isPositionHeld}
                 onPlaybackEnd={markPlaybackEnded}
                 onPlaybackProgress={showPlaybackProgress}
                 streamOptions={streamOptions}
@@ -481,6 +504,7 @@ interface PlayingRecording {
     recording: Recording
     devicesChosenBefore: SelectedDevice[]
     hasEnded: boolean
+    seek?: PlaybackSeek
     progress?: PlaybackProgress
 }
 

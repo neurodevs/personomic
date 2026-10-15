@@ -2303,6 +2303,262 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsPlaybackPositionOnSlider() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+
+        assert.isEqualDeep(
+            {
+                value: this.positionSlider.value,
+                max: this.positionSlider.max,
+            },
+            { value: '83', max: '300' },
+            'Did not show playback position on slider!'
+        )
+    }
+
+    @test()
+    protected static async showsDraggedPositionFrozenWhileHeld() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.pressPositionSlider()
+        const numMountsBefore = numStreamMonitorMounts
+        this.dragPositionSliderTo(150)
+
+        assert.isEqualDeep(
+            {
+                value: this.positionSlider.value,
+                isDraggedPositionShown:
+                    screen.queryByText('2:30 / 5:00') !== null,
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+            },
+            {
+                value: '150',
+                isDraggedPositionShown: true,
+                seekSeconds: 150,
+                isPaused: true,
+                numNewMounts: 0,
+            },
+            'Did not show dragged position frozen while held!'
+        )
+    }
+
+    @test()
+    protected static async scrubsInTenthsOfASecond() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.pressPositionSlider()
+        this.dragPositionSliderTo(150.4)
+
+        assert.isEqualDeep(
+            {
+                step: this.positionSlider.step,
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                isWholeSecondShown: screen.queryByText('2:30 / 5:00') !== null,
+            },
+            { step: '0.1', seekSeconds: 150.4, isWholeSecondShown: true },
+            'Did not scrub in tenths of a second!'
+        )
+    }
+
+    @test()
+    protected static async followsEachPositionWhileDragging() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.pressPositionSlider()
+        this.dragPositionSliderTo(150)
+        const numMountsBefore = numStreamMonitorMounts
+        this.dragPositionSliderTo(40)
+
+        assert.isEqualDeep(
+            {
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+            },
+            { seekSeconds: 40, isPaused: true, numNewMounts: 0 },
+            'Did not follow each position while dragging!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromPositionChosenWithKeyboard() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.dragPositionSliderTo(84)
+
+        assert.isEqualDeep(
+            {
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+            },
+            { seekSeconds: 84, isPaused: false },
+            'Did not play on from position chosen with keyboard!'
+        )
+    }
+
+    @test()
+    protected static async playsFromPositionWhereSliderIsReleased() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        const numMountsBefore = numStreamMonitorMounts
+        this.dragPositionSliderTo(150)
+        this.releasePositionSlider()
+
+        assert.isEqualDeep(
+            {
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+                isPositionShown: screen.queryByText('2:30 / 5:00') !== null,
+            },
+            { seekSeconds: 150, numNewMounts: 0, isPositionShown: true },
+            'Did not play from position where slider was released!'
+        )
+    }
+
+    @test()
+    protected static async playsAgainWhenFinishedRecordingIsRewound() {
+        render(<App />)
+
+        await this.chooseRecording(this.museRecordingFile, 'morning.xdf')
+        this.reportPlaybackProgress(300, 300)
+        this.endPlayback()
+        this.dragPositionSliderTo(100)
+        this.releasePositionSlider()
+
+        assert.isTruthy(
+            screen.queryByText('Playing morning.xdf'),
+            'Did not play again when finished recording was rewound!'
+        )
+    }
+
+    @test()
+    protected static async replaysFromStartAfterSeeking() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.dragPositionSliderTo(150)
+        this.releasePositionSlider()
+        fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.playbackSeek,
+            'Did not replay from start after seeking!'
+        )
+    }
+
+    @test()
+    protected static async playsNextRecordingFromStartAfterSeeking() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.dragPositionSliderTo(150)
+        this.releasePositionSlider()
+        this.clickStop()
+        await this.chooseRecording()
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.playbackSeek,
+            'Did not play next recording from start after seeking!'
+        )
+    }
+
+    @test()
+    protected static async freezesPlaybackWhileSliderIsPressed() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        fireEvent.click(screen.getByRole('button', { name: '5×' }))
+        this.pressPositionSlider()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                speed: this.playbackSpeedState,
+            },
+            { isPaused: true, speed: { passed: 5, pressed: ['5×'] } },
+            'Did not freeze playback while slider was pressed!'
+        )
+    }
+
+    @test()
+    protected static async playsOnWhenSliderIsReleasedWithoutDragging() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        const numMountsBefore = numStreamMonitorMounts
+        this.pressPositionSlider()
+        this.releasePositionSlider()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+            },
+            { isPaused: false, numNewMounts: 0 },
+            'Did not play on when slider was released without dragging!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromDraggedPositionOnceReleased() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.pressPositionSlider()
+        this.dragPositionSliderTo(150)
+        this.releasePositionSlider()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+            },
+            { isPaused: false, seekSeconds: 150 },
+            'Did not play on from dragged position once released!'
+        )
+    }
+
+    private static pressPositionSlider() {
+        fireEvent.pointerDown(this.positionSlider)
+    }
+
+    private static get positionSlider() {
+        return screen.getByRole('slider', {
+            name: 'Playback position',
+        }) as HTMLInputElement
+    }
+
+    private static dragPositionSliderTo(seconds: number) {
+        fireEvent.change(this.positionSlider, {
+            target: { value: String(seconds) },
+        })
+    }
+
+    private static releasePositionSlider() {
+        fireEvent.pointerUp(this.positionSlider)
+    }
+
     private static reportPlaybackProgress(
         elapsedSeconds: number,
         totalSeconds: number

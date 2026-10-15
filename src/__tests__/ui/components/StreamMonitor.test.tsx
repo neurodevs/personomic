@@ -2,6 +2,7 @@ import { test, assert } from '@neurodevs/node-tdd'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 
 import FakeStreamPlot, {
+    numStreamPlotMounts,
     passedStreamPlotProps,
     resetStreamPlotProps,
 } from '../../../testDoubles/StreamPlot/FakeStreamPlot'
@@ -2162,6 +2163,258 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             reported.at(-1),
             { elapsedSeconds: 3, totalSeconds: 3 },
             'Reported progress past end of recording!'
+        )
+    }
+
+    @test()
+    protected static async showsSamplesUpToChosenStartOfPlayback() {
+        await this.play(this.recording, { playbackSeek: { seconds: 1 } })
+
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3, 4, 5, 6], timestamps: [100, 100.5, 101] },
+            'Did not show samples up to chosen start of playback!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromChosenStartAtPlaybackSpeed() {
+        await this.play(this.recording, {
+            playbackSeek: { seconds: 1 },
+            playbackSpeed: 2,
+        })
+
+        await this.runFrame()
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestPlotPropsFor(this.streams[1].name)?.samples,
+            [7, 8],
+            'Did not play on from chosen start at playback speed!'
+        )
+    }
+
+    @test()
+    protected static async reportsProgressFromChosenStartOfPlayback() {
+        const reported: PlaybackProgress[] = []
+        await this.play(this.recording, {
+            playbackSeek: { seconds: 2 },
+            onPlaybackProgress: (progress) => reported.push(progress),
+        })
+
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            reported,
+            [{ elapsedSeconds: 2, totalSeconds: 3 }],
+            'Did not report progress from chosen start of playback!'
+        )
+    }
+
+    @test()
+    protected static async seeksInPlaceWithoutRemountingPlots() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        await this.runFrame()
+        const numMountsBefore = numStreamPlotMounts
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 2 } })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                first: this.latestFirstPlotChunk.timestamps,
+                second: this.latestPlotPropsFor(this.streams[1].name)?.samples,
+                numNewMounts: numStreamPlotMounts - numMountsBefore,
+            },
+            { first: [100, 100.5, 101], second: [7], numNewMounts: 0 },
+            'Did not seek in place without remounting plots!'
+        )
+    }
+
+    @test()
+    protected static async showsOnlySamplesUpToPositionWhenSeekingBack() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 2500
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 0 } })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                first: this.latestFirstPlotChunk.timestamps,
+                second: this.latestPlotPropsFor(this.streams[1].name)?.samples,
+            },
+            { first: [100], second: undefined },
+            'Did not show only samples up to position when seeking back!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromWhereItSeeked() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 2 } })
+        )
+        await this.runFrame()
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestPlotPropsFor(this.streams[1].name)?.samples,
+            [7, 8],
+            'Did not play on from where it seeked!'
+        )
+    }
+
+    @test()
+    protected static async reportsProgressOnFromWhereItSeeked() {
+        const reported: PlaybackProgress[] = []
+        const recording = this.recording
+        const onPlaybackProgress = (progress: PlaybackProgress) =>
+            reported.push(progress)
+        const { rerender } = await this.play(recording, { onPlaybackProgress })
+
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, {
+                onPlaybackProgress,
+                playbackSeek: { seconds: 1 },
+            })
+        )
+        await this.runFrame()
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            reported,
+            [
+                { elapsedSeconds: 0, totalSeconds: 3 },
+                { elapsedSeconds: 2, totalSeconds: 3 },
+            ],
+            'Did not report progress on from where it seeked!'
+        )
+    }
+
+    @test()
+    protected static async keepsDevicesOpenWhileScrubbingPastTheirEnd() {
+        const recording = this.recordingOfTwoDevices
+        const playbackSeek = { seconds: 2 }
+        const { rerender } = await this.play(recording)
+
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, { playbackSeek, isPlaybackPaused: true })
+        )
+        await this.runFrame()
+        const whileScrubbing = this.twoDevices.map((device) =>
+            this.deviceStatusOf(device.name)
+        )
+        await rerender(this.playing(recording, { playbackSeek }))
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                whileScrubbing,
+                onceReleased: this.twoDevices.map((device) =>
+                    this.deviceStatusOf(device.name)
+                ),
+            },
+            {
+                whileScrubbing: ['connected', 'connected'],
+                onceReleased: ['disconnected', 'connected'],
+            },
+            'Did not keep devices open while scrubbing past their end!'
+        )
+    }
+
+    @test()
+    protected static async endsAgainAfterSeekingBackFromEnd() {
+        let numEnds = 0
+        const recording = this.recording
+        const onPlaybackEnd = () => numEnds++
+        const { rerender } = await this.play(recording, { onPlaybackEnd })
+
+        this.nowMs = 5000
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, {
+                onPlaybackEnd,
+                playbackSeek: { seconds: 0 },
+            })
+        )
+        await this.runFrame()
+        this.nowMs = 10000
+        await this.runFrame()
+
+        assert.isEqual(numEnds, 2, 'Did not end again after seeking back!')
+    }
+
+    @test()
+    protected static async freezesPlaybackWhilePaused() {
+        const reported: PlaybackProgress[] = []
+        const recording = this.recording
+        const onPlaybackProgress = (progress: PlaybackProgress) =>
+            reported.push(progress)
+        const { rerender } = await this.play(recording, { onPlaybackProgress })
+
+        this.nowMs = 600
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, {
+                onPlaybackProgress,
+                isPlaybackPaused: true,
+            })
+        )
+        this.nowMs = 2600
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                timestamps: this.latestFirstPlotChunk.timestamps,
+                progress: reported.at(-1),
+            },
+            {
+                timestamps: [100, 100.5],
+                progress: { elapsedSeconds: 0, totalSeconds: 3 },
+            },
+            'Did not freeze playback while paused!'
+        )
+    }
+
+    @test()
+    protected static async playsOnFromWherePlaybackWasPaused() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 600
+        await this.runFrame()
+        await rerender(this.playing(recording, { isPlaybackPaused: true }))
+        this.nowMs = 2600
+        await this.runFrame()
+        await rerender(this.playing(recording, { isPlaybackPaused: false }))
+        this.nowMs = 3000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            {
+                first: this.latestFirstPlotChunk.timestamps,
+                second: this.latestPlotPropsFor(this.streams[1].name)?.samples,
+            },
+            { first: [100, 100.5, 101], second: [7] },
+            'Did not play on from where playback was paused!'
         )
     }
 

@@ -8,14 +8,31 @@ export interface PlaybackControlsProps {
     progress?: PlaybackProgress
     speed: number
     onReplay: () => void
+    onSeek: (seconds: number) => void
+    onHold: () => void
+    onRelease: () => void
     onSpeedChange: (speed: number) => void
 }
 
 const PlaybackControls: React.FC<PlaybackControlsProps> = (
     props: PlaybackControlsProps
 ) => {
-    const { fileName, hasEnded, progress, speed, onReplay, onSpeedChange } =
-        props
+    const {
+        fileName,
+        hasEnded,
+        progress,
+        speed,
+        onReplay,
+        onSeek,
+        onHold,
+        onRelease,
+        onSpeedChange,
+    } = props
+
+    const hold = (event: React.PointerEvent<HTMLInputElement>) => {
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+        onHold()
+    }
 
     return (
         <>
@@ -23,10 +40,25 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
                 {hasEnded ? 'Finished' : 'Playing'} {fileName}
             </span>
             {progress && (
-                <span className="connect-devices__position">
-                    {timecodeOf(progress.elapsedSeconds)} /{' '}
-                    {timecodeOf(progress.totalSeconds)}
-                </span>
+                <>
+                    <input
+                        type="range"
+                        className="connect-devices__seek"
+                        aria-label="Playback position"
+                        min={0}
+                        max={progress.totalSeconds}
+                        step={0.1}
+                        value={progress.elapsedSeconds}
+                        onChange={(event) => onSeek(Number(event.target.value))}
+                        onPointerDown={hold}
+                        onPointerUp={onRelease}
+                        onPointerCancel={onRelease}
+                    />
+                    <span className="connect-devices__position">
+                        {timecodeOf(progress.elapsedSeconds)} /{' '}
+                        {timecodeOf(progress.totalSeconds)}
+                    </span>
+                </>
             )}
             <button
                 type="button"
@@ -60,7 +92,8 @@ export default PlaybackControls
 
 const playbackSpeeds = [1, 2, 5, 10, 20, 50, 100]
 
-function timecodeOf(seconds: number) {
+function timecodeOf(exactSeconds: number) {
+    const seconds = Math.floor(exactSeconds)
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const paddedSeconds = String(seconds % 60).padStart(2, '0')

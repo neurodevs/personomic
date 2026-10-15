@@ -28,6 +28,8 @@ export interface StreamMonitorProps {
     deviceStatusPort: number
     recording?: Recording
     playbackSpeed?: number
+    playbackSeek?: PlaybackSeek
+    isPlaybackPaused?: boolean
     onPlaybackEnd?: () => void
     onPlaybackProgress?: (progress: PlaybackProgress) => void
     streamOptions?: Record<string, StreamOptions>
@@ -50,6 +52,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         deviceStatusPort,
         recording: recording,
         playbackSpeed = 1,
+        playbackSeek,
+        isPlaybackPaused = false,
         onPlaybackEnd,
         onPlaybackProgress,
         streamOptions = {},
@@ -115,6 +119,14 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const playbackSpeedRef = useRef(playbackSpeed)
     playbackSpeedRef.current = playbackSpeed
 
+    const isPlaybackPausedRef = useRef(isPlaybackPaused)
+    isPlaybackPausedRef.current = isPlaybackPaused
+
+    const playbackSeekRef = useRef(playbackSeek)
+    playbackSeekRef.current = playbackSeek
+
+    const scheduleFrameRef = useRef<() => void>(undefined)
+
     const onPlaybackEndRef = useRef(onPlaybackEnd)
     onPlaybackEndRef.current = onPlaybackEnd
 
@@ -157,9 +169,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         const latestArrivalByPort: Record<number, LatestArrival> = {}
         let isFrameScheduled = false
         let isClosed = false
-        let numRunOutDevices = 0
+        let shownRunOutDevices: boolean[] = []
         let hasPlaybackEnded = false
         let reportedElapsedSeconds: number | undefined
+        let appliedSeek = playbackSeekRef.current
+
+        const retainedSecondsOfPort = (port: number) =>
+            retainedSecondsFor(port, windowSecondsFor(port))
 
         const playback = recording && playbackOf(recording, clock())
 
@@ -178,8 +194,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             }
 
             const frameMs = playback
-                ? playback.pacedClockAt(clock(), playbackSpeedRef.current)
+                ? playback.pacedClockAt(clock(), currentPlaybackSpeed())
                 : clock()
+
+            if (playback && playbackSeekRef.current !== appliedSeek) {
+                seekInPlace(playback, frameMs)
+            }
+
             const batches = playback?.takeSamplesDueBy(frameMs) ?? pendingByPort
             pendingByPort = {}
 
@@ -202,6 +223,29 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             }
         }
 
+        const seekInPlace = (playback: Playback, frameMs: number) => {
+            appliedSeek = playbackSeekRef.current
+
+            playback.seekTo(appliedSeek?.seconds ?? 0, retainedSecondsOfPort)
+            clearShownData()
+            hasPlaybackEnded = false
+            reportedElapsedSeconds = playback.progressAt(frameMs).elapsedSeconds
+        }
+
+        const clearShownData = () => {
+            sessionByPortRef.current = {}
+
+            for (const port of Object.keys(latestArrivalByPort)) {
+                delete latestArrivalByPort[Number(port)]
+            }
+
+            setDataByPort({})
+            setArrivalsByPort({})
+        }
+
+        const currentPlaybackSpeed = () =>
+            isPlaybackPausedRef.current ? 0 : playbackSpeedRef.current
+
         const reportProgressEachWholeSecond = (progress: PlaybackProgress) => {
             if (progress.elapsedSeconds !== reportedElapsedSeconds) {
                 reportedElapsedSeconds = progress.elapsedSeconds
@@ -210,10 +254,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
 
         const showDevicesThatRanOut = (runOut: boolean[]) => {
-            const numRunOut = runOut.filter(Boolean).length
+            const hasChanged = runOut.some(
+                (hasRunOut, index) =>
+                    hasRunOut !== (shownRunOutDevices[index] ?? false)
+            )
 
-            if (numRunOut > numRunOutDevices) {
-                numRunOutDevices = numRunOut
+            if (hasChanged && !isPlaybackPausedRef.current) {
+                shownRunOutDevices = runOut
                 setRunOutDevices(runOut)
             }
         }
@@ -355,6 +402,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             })
 
         if (playback) {
+            playback.seekTo(appliedSeek?.seconds ?? 0, retainedSecondsOfPort)
+            scheduleFrameRef.current = scheduleNextFrame
             scheduleNextFrame()
         } else {
             streams.forEach((stream) => void connect(stream))
@@ -362,6 +411,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
         return () => {
             isClosed = true
+            scheduleFrameRef.current = undefined
             if (retryTimerId !== undefined) {
                 retryTimer.clear(retryTimerId)
             }
@@ -369,6 +419,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             Object.values(socketsByPort).forEach((socket) => socket.close())
         }
     }, [wssPorts, recording])
+
+    useEffect(() => {
+        scheduleFrameRef.current?.()
+    }, [playbackSeek])
 
     useEffect(() => {
         if (recording) {
@@ -762,7 +816,7 @@ function playbackPortOf(streamIndex: number) {
     return streamIndex + 1
 }
 
-function playbackOf(recording: Recording, startedAtMs: number) {
+function playbackOf(recording: Recording, clockMs: number) {
     const streams = recording.devices.flatMap((device) => device.streams)
     const numPlayed = streams.map(() => 0)
     const recordingStart = Math.min(
@@ -772,13 +826,28 @@ function playbackOf(recording: Recording, startedAtMs: number) {
         ...streams.map((stream) => stream.timestamps.at(-1)!)
     )
     const totalSeconds = Math.floor(recordingEnd - recordingStart)
-    let lastClockMs = startedAtMs
-    let pacedMs = startedAtMs
+    let startedAtMs = clockMs
+    let lastClockMs = clockMs
+    let pacedMs = clockMs
 
     const pacedClockAt = (clockMs: number, speed: number) => {
         pacedMs += (clockMs - lastClockMs) * speed
         lastClockMs = clockMs
         return pacedMs
+    }
+
+    const seekTo = (
+        seconds: number,
+        retainedSecondsOfPort: (port: number) => number
+    ) => {
+        startedAtMs = pacedMs - seconds * 1000
+        const position = recordingStart + seconds
+
+        streams.forEach((stream, index) => {
+            const firstShown =
+                position - retainedSecondsOfPort(playbackPortOf(index))
+            numPlayed[index] = endOfSamplesBefore(firstShown, stream)
+        })
     }
 
     const takeSamplesDueBy = (nowMs: number) => {
@@ -832,7 +901,17 @@ function playbackOf(recording: Recording, startedAtMs: number) {
         progressAt,
         isUnfinished,
         runOutDevices,
+        seekTo,
     }
+}
+
+type Playback = ReturnType<typeof playbackOf>
+
+function endOfSamplesBefore(cutoff: number, stream: RecordedStream) {
+    const index = stream.timestamps.findIndex(
+        (timestamp) => timestamp >= cutoff
+    )
+    return index === -1 ? stream.timestamps.length : index
 }
 
 function endOfSamplesDueBy(
@@ -861,6 +940,10 @@ function samplesBetween(
         samples: stream.samples.slice(first * channelCount, end * channelCount),
         timestamps: stream.timestamps.slice(first, end),
     }
+}
+
+export interface PlaybackSeek {
+    seconds: number
 }
 
 export interface PlaybackProgress {
