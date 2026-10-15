@@ -15,9 +15,20 @@ import { Downsampling } from './components/StreamPlot'
 
 const orchestratorPort = 8763
 
+const anyMuseName = 'Muse (auto-detect, slower)'
+
+const biosensorNames = DEVICE_NAMES.flatMap((name) =>
+    name === 'Muse S Athena' ? [anyMuseName, name] : [name]
+)
+
+const requestedNames: Record<string, string> = {
+    [anyMuseName]: 'Muse',
+}
+
 const identifierLabels: Record<string, string> = {
     'Cognionics Quick-20r': 'Serial number',
     'Govee Thermohygrometer H5074': 'UUID',
+    [anyMuseName]: 'UUID',
     'Muse S Athena': 'UUID',
     'Muse S Gen 2': 'UUID',
     'Muse S Gen 1': 'UUID',
@@ -107,7 +118,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const deviceNames = devices.map(({ name }) => name)
     const deviceKeys = deviceKeysFor(deviceNames)
 
-    const addableNames = DEVICE_NAMES.filter(
+    const addableNames = biosensorNames.filter(
         (name) => name in identifierLabels || !deviceNames.includes(name)
     )
 
@@ -204,12 +215,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const restoreRunningSession = (running: RunningSession) => {
         const { devices, xdfRecordPath } = running
 
-        setDevices(
-            devices.map(({ deviceName, identifier = '' }) => ({
-                name: deviceName,
-                identifier,
-            }))
-        )
+        setDevices(selectedFrom(devices))
         setIsRecordEnabled(xdfRecordPath !== undefined)
         setRecordingPath(xdfRecordPath)
         setSession('locked')
@@ -250,13 +256,17 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         sendToOrchestrator(
             {
                 command: 'start',
-                devices: deviceRequests,
+                devices: deviceRequests.map(requestedFrom),
                 xdfRecordPath: isRecordEnabled
                     ? recordPathFor(recordDirectory, recordName, startedAt)
                     : undefined,
             },
             {
-                onReply: ({ error, xdfRecordPath }) => {
+                onReply: ({ error, devices, xdfRecordPath }) => {
+                    if (devices) {
+                        setDevices(selectedFrom(devices))
+                    }
+
                     setSessionError(error)
                     setRecordingPath(xdfRecordPath)
                     setSession(error ? 'unlocked' : 'locked')
@@ -592,6 +602,18 @@ const RecordTimestamp: React.FC<RecordTimestampProps> = (
             {recordFileSuffixFor(frozenAt ?? tickedAt)}
         </span>
     )
+}
+
+function requestedFrom(request: DeviceRequest): DeviceRequest {
+    const { deviceName } = request
+    return { ...request, deviceName: requestedNames[deviceName] ?? deviceName }
+}
+
+function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
+    return requests.map(({ deviceName, identifier = '' }) => ({
+        name: deviceName,
+        identifier,
+    }))
 }
 
 function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {

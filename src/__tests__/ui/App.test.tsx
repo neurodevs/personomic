@@ -20,6 +20,7 @@ import AbstractPackageTest from '../AbstractPackageTest'
 export default class AppTest extends AbstractPackageTest {
     private static element: React.ReactElement
     private static secondCallbacks: Set<() => void>
+    private static readonly anyMuse = 'Muse (auto-detect, slower)'
 
     protected static async beforeEach() {
         await super.beforeEach()
@@ -211,9 +212,110 @@ export default class AppTest extends AbstractPackageTest {
         this.openBiosensorMenu()
 
         assert.isEqualDeep(
-            this.offeredBiosensors,
+            this.offeredBiosensors.filter((name) => name !== this.anyMuse),
             [...DEVICE_NAMES],
             'Did not offer every biosensor at first!'
+        )
+    }
+
+    @test()
+    protected static async offersAnyMuseAheadOfMuseModels() {
+        render(<App />)
+
+        this.openBiosensorMenu()
+
+        assert.isEqual(
+            this.offeredBiosensors.indexOf(this.anyMuse),
+            this.offeredBiosensors.indexOf('Muse S Athena') - 1,
+            'Did not offer any Muse ahead of Muse models!'
+        )
+    }
+
+    @test()
+    protected static async keepsOfferingAnyMuseOnceAdded() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+        this.openBiosensorMenu()
+
+        assert.isTrue(
+            this.offeredBiosensors.includes(this.anyMuse),
+            'Did not keep offering any Muse once added!'
+        )
+    }
+
+    @test()
+    protected static async offersUuidForAnyMuse() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+
+        assert.isEqual(
+            lastStreamMonitorProps?.identifiers?.[this.anyMuse]?.label,
+            'UUID',
+            'Did not offer UUID for any Muse!'
+        )
+    }
+
+    @test()
+    protected static async asksOrchestratorToDetectModelOfAnyMuse() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+        this.typeIdentifier(this.anyMuse, 'muse-uuid')
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [{ deviceName: 'Muse', identifier: 'muse-uuid' }],
+            'Did not ask orchestrator to detect model of any Muse!'
+        )
+    }
+
+    @test()
+    protected static async showsDetectedMuseModelOnceConnected() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+        this.addBiosensor('OpenBCI Cyton')
+        this.typeIdentifier(this.anyMuse, 'muse-uuid')
+        this.clickConnect()
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [
+                    { deviceName: 'Muse 2', identifier: 'muse-uuid' },
+                    { deviceName: 'OpenBCI Cyton' },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                museUuid:
+                    lastStreamMonitorProps?.identifiers?.['Muse 2']?.value,
+            },
+            {
+                deviceNames: ['Muse 2', 'OpenBCI Cyton'],
+                museUuid: 'muse-uuid',
+            },
+            'Did not show detected Muse model once connected!'
+        )
+    }
+
+    @test()
+    protected static async keepsAnyMuseWhenConnectingFails() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+        this.clickConnect()
+        act(() => this.orchestratorSocket.receive({ error: 'No Muse found' }))
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.deviceNames,
+            [this.anyMuse],
+            'Did not keep any Muse when connecting failed!'
         )
     }
 

@@ -6,7 +6,10 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { BiosensorStreamingOrchestrator } from '@neurodevs/node-biosensors'
+import {
+    BiosensorStreamingOrchestrator,
+    detectMuseModel,
+} from '@neurodevs/node-biosensors'
 import { WebSocketServer } from 'ws'
 
 const COMMAND_PORT = 8763
@@ -39,6 +42,27 @@ function specificationFor({ deviceName, identifier }) {
     return identifier && option
         ? { deviceName, [option]: identifier }
         : deviceName
+}
+
+async function withDetectedModel(device) {
+    if (device.deviceName !== 'Muse') {
+        return device
+    }
+
+    console.log(
+        `Detecting Muse model${device.identifier ? ` of ${device.identifier}` : ''}`
+    )
+    return { ...device, deviceName: await detectMuseModel(device.identifier) }
+}
+
+async function withDetectedModels(devices) {
+    const detected = []
+
+    for (const device of devices) {
+        detected.push(await withDetectedModel(device))
+    }
+
+    return detected
 }
 
 function absolutePathFor(typedPath) {
@@ -102,7 +126,6 @@ async function revealRecording() {
 }
 
 async function start(request) {
-    const { devices } = request
     const xdfRecordPath = request.xdfRecordPath
         ? absolutePathFor(request.xdfRecordPath)
         : undefined
@@ -111,6 +134,7 @@ async function start(request) {
         throw new Error('A session is already running. Press Stop first.')
     }
 
+    const devices = await withDetectedModels(request.devices)
     const specifications = devices.map(specificationFor)
     console.log(
         'Starting',
@@ -136,7 +160,7 @@ async function start(request) {
         `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
     )
 
-    return { xdfRecordPath }
+    return { devices, xdfRecordPath }
 }
 
 async function cleanUpFailedStart() {
