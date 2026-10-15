@@ -92,7 +92,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 .connect-devices__button {

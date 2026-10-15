@@ -351,25 +351,6 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 <span className="app__wordmark">Personomic</span>
                 <span className="app__tagline">Live biosignal monitor</span>
             </header>
-            <StreamMonitorComponent
-                key={numMonitorResets}
-                downsampling={downsampling}
-                deviceStatusPort={8764}
-                deviceNames={deviceNames}
-                recording={playing?.recording}
-                playbackSpeed={playbackSpeed}
-                streamOptions={streamOptions}
-                windowSecondsByDevice={windowSecondsByDevice}
-                isConnecting={session === 'connecting'}
-                identifiers={identifiers}
-                rememberedIdentifiers={rememberedIdentifiers}
-                onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
-                onIdentifierChange={isLocked ? undefined : setIdentifierValue}
-                onRemoveDevice={isLocked ? undefined : removeDevice}
-            />
-            {!isLocked && addableNames.length > 0 && (
-                <AddBiosensorButton names={addableNames} onAdd={addDevice} />
-            )}
             <div className="connect-devices">
                 <button
                     type="button"
@@ -505,6 +486,25 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     </span>
                 )}
             </div>
+            <StreamMonitorComponent
+                key={numMonitorResets}
+                downsampling={downsampling}
+                deviceStatusPort={8764}
+                deviceNames={deviceNames}
+                recording={playing?.recording}
+                playbackSpeed={playbackSpeed}
+                streamOptions={streamOptions}
+                windowSecondsByDevice={windowSecondsByDevice}
+                isConnecting={session === 'connecting'}
+                identifiers={identifiers}
+                rememberedIdentifiers={rememberedIdentifiers}
+                onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
+                onIdentifierChange={isLocked ? undefined : setIdentifierValue}
+                onRemoveDevice={isLocked ? undefined : removeDevice}
+            />
+            {!isLocked && addableNames.length > 0 && (
+                <AddBiosensorButton names={addableNames} onAdd={addDevice} />
+            )}
         </main>
     )
 }

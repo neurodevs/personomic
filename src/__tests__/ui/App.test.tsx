@@ -533,17 +533,17 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async placesConnectButtonBelowAddBiosensorButton() {
-        render(<App />)
+    protected static async placesSessionButtonAboveBiosensors() {
+        this.renderWithMuse()
 
-        const addButton = screen.getByRole('button', { name: /add biosensor/i })
+        const monitor = screen.getByTestId('fake-stream-monitor')
 
         assert.isTrue(
             Boolean(
-                addButton.compareDocumentPosition(this.sessionButton) &
-                Node.DOCUMENT_POSITION_FOLLOWING
+                monitor.compareDocumentPosition(this.sessionButton) &
+                Node.DOCUMENT_POSITION_PRECEDING
             ),
-            'Did not place connect button below add biosensor button!'
+            'Did not place session button above biosensors!'
         )
     }
 
