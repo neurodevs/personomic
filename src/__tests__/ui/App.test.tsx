@@ -305,6 +305,30 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsDetectingMuseModelUntilOrchestratorReplies() {
+        render(<App />)
+
+        this.addBiosensor(this.anyMuse)
+        this.clickConnect()
+        const whileWaiting = this.sessionButtonState
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [{ deviceName: 'Muse 2' }],
+            })
+        )
+
+        assert.isEqualDeep(
+            [whileWaiting, this.sessionButtonState],
+            [
+                { text: 'Detecting Muse model…', isDisabled: true },
+                { text: 'Stop', isDisabled: false },
+            ],
+            'Did not show detecting Muse model until orchestrator replied!'
+        )
+    }
+
+    @test()
     protected static async keepsAnyMuseWhenConnectingFails() {
         render(<App />)
 
@@ -2482,7 +2506,7 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     private static get sessionButton() {
-        return screen.getByRole('button', { name: /^(Connect|Stop)/ })
+        return screen.getByRole('button', { name: /^(Connect|Stop|Detecting)/ })
     }
 
     private static get sessionButtonState() {

@@ -380,7 +380,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     }
                     onClick={isLocked ? endSession : connectDevices}
                 >
-                    {sessionButtonLabels[session]}
+                    {sessionButtonLabelFor(session, deviceNames)}
                 </button>
                 {!isLocked && (
                     <PlayRecordingButton
@@ -481,6 +481,12 @@ interface PlayingRecording {
     devicesChosenBefore: SelectedDevice[]
     hasEnded: boolean
     progress?: PlaybackProgress
+}
+
+function sessionButtonLabelFor(session: SessionState, deviceNames: string[]) {
+    return session === 'connecting' && deviceNames.includes(anyMuseName)
+        ? 'Detecting Muse model…'
+        : sessionButtonLabels[session]
 }
 
 function recordPathFor(directory: string, name: string, startedAt: Date) {
