@@ -110,6 +110,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [playing, setPlaying] = useState<PlayingRecording>()
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [isPositionHeld, setIsPositionHeld] = useState(false)
+    const [isPaused, setIsPaused] = useState(false)
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -324,6 +325,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 hasEnded: false,
             })
             setPlaybackSpeed(1)
+            setIsPaused(false)
             setDevices(
                 recording.devices.map(({ deviceName }) => ({
                     name: deviceName,
@@ -355,6 +357,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
         setPlaying((previous) => previous && { ...previous, hasEnded: true })
 
     const replay = () => {
+        setIsPaused(false)
         setPlaying(
             (previous) =>
                 previous && {
@@ -414,6 +417,9 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                         speed={playbackSpeed}
                         onReplay={replay}
                         onSeek={seek}
+                        isPaused={isPaused}
+                        onPause={() => setIsPaused(true)}
+                        onPlay={() => setIsPaused(false)}
                         onHold={() => setIsPositionHeld(true)}
                         onRelease={() => setIsPositionHeld(false)}
                         onSpeedChange={setPlaybackSpeed}
@@ -475,7 +481,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 recording={playing?.recording}
                 playbackSpeed={playbackSpeed}
                 playbackSeek={playing?.seek}
-                isPlaybackPaused={isPositionHeld}
+                isPlaybackPaused={isPositionHeld || isPaused}
                 onPlaybackEnd={markPlaybackEnded}
                 onPlaybackProgress={showPlaybackProgress}
                 streamOptions={streamOptions}

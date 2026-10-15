@@ -5,9 +5,12 @@ import type { PlaybackProgress } from './StreamMonitor'
 export interface PlaybackControlsProps {
     fileName: string
     hasEnded: boolean
+    isPaused: boolean
     progress?: PlaybackProgress
     speed: number
     onReplay: () => void
+    onPause: () => void
+    onPlay: () => void
     onSeek: (seconds: number) => void
     onHold: () => void
     onRelease: () => void
@@ -20,9 +23,12 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
     const {
         fileName,
         hasEnded,
+        isPaused,
         progress,
         speed,
         onReplay,
+        onPause,
+        onPlay,
         onSeek,
         onHold,
         onRelease,
@@ -63,9 +69,9 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
             <button
                 type="button"
                 className="connect-devices__play"
-                onClick={onReplay}
+                onClick={hasEnded ? onReplay : isPaused ? onPlay : onPause}
             >
-                Replay
+                {hasEnded ? 'Replay' : isPaused ? 'Play' : 'Pause'}
             </button>
             <span
                 className="connect-devices__speeds"

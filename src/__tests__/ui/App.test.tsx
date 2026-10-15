@@ -2455,6 +2455,7 @@ export default class AppTest extends AbstractPackageTest {
         this.reportPlaybackProgress(83, 300)
         this.dragPositionSliderTo(150)
         this.releasePositionSlider()
+        this.endPlayback()
         fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
 
         assert.isUndefined(
@@ -2537,6 +2538,110 @@ export default class AppTest extends AbstractPackageTest {
             { isPaused: false, seekSeconds: 150 },
             'Did not play on from dragged position once released!'
         )
+    }
+
+    @test()
+    protected static async offersPauseUntilPlaybackEnds() {
+        render(<App />)
+
+        await this.chooseRecording()
+        const whilePlaying = this.playbackButtonText
+        this.endPlayback()
+
+        assert.isEqualDeep(
+            { whilePlaying, onceEnded: this.playbackButtonText },
+            { whilePlaying: 'Pause', onceEnded: 'Replay' },
+            'Did not offer pause until playback ended!'
+        )
+    }
+
+    @test()
+    protected static async pausesPlaybackWhenPauseIsClicked() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.clickPlaybackButton()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                button: this.playbackButtonText,
+            },
+            { isPaused: true, button: 'Play' },
+            'Did not pause playback when pause was clicked!'
+        )
+    }
+
+    @test()
+    protected static async playsOnWhenPlayIsClicked() {
+        render(<App />)
+
+        await this.chooseRecording()
+        const numMountsBefore = numStreamMonitorMounts
+        this.clickPlaybackButton()
+        this.clickPlaybackButton()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                button: this.playbackButtonText,
+                numNewMounts: numStreamMonitorMounts - numMountsBefore,
+            },
+            { isPaused: false, button: 'Pause', numNewMounts: 0 },
+            'Did not play on when play was clicked!'
+        )
+    }
+
+    @test()
+    protected static async staysPausedAfterScrubbingWhilePaused() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        this.clickPlaybackButton()
+        this.pressPositionSlider()
+        this.dragPositionSliderTo(150)
+        this.releasePositionSlider()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+            },
+            { isPaused: true, seekSeconds: 150 },
+            'Did not stay paused after scrubbing while paused!'
+        )
+    }
+
+    @test()
+    protected static async playsNextRecordingUnpaused() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.clickPlaybackButton()
+        this.clickStop()
+        await this.chooseRecording()
+
+        assert.isEqualDeep(
+            {
+                isPaused: lastStreamMonitorProps?.isPlaybackPaused,
+                button: this.playbackButtonText,
+            },
+            { isPaused: false, button: 'Pause' },
+            'Did not play next recording unpaused!'
+        )
+    }
+
+    private static get playbackButton() {
+        return screen.getByRole('button', { name: /^(Pause|Play|Replay)$/ })
+    }
+
+    private static get playbackButtonText() {
+        return this.playbackButton.textContent
+    }
+
+    private static clickPlaybackButton() {
+        fireEvent.click(this.playbackButton)
     }
 
     private static pressPositionSlider() {

@@ -65,10 +65,13 @@ picked until you click Stop.
 While it plays, the 1×–100× buttons beside its name speed it up without losing
 its place, and the slider beside them shows how far it has played. Holding the
 slider freezes playback, and dragging it moves the plots to wherever it is, so
-they show everything recorded up to that point. Let go to play on from there. Each biosensor whose data runs out turns red and folds down to its
-name, while the others play on; click it to open its plots again. Once all of
-them run out, the recording shows as "Finished" until you click Stop. Click
-Replay to play it again from the start.
+they show everything recorded up to that point. Let go to play on from there.
+Click Pause to freeze playback and Play to carry on.
+
+Each biosensor whose data runs out turns red and folds down to its name, while
+the others play on; click it to open its plots again. Once all of them run out,
+the recording shows as "Finished" and Pause becomes Replay, which plays it again
+from the start.
 
 A recording names the Muse that made it, such as "Muse S Gen 2", when its
 stream names start with the model. Older recordings, whose streams are named
