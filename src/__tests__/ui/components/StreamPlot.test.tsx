@@ -2201,6 +2201,91 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async scrubsBackInTimeWhenGraphIsDraggedRight() {
+        const scrubbedTo = await this.renderThenDragGraph({ from: 50, to: 70 })
+
+        assert.isEqualDeep(
+            scrubbedTo,
+            [0],
+            'Did not scrub back in time when graph was dragged right!'
+        )
+    }
+
+    @test()
+    protected static async scrubsForwardInTimeWhenGraphIsDraggedLeft() {
+        const scrubbedTo = await this.renderThenDragGraph({ from: 50, to: 20 })
+
+        assert.isEqualDeep(
+            scrubbedTo,
+            [5],
+            'Did not scrub forward in time when graph was dragged left!'
+        )
+    }
+
+    @test()
+    protected static async doesNotScrubBeforeGraphIsDraggedFarEnough() {
+        const scrubbedTo = await this.renderThenDragGraph({ from: 50, to: 52 })
+
+        assert.isEqualDeep(
+            scrubbedTo,
+            [],
+            'Scrubbed before graph was dragged far enough!'
+        )
+    }
+
+    @test()
+    protected static async stopsScrubbingWhenGraphIsReleased() {
+        const scrubbedTo = await this.renderThenDragGraph({ from: 50, to: 70 })
+
+        fireEvent.mouseUp(window, { clientX: 70, clientY: 10 })
+        fireEvent.mouseMove(window, { clientX: 90, clientY: 10 })
+
+        assert.isEqualDeep(
+            scrubbedTo,
+            [0],
+            'Did not stop scrubbing when graph was released!'
+        )
+    }
+
+    @test()
+    protected static async doesNotMarkOrHideWhenDragEndsInClick() {
+        const markedTimestamps: number[] = []
+
+        await this.renderThenDragGraph(
+            { from: 50, to: 70 },
+            { onMarkTimestamp: (timestamp) => markedTimestamps.push(timestamp) }
+        )
+
+        fireEvent.mouseUp(window, { clientX: 70, clientY: 10 })
+        this.clickGraphAt({ clientX: 70, clientY: 10 })
+
+        assert.isEqualDeep(
+            { markedTimestamps, meta: this.meta },
+            { markedTimestamps: [], meta: '2 ch · 10s window' },
+            'Marked or hid when drag ended in click!'
+        )
+    }
+
+    @test()
+    protected static async marksTimestampWhenClickedAfterTinyDrag() {
+        const markedTimestamps: number[] = []
+
+        await this.renderThenDragGraph(
+            { from: 50, to: 52 },
+            { onMarkTimestamp: (timestamp) => markedTimestamps.push(timestamp) }
+        )
+
+        fireEvent.mouseUp(window, { clientX: 52, clientY: 10 })
+        this.clickGraphAt({ clientX: 52, clientY: 10 })
+
+        assert.isEqual(
+            markedTimestamps.length,
+            1,
+            'Did not mark timestamp when clicked after tiny drag!'
+        )
+    }
+
+    @test()
     protected static async drawsMarkerLineAcrossGraphAtMarkedTimestamp() {
         await this.render({ ...this.twoChannels, markedTimestamp: 1 })
 
@@ -2901,6 +2986,27 @@ export default class StreamPlotTest extends AbstractPackageTest {
         draw({ ctx, bbox, valToPos })
 
         return { lines, labels }
+    }
+
+    private static async renderThenDragGraph(
+        drag: { from: number; to: number },
+        props: Partial<StreamPlotProps> = {}
+    ) {
+        const scrubbedTo: number[] = []
+
+        await this.render({
+            ...this.twoChannels,
+            onScrubTo: (timestamp) => scrubbedTo.push(timestamp),
+            ...props,
+        })
+
+        fireEvent.mouseDown(FakeUPlot.latest.over, {
+            clientX: drag.from,
+            clientY: 10,
+        })
+        fireEvent.mouseMove(window, { clientX: drag.to, clientY: 10 })
+
+        return scrubbedTo
     }
 
     private static clickGraphAt(

@@ -484,6 +484,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 isPlaybackPaused={isPositionHeld || isPaused}
                 onPlaybackEnd={markPlaybackEnded}
                 onPlaybackProgress={showPlaybackProgress}
+                onPlaybackSeek={seek}
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}

@@ -33,6 +33,7 @@ export interface StreamMonitorProps {
     isPlaybackPaused?: boolean
     onPlaybackEnd?: () => void
     onPlaybackProgress?: (progress: PlaybackProgress) => void
+    onPlaybackSeek?: (seconds: number) => void
     streamOptions?: Record<string, StreamOptions>
     windowSeconds?: number
     windowSecondsByDevice?: Record<string, number>
@@ -57,6 +58,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         isPlaybackPaused = false,
         onPlaybackEnd,
         onPlaybackProgress,
+        onPlaybackSeek,
         streamOptions = {},
         windowSeconds = 10,
         windowSecondsByDevice = {},
@@ -89,10 +91,18 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         }
     }, [marksTime])
 
-    const sessionStartTimestamp = useMemo(
-        () => recording && recordingStartOf(recording),
+    const recordingSpan = useMemo(
+        () => recording && recordingSpanOf(recording),
         [recording]
     )
+    const sessionStartTimestamp = recordingSpan?.start
+
+    const seekToShowUpTo = (rightEdgeTimestamp: number) => {
+        const { start, end } = recordingSpan!
+        const clamped = Math.min(Math.max(rightEdgeTimestamp, start), end)
+
+        onPlaybackSeek?.(clamped - start)
+    }
 
     const reportedDevices = recording
         ? gatewayDevicesPlaying(recording, runOutDevices)
@@ -552,6 +562,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                                 onMarkTimestamp={
                                     marksTime ? setMarkedTimestamp : undefined
                                 }
+                                onScrubTo={
+                                    marksTime ? seekToShowUpTo : undefined
+                                }
                                 sessionStartTimestamp={sessionStartTimestamp}
                             />
                         ))}
@@ -855,18 +868,20 @@ function playbackPortOf(streamIndex: number) {
     return streamIndex + 1
 }
 
-function recordingStartOf(recording: Recording) {
+function recordingSpanOf(recording: Recording) {
     const streams = recording.devices.flatMap((device) => device.streams)
-    return Math.min(...streams.map((stream) => stream.timestamps[0]))
+
+    return {
+        start: Math.min(...streams.map((stream) => stream.timestamps[0])),
+        end: Math.max(...streams.map((stream) => stream.timestamps.at(-1)!)),
+    }
 }
 
 function playbackOf(recording: Recording, clockMs: number) {
     const streams = recording.devices.flatMap((device) => device.streams)
     const numPlayed = streams.map(() => 0)
-    const recordingStart = recordingStartOf(recording)
-    const recordingEnd = Math.max(
-        ...streams.map((stream) => stream.timestamps.at(-1)!)
-    )
+    const { start: recordingStart, end: recordingEnd } =
+        recordingSpanOf(recording)
     const totalSeconds = Math.floor(recordingEnd - recordingStart)
     let startedAtMs = clockMs
     let lastClockMs = clockMs

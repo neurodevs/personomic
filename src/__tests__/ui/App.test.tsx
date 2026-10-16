@@ -2281,6 +2281,24 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async seeksWherePlotsAreScrubbed() {
+        render(<App />)
+
+        await this.chooseRecording()
+        this.reportPlaybackProgress(83, 300)
+        act(() => lastStreamMonitorProps?.onPlaybackSeek?.(42.5))
+
+        assert.isEqualDeep(
+            {
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
+                value: this.positionSlider.value,
+            },
+            { seekSeconds: 42.5, value: '42.5' },
+            'Did not seek where plots were scrubbed!'
+        )
+    }
+
+    @test()
     protected static async forgetsPlaybackPositionOnReplay() {
         render(<App />)
 

@@ -22,6 +22,7 @@ export interface StreamPlotProps {
     nowTimestamp?: number
     markedTimestamp?: number
     onMarkTimestamp?: (timestamp: number) => void
+    onScrubTo?: (rightEdgeTimestamp: number) => void
     sessionStartTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
@@ -66,6 +67,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         nowTimestamp,
         markedTimestamp,
         onMarkTimestamp,
+        onScrubTo,
         sessionStartTimestamp = 0,
         color = '#8b93a7',
         detectPeaks,
@@ -108,19 +110,71 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         event: React.MouseEvent,
         channel: number
     ) => {
-        const plot = plotsRef.current[channel]
-        const graph = plot.over.getBoundingClientRect()
-
-        const isInGraph =
-            event.clientX >= graph.left &&
-            event.clientX <= graph.right &&
-            event.clientY >= graph.top &&
-            event.clientY <= graph.bottom
-
-        if (onMarkTimestamp && isInGraph) {
+        if (hasScrubbedRef.current) {
+            hasScrubbedRef.current = false
             event.stopPropagation()
-            onMarkTimestamp(plot.posToVal(event.clientX - graph.left, 'x'))
+            return
         }
+
+        const plot = plotsRef.current[channel]
+
+        if (onMarkTimestamp && isOnGraph(plot, event)) {
+            const graphLeft = plot.over.getBoundingClientRect().left
+
+            event.stopPropagation()
+            onMarkTimestamp(plot.posToVal(event.clientX - graphLeft, 'x'))
+        }
+    }
+
+    const onScrubToRef = useRef(onScrubTo)
+    onScrubToRef.current = onScrubTo
+
+    const hasScrubbedRef = useRef(false)
+    const stopScrubbingRef = useRef<() => void>(undefined)
+
+    useEffect(() => () => stopScrubbingRef.current?.(), [])
+
+    const startScrubbingIfGraphPressed = (
+        event: React.MouseEvent,
+        channel: number
+    ) => {
+        const plot = plotsRef.current[channel]
+
+        if (!onScrubTo || !isOnGraph(plot, event)) {
+            return
+        }
+
+        event.preventDefault()
+
+        const { min = 0, max = 0 } = plot.scales.x
+        const secondsPerPixel =
+            (max - min) / plot.over.getBoundingClientRect().width
+        const pressedX = event.clientX
+
+        hasScrubbedRef.current = false
+
+        const scrub = (move: MouseEvent) => {
+            const draggedPixels = move.clientX - pressedX
+
+            if (
+                hasScrubbedRef.current ||
+                Math.abs(draggedPixels) >= minScrubPixels
+            ) {
+                hasScrubbedRef.current = true
+                onScrubToRef.current?.(max - draggedPixels * secondsPerPixel)
+            }
+        }
+
+        const stopScrubbing = () => {
+            window.removeEventListener('mousemove', scrub)
+            window.removeEventListener('mouseup', stopScrubbing)
+            stopScrubbingRef.current = undefined
+        }
+
+        stopScrubbingRef.current?.()
+        window.addEventListener('mousemove', scrub)
+        window.addEventListener('mouseup', stopScrubbing)
+        stopScrubbingRef.current = stopScrubbing
     }
 
     const markedTimestampRef = useRef(markedTimestamp)
@@ -509,11 +563,13 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     return (
         <section
-            className={
-                onMarkTimestamp
-                    ? 'stream-plot stream-plot--marks-time'
-                    : 'stream-plot'
-            }
+            className={[
+                'stream-plot',
+                onMarkTimestamp && 'stream-plot--marks-time',
+                onScrubTo && 'stream-plot--scrubs-time',
+            ]
+                .filter(Boolean)
+                .join(' ')}
             style={plotStyle}
             data-testid={`stream-plot-${name}`}
             onClick={toggleHiddenUnlessClickedOnWindowPicker}
@@ -572,6 +628,9 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                             containerRefs.current[channel] = container
                         }}
                         className="stream-plot__channel"
+                        onMouseDown={(event) =>
+                            startScrubbingIfGraphPressed(event, channel)
+                        }
                         onClick={(event) =>
                             markTimestampIfGraphClicked(event, channel)
                         }
@@ -604,6 +663,19 @@ export let ResizeObserverComponent = globalThis.ResizeObserver
 
 export function setResizeObserverComponent(component: typeof ResizeObserver) {
     ResizeObserverComponent = component
+}
+
+const minScrubPixels = 3
+
+function isOnGraph(plot: uPlot, event: React.MouseEvent) {
+    const graph = plot.over.getBoundingClientRect()
+
+    return (
+        event.clientX >= graph.left &&
+        event.clientX <= graph.right &&
+        event.clientY >= graph.top &&
+        event.clientY <= graph.bottom
+    )
 }
 
 function metaWithoutWindowFor(channelCount: number) {

@@ -834,3 +834,7 @@ body {
 .stream-plot--marks-time .stream-plot__channel .u-over {
   cursor: crosshair;
 }
+
+.stream-plot--scrubs-time .stream-plot__channel .u-over:active {
+  cursor: grabbing;
+}

@@ -1940,6 +1940,51 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersScrubbingOnlyWhilePaused() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording, {
+            isPlaybackPaused: true,
+        })
+        const whilePaused = this.latestScrubHandlers
+
+        await rerender(this.playing(recording, { isPlaybackPaused: false }))
+
+        assert.isEqualDeep(
+            {
+                whilePaused: whilePaused.map((onScrubTo) => typeof onScrubTo),
+                whilePlaying: this.latestScrubHandlers,
+            },
+            {
+                whilePaused: ['function', 'function'],
+                whilePlaying: [undefined, undefined],
+            },
+            'Did not offer scrubbing only while paused!'
+        )
+    }
+
+    @test()
+    protected static async seeksToScrubbedTimeSinceRecordingStart() {
+        const seekSeconds = await this.scrubPausedPlaybackTo(102.5, 101, 90)
+
+        assert.isEqualDeep(
+            seekSeconds,
+            [2.5, 1, 0],
+            'Did not seek to scrubbed time since recording start!'
+        )
+    }
+
+    @test()
+    protected static async seeksNoFurtherThanRecordingEnd() {
+        const seekSeconds = await this.scrubPausedPlaybackTo(200)
+
+        assert.isEqualDeep(
+            seekSeconds,
+            [3],
+            'Did not seek no further than recording end!'
+        )
+    }
+
+    @test()
     protected static async passesRecordingStartAsSessionStart() {
         await this.play(this.recording, { isPlaybackPaused: true })
 
@@ -2930,6 +2975,28 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return this.streams.map(
             (stream) => this.latestPlotPropsFor(stream.name)?.windowSeconds
         )
+    }
+
+    private static get latestScrubHandlers() {
+        return this.streams.map(
+            (stream) => this.latestPlotPropsFor(stream.name)?.onScrubTo
+        )
+    }
+
+    private static async scrubPausedPlaybackTo(...timestamps: number[]) {
+        const seekSeconds: number[] = []
+
+        await this.play(this.recording, {
+            isPlaybackPaused: true,
+            onPlaybackSeek: (seconds) => seekSeconds.push(seconds),
+        })
+
+        const { name } = this.streams[0]
+        timestamps.forEach((timestamp) =>
+            act(() => this.latestPlotPropsFor(name)?.onScrubTo?.(timestamp))
+        )
+
+        return seekSeconds
     }
 
     private static markTimestamp(timestamp: number, streamIndex = 0) {
