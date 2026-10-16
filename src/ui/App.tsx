@@ -26,9 +26,7 @@ const orchestratorPort = 8763
 
 const anyMuseName = 'Muse (auto-detect, slower)'
 
-const biosensorNames = DEVICE_NAMES.flatMap((name) =>
-    name === 'Muse S Athena' ? [anyMuseName, name] : [name]
-)
+const biosensorNames = [...DEVICE_NAMES, anyMuseName]
 
 const requestedNames: Record<string, string> = {
     [anyMuseName]: 'Muse',

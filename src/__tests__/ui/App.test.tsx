@@ -226,15 +226,17 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersAnyMuseAheadOfMuseModels() {
+    protected static async offersAnyMuseBelowMuseModels() {
         render(<App />)
 
         this.openBiosensorMenu()
 
         assert.isEqual(
-            this.offeredBiosensors.indexOf(this.anyMuse),
-            this.offeredBiosensors.indexOf('Muse S Athena') - 1,
-            'Did not offer any Muse ahead of Muse models!'
+            this.offeredBiosensors
+                .filter((name) => name?.startsWith('Muse '))
+                .at(-1),
+            this.anyMuse,
+            'Did not offer any Muse below Muse models!'
         )
     }
 
