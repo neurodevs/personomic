@@ -3,6 +3,7 @@ import type uPlot from 'uplot'
 export default class FakeUPlot {
     public static instances: FakeUPlot[] = []
     public static pxRatio = 1
+    public static overRect = { left: 0, top: 0, width: 100, height: 50 }
 
     public options: uPlot.Options
     public data: uPlot.AlignedData
@@ -10,6 +11,8 @@ export default class FakeUPlot {
     public scales: Record<string, uPlot.Scale> = {}
     public isDestroyed = false
     public size?: { width: number; height: number }
+    public over: HTMLElement
+    public numRedraws = 0
 
     public constructor(
         options: uPlot.Options,
@@ -19,7 +22,37 @@ export default class FakeUPlot {
         this.options = options
         this.data = data
         this.target = target
+        this.over = this.createOver()
         FakeUPlot.instances.push(this)
+    }
+
+    private createOver() {
+        const over = document.createElement('div')
+        over.className = 'u-over'
+
+        over.getBoundingClientRect = () => {
+            const { left, top, width, height } = FakeUPlot.overRect
+            return {
+                left,
+                top,
+                width,
+                height,
+                right: left + width,
+                bottom: top + height,
+            } as DOMRect
+        }
+
+        this.target.appendChild(over)
+        return over
+    }
+
+    public posToVal(pos: number, scaleKey: string) {
+        const { min = 0, max = 0 } = this.scales[scaleKey] ?? {}
+        return min + ((max - min) * pos) / FakeUPlot.overRect.width
+    }
+
+    public redraw() {
+        this.numRedraws++
     }
 
     public setData(data: uPlot.AlignedData) {
@@ -48,5 +81,6 @@ export default class FakeUPlot {
 
     public static resetTestDouble() {
         this.instances = []
+        this.overRect = { left: 0, top: 0, width: 100, height: 50 }
     }
 }

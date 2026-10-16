@@ -830,3 +830,7 @@ body {
     --channels-overhang: 8px;
   }
 }
+
+.stream-plot--marks-time .stream-plot__channel .u-over {
+  cursor: crosshair;
+}

@@ -1881,6 +1881,79 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async sharesMarkedTimestampAcrossStreamsWhilePaused() {
+        await this.play(this.recording, { isPlaybackPaused: true })
+
+        this.markTimestamp(101.2, 1)
+
+        assert.isEqualDeep(
+            this.latestMarkedTimestamps,
+            [101.2, 101.2],
+            'Did not share marked timestamp across streams while paused!'
+        )
+    }
+
+    @test()
+    protected static async offersNoTimeMarkingWhilePlaying() {
+        await this.play()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) =>
+                    this.latestPlotPropsFor(stream.name)?.onMarkTimestamp
+            ),
+            [undefined, undefined],
+            'Offered time marking while playing!'
+        )
+    }
+
+    @test()
+    protected static async offersNoTimeMarkingWhenLive() {
+        await this.renderWithFakePlot()
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) =>
+                    this.latestPlotPropsFor(stream.name)?.onMarkTimestamp
+            ),
+            [undefined, undefined],
+            'Offered time marking when live!'
+        )
+    }
+
+    @test()
+    protected static async clearsMarkedTimestampWhenPlaybackResumes() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording, {
+            isPlaybackPaused: true,
+        })
+
+        this.markTimestamp(101.2)
+        await rerender(this.playing(recording, { isPlaybackPaused: false }))
+        await rerender(this.playing(recording, { isPlaybackPaused: true }))
+
+        assert.isEqualDeep(
+            this.latestMarkedTimestamps,
+            [undefined, undefined],
+            'Did not clear marked timestamp when playback resumed!'
+        )
+    }
+
+    @test()
+    protected static async passesRecordingStartAsSessionStart() {
+        await this.play(this.recording, { isPlaybackPaused: true })
+
+        assert.isEqualDeep(
+            this.streams.map(
+                (stream) =>
+                    this.latestPlotPropsFor(stream.name)?.sessionStartTimestamp
+            ),
+            [100, 100],
+            'Did not pass recording start as session start!'
+        )
+    }
+
+    @test()
     protected static async stopsAnimatingOnceOldDataIsGone() {
         await this.renderWithFakePlot()
 
@@ -2856,6 +2929,18 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     private static get latestWindowSecondsByStream() {
         return this.streams.map(
             (stream) => this.latestPlotPropsFor(stream.name)?.windowSeconds
+        )
+    }
+
+    private static markTimestamp(timestamp: number, streamIndex = 0) {
+        const { name } = this.streams[streamIndex]
+
+        act(() => this.latestPlotPropsFor(name)?.onMarkTimestamp?.(timestamp))
+    }
+
+    private static get latestMarkedTimestamps() {
+        return this.streams.map(
+            (stream) => this.latestPlotPropsFor(stream.name)?.markedTimestamp
         )
     }
 

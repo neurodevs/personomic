@@ -2137,6 +2137,145 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async marksTimestampWhereGraphIsClicked() {
+        const markedTimestamps: number[] = []
+
+        await this.render({
+            ...this.twoChannels,
+            onMarkTimestamp: (timestamp) => markedTimestamps.push(timestamp),
+        })
+
+        FakeUPlot.overRect = { left: 40, top: 20, width: 100, height: 50 }
+        this.clickGraphAt({ clientX: 90, clientY: 30 }, 1)
+
+        assert.isEqualDeep(
+            markedTimestamps,
+            [-3],
+            'Did not mark timestamp where graph was clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsChannelsShownWhenGraphIsClicked() {
+        await this.render({ ...this.twoChannels, onMarkTimestamp: () => {} })
+
+        this.clickGraphAt({ clientX: 10, clientY: 10 })
+
+        assert.isEqual(
+            this.meta,
+            '2 ch · 10s window',
+            'Did not keep channels shown when graph was clicked!'
+        )
+    }
+
+    @test()
+    protected static async hidesChannelsWhenGraphIsClickedWithoutTimeMarking() {
+        await this.render(this.twoChannels)
+
+        this.clickGraphAt({ clientX: 10, clientY: 10 })
+
+        assert.isEqual(
+            this.meta,
+            '2 ch · Hidden',
+            'Did not hide channels when graph was clicked without time marking!'
+        )
+    }
+
+    @test()
+    protected static async doesNotMarkTimestampWhenClickedBesideGraph() {
+        const markedTimestamps: number[] = []
+
+        await this.render({
+            ...this.twoChannels,
+            onMarkTimestamp: (timestamp) => markedTimestamps.push(timestamp),
+        })
+
+        FakeUPlot.overRect = { left: 40, top: 20, width: 100, height: 50 }
+        this.clickGraphAt({ clientX: 20, clientY: 30 })
+
+        assert.isEqualDeep(
+            { markedTimestamps, meta: this.meta },
+            { markedTimestamps: [], meta: '2 ch · Hidden' },
+            'Did not ignore click beside graph!'
+        )
+    }
+
+    @test()
+    protected static async drawsMarkerLineAcrossGraphAtMarkedTimestamp() {
+        await this.render({ ...this.twoChannels, markedTimestamp: 1 })
+
+        const { lines } = this.drawTimeMarker(FakeUPlot.instances[0])
+
+        assert.isEqualDeep(
+            lines,
+            [{ from: [200, 10], to: [200, 50] }],
+            'Did not draw marker line across graph at marked timestamp!'
+        )
+    }
+
+    @test()
+    protected static async labelsMarkedTimestampOnTimeAxisOnly() {
+        await this.render({ ...this.twoChannels, markedTimestamp: 1 })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => this.drawTimeMarker(plot).labels),
+            [[], [{ text: '1.000s', x: 200 }]],
+            'Did not label marked timestamp on time axis only!'
+        )
+    }
+
+    @test()
+    protected static async labelsMarkedTimestampSinceSessionStart() {
+        await this.render({
+            ...this.twoChannels,
+            markedTimestamp: 1.5,
+            sessionStartTimestamp: 0.25,
+        })
+
+        assert.isEqual(
+            this.drawTimeMarker().labels[0]?.text,
+            '1.250s',
+            'Did not label marked timestamp since session start!'
+        )
+    }
+
+    @test()
+    protected static async drawsNoMarkerOutsideShownTimes() {
+        await this.render({ ...this.twoChannels, markedTimestamp: 5 })
+
+        assert.isEqualDeep(
+            this.drawTimeMarker(),
+            { lines: [], labels: [] },
+            'Drew marker outside shown times!'
+        )
+    }
+
+    @test()
+    protected static async drawsNoMarkerWithoutMarkedTimestamp() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.drawTimeMarker(),
+            { lines: [], labels: [] },
+            'Drew marker without marked timestamp!'
+        )
+    }
+
+    @test()
+    protected static async redrawsGraphsWhenMarkedTimestampChanges() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, markedTimestamp: 1 },
+            { ...this.twoChannels, markedTimestamp: 2 }
+        )
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => plot.numRedraws),
+            [2, 2],
+            'Did not redraw graphs when marked timestamp changed!'
+        )
+    }
+
+    @test()
     protected static async destroysPlotsOnUnmount() {
         const { unmount } = await this.render(this.twoChannels)
 
@@ -2723,6 +2862,54 @@ export default class StreamPlotTest extends AbstractPackageTest {
         timestamps: [0, 1, 2, 3, 4],
     }
 
+    private static drawTimeMarker(
+        plot = FakeUPlot.latest,
+        xScale = { min: 0, max: 2 }
+    ) {
+        const bbox = { left: 100, top: 10, width: 200, height: 40 }
+        const lines: MarkerLine[] = []
+        const labels: MarkerLabel[] = []
+        let start: [number, number] = [0, 0]
+
+        const ctx = {
+            save() {},
+            restore() {},
+            beginPath() {},
+            stroke() {},
+            fillRect() {},
+            setLineDash() {},
+            moveTo(x: number, y: number) {
+                start = [x, y]
+            },
+            lineTo(x: number, y: number) {
+                lines.push({ from: start, to: [x, y] })
+            },
+            measureText: (text: string) => ({ width: text.length * 6 }),
+            fillText(text: string, x: number) {
+                labels.push({ text, x })
+            },
+        }
+
+        const valToPos = (value: number) =>
+            bbox.left +
+            (bbox.width * (value - xScale.min)) / (xScale.max - xScale.min)
+
+        const draw = plot.options.hooks?.draw?.[1] as unknown as (
+            plot: unknown
+        ) => void
+
+        draw({ ctx, bbox, valToPos })
+
+        return { lines, labels }
+    }
+
+    private static clickGraphAt(
+        position: { clientX: number; clientY: number },
+        channel = 0
+    ) {
+        fireEvent.click(FakeUPlot.instances[channel].over, position)
+    }
+
     private static clickPlot() {
         fireEvent.click(this.plot)
     }
@@ -2821,4 +3008,14 @@ interface StripRect {
     height: number
     color: string
     opacity: number
+}
+
+interface MarkerLine {
+    from: [number, number]
+    to: [number, number]
+}
+
+interface MarkerLabel {
+    text: string
+    x: number
 }

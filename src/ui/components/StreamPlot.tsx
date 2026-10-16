@@ -20,6 +20,9 @@ export interface StreamPlotProps {
     windowSeconds?: number
     onWindowSecondsChange?: (seconds: number) => void
     nowTimestamp?: number
+    markedTimestamp?: number
+    onMarkTimestamp?: (timestamp: number) => void
+    sessionStartTimestamp?: number
     color?: string
     detectPeaks?: PeakDetectionOptions
     knownPeakTimestamps?: number[][]
@@ -61,6 +64,9 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         windowSeconds = 10,
         onWindowSecondsChange,
         nowTimestamp,
+        markedTimestamp,
+        onMarkTimestamp,
+        sessionStartTimestamp = 0,
         color = '#8b93a7',
         detectPeaks,
         knownPeakTimestamps,
@@ -97,6 +103,31 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
             setIsHidden((wasHidden) => !wasHidden)
         }
     }
+
+    const markTimestampIfGraphClicked = (
+        event: React.MouseEvent,
+        channel: number
+    ) => {
+        const plot = plotsRef.current[channel]
+        const graph = plot.over.getBoundingClientRect()
+
+        const isInGraph =
+            event.clientX >= graph.left &&
+            event.clientX <= graph.right &&
+            event.clientY >= graph.top &&
+            event.clientY <= graph.bottom
+
+        if (onMarkTimestamp && isInGraph) {
+            event.stopPropagation()
+            onMarkTimestamp(plot.posToVal(event.clientX - graph.left, 'x'))
+        }
+    }
+
+    const markedTimestampRef = useRef(markedTimestamp)
+    markedTimestampRef.current = markedTimestamp
+
+    const sessionStartTimestampRef = useRef(sessionStartTimestamp)
+    sessionStartTimestampRef.current = sessionStartTimestamp
 
     const labelFor = (channel: number) =>
         channelNames?.length === channelCount
@@ -367,6 +398,9 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         hasPeakMarkers,
                         yLimits: { min: yMinLimit, max: yMaxLimit },
                         occurrencesOf: () => occurrencesRef.current[channel],
+                        markedTimestampOf: () => markedTimestampRef.current,
+                        sessionStartTimestampOf: () =>
+                            sessionStartTimestampRef.current,
                     }),
                     hasPeakMarkers ? [[], [], []] : [[], []],
                     containerRefs.current[channel]!
@@ -384,6 +418,10 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         yMinLimit,
         yMaxLimit,
     ])
+
+    useEffect(() => {
+        plotsRef.current.forEach((plot) => plot.redraw(false))
+    }, [markedTimestamp, sessionStartTimestamp])
 
     useEffect(() => {
         plotsRef.current.forEach((plot, channel) =>
@@ -471,7 +509,11 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     return (
         <section
-            className="stream-plot"
+            className={
+                onMarkTimestamp
+                    ? 'stream-plot stream-plot--marks-time'
+                    : 'stream-plot'
+            }
             style={plotStyle}
             data-testid={`stream-plot-${name}`}
             onClick={toggleHiddenUnlessClickedOnWindowPicker}
@@ -530,6 +572,9 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                             containerRefs.current[channel] = container
                         }}
                         className="stream-plot__channel"
+                        onClick={(event) =>
+                            markTimestampIfGraphClicked(event, channel)
+                        }
                     >
                         {(channelCount > 1 || bandPowersByChannel) && (
                             <div className="stream-plot__channel-header">
@@ -689,6 +734,8 @@ interface PlotAppearance {
     hasPeakMarkers: boolean
     yLimits: YLimits
     occurrencesOf: () => ValueOccurrences | undefined
+    markedTimestampOf: () => number | undefined
+    sessionStartTimestampOf: () => number
 }
 
 function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
@@ -700,6 +747,8 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
         hasPeakMarkers,
         yLimits,
         occurrencesOf,
+        markedTimestampOf,
+        sessionStartTimestampOf,
     } = appearance
 
     return {
@@ -717,7 +766,14 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
         },
         axes: [labelsTime ? labeledXAxis : unlabeledXAxis, yAxis],
         hooks: {
-            draw: [(plot) => drawOccurrenceStrip(plot, occurrencesOf(), color)],
+            draw: [
+                (plot) => drawOccurrenceStrip(plot, occurrencesOf(), color),
+                (plot) =>
+                    drawTimeMarker(plot, markedTimestampOf(), {
+                        labelsTime,
+                        sessionStartTimestamp: sessionStartTimestampOf(),
+                    }),
+            ],
         },
         series: [
             {},
@@ -745,9 +801,12 @@ const roundXTickSeconds = [
     1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600, 7200, 14400,
 ]
 
+const axisLabelFontAt = (pxRatio: number) =>
+    `${10 * pxRatio}px ui-monospace, "SF Mono", Menlo, monospace`
+
 const axisLook: uPlot.Axis = {
     stroke: '#5f6878',
-    font: '10px ui-monospace, "SF Mono", Menlo, monospace',
+    font: axisLabelFontAt(1),
     ticks: { show: false },
     grid: { width: 1, stroke: 'rgba(255, 255, 255, 0.06)' },
 }
@@ -980,6 +1039,68 @@ function fadingGlowFor(plot: uPlot, hexColor: string) {
     gradient.addColorStop(1, `${hexColor}00`)
 
     return gradient
+}
+
+const timeMarkerColor = '#e6e9ef'
+const timeMarkerLabelPadding = 4
+
+function drawTimeMarker(
+    plot: uPlot,
+    markedTimestamp: number | undefined,
+    labeling: { labelsTime: boolean; sessionStartTimestamp: number }
+) {
+    if (markedTimestamp === undefined) {
+        return
+    }
+
+    const { ctx, bbox } = plot
+    const x = plot.valToPos(markedTimestamp, 'x', true)
+
+    if (!(x >= bbox.left && x <= bbox.left + bbox.width)) {
+        return
+    }
+
+    ctx.save()
+
+    ctx.strokeStyle = timeMarkerColor
+    ctx.lineWidth = uPlot.pxRatio
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(x, bbox.top)
+    ctx.lineTo(x, bbox.top + bbox.height)
+    ctx.stroke()
+
+    if (labeling.labelsTime) {
+        drawTimeMarkerLabel(
+            plot,
+            x,
+            timeMarkerLabelFor(markedTimestamp - labeling.sessionStartTimestamp)
+        )
+    }
+
+    ctx.restore()
+}
+
+function drawTimeMarkerLabel(plot: uPlot, x: number, label: string) {
+    const { ctx, bbox } = plot
+    const padding = timeMarkerLabelPadding * uPlot.pxRatio
+    const top = bbox.top + bbox.height + (axisLabelGap / 2) * uPlot.pxRatio
+    const height = (xAxisHeight - axisLabelGap / 2) * uPlot.pxRatio
+
+    ctx.font = axisLabelFontAt(uPlot.pxRatio)
+    const width = ctx.measureText(label).width + padding * 2
+
+    ctx.fillStyle = timeMarkerColor
+    ctx.fillRect(x - width / 2, top, width, height)
+
+    ctx.fillStyle = '#10141b'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(label, x, top + height / 2)
+}
+
+function timeMarkerLabelFor(secondsSinceSessionStart: number) {
+    return `${secondsSinceSessionStart.toFixed(3)}s`
 }
 
 const faintestOccurrenceOpacity = 0.15

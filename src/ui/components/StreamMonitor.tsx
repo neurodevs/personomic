@@ -80,6 +80,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
     const [runOutDevices, setRunOutDevices] = useState<boolean[]>([])
+    const [markedTimestamp, setMarkedTimestamp] = useState<number>()
+    const marksTime = recording !== undefined && isPlaybackPaused
+
+    useEffect(() => {
+        if (!marksTime) {
+            setMarkedTimestamp(undefined)
+        }
+    }, [marksTime])
+
+    const sessionStartTimestamp = useMemo(
+        () => recording && recordingStartOf(recording),
+        [recording]
+    )
 
     const reportedDevices = recording
         ? gatewayDevicesPlaying(recording, runOutDevices)
@@ -533,6 +546,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                                     chooseWindowSeconds(stream.wssPort, seconds)
                                 }
                                 nowTimestamp={sharedNowTimestamp}
+                                markedTimestamp={
+                                    marksTime ? markedTimestamp : undefined
+                                }
+                                onMarkTimestamp={
+                                    marksTime ? setMarkedTimestamp : undefined
+                                }
+                                sessionStartTimestamp={sessionStartTimestamp}
                             />
                         ))}
                     </DevicePanel>
@@ -835,12 +855,15 @@ function playbackPortOf(streamIndex: number) {
     return streamIndex + 1
 }
 
+function recordingStartOf(recording: Recording) {
+    const streams = recording.devices.flatMap((device) => device.streams)
+    return Math.min(...streams.map((stream) => stream.timestamps[0]))
+}
+
 function playbackOf(recording: Recording, clockMs: number) {
     const streams = recording.devices.flatMap((device) => device.streams)
     const numPlayed = streams.map(() => 0)
-    const recordingStart = Math.min(
-        ...streams.map((stream) => stream.timestamps[0])
-    )
+    const recordingStart = recordingStartOf(recording)
     const recordingEnd = Math.max(
         ...streams.map((stream) => stream.timestamps.at(-1)!)
     )
