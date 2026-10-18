@@ -223,6 +223,46 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsNicknameOfEachDevice() {
+        const nicknames = this.nicknamesReadFrom([
+            { sourceId: 'muse-eeg-Device-1', nickname: 'Alice' },
+            { sourceId: 'muse-eeg-Device-2', nickname: 'Bob' },
+        ])
+
+        assert.isEqualDeep(
+            nicknames,
+            ['Alice', 'Bob'],
+            'Did not read nickname of each device!'
+        )
+    }
+
+    @test()
+    protected static async leavesNicknameOutWhenNoneWasRecorded() {
+        const nicknames = this.nicknamesReadFrom([
+            { sourceId: 'muse-eeg-Device-1' },
+        ])
+
+        assert.isEqualDeep(
+            nicknames,
+            [undefined],
+            'Read a nickname that was not recorded!'
+        )
+    }
+
+    @test()
+    protected static async readsNicknameWithEscapedAndAccentedCharacters() {
+        const nicknames = this.nicknamesReadFrom([
+            { sourceId: 'muse-eeg-Device-1', nickname: 'José & <Ana>' },
+        ])
+
+        assert.isEqualDeep(
+            nicknames,
+            ['José & <Ana>'],
+            'Did not read nickname with escaped and accented characters!'
+        )
+    }
+
+    @test()
     protected static async namesMuseWithImuStreamAthena() {
         this.assertNamesDevice(
             ['muse-eeg-F57439', 'muse-imu-F57439'],
@@ -365,6 +405,18 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
             deviceName: device.deviceName,
             numStreams: device.streams.length,
         }))
+    }
+
+    private static nicknamesReadFrom(streams: XdfTestStream[]) {
+        const file = buildXdfFile(
+            streams.map((stream) => ({
+                channelNames: ['A'],
+                chunks: this.oneSample,
+                ...stream,
+            }))
+        )
+
+        return readXdfRecording(file).devices.map(({ nickname }) => nickname)
     }
 
     private static streamsReadFrom(streams: XdfTestStream[]) {

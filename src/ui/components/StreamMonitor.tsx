@@ -43,6 +43,8 @@ export interface StreamMonitorProps {
     rememberedIdentifiers?: Record<string, readonly string[]>
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
+    nicknames?: Record<string, string>
+    onNicknameChange?: (name: string, value: string) => void
     onRemoveDevice?: (name: string) => void
 }
 
@@ -69,6 +71,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         rememberedIdentifiers = {},
         onForgetIdentifier,
         onIdentifierChange,
+        nicknames = {},
+        onNicknameChange,
     } = props
 
     const [dataByPort, setDataByPort] = useState<Record<number, StreamData>>({})
@@ -532,6 +536,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         }
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
+                        nickname={nicknames[device.key] ?? ''}
+                        onNicknameChange={onNicknameChange}
                     >
                         {quickestFirst(device.streams).map((stream) => (
                             <StreamPlotComponent

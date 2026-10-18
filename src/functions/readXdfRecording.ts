@@ -84,6 +84,7 @@ function streamFrom(headerXml: string): XdfStream {
     return {
         name: textOf('name', headerXml) ?? '',
         sourceId: textOf('source_id', headerXml) ?? '',
+        nickname: textOf('nickname', headerXml),
         type,
         channelCount,
         channelNames:
@@ -107,8 +108,24 @@ function textOf(tag: string, xml: string): string | undefined {
 
 function allTextsOf(tag: string, xml: string) {
     return [...xml.matchAll(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'g'))].map(
-        ([, text]) => text
+        ([, text]) => unescapedFromXml(text)
     )
+}
+
+function unescapedFromXml(text: string) {
+    return text.replace(
+        /&(amp|lt|gt|quot|apos);/g,
+        (_, entity: keyof typeof charactersByEntity) =>
+            charactersByEntity[entity]
+    )
+}
+
+const charactersByEntity = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
 }
 
 function appendSamples(
@@ -165,6 +182,7 @@ function devicesFrom(streams: XdfStream[]): RecordedDevice[] {
 
     return [...streamsByDevice.values()].map((ofDevice) => ({
         deviceName: deviceNameFor(ofDevice),
+        ...nicknameOf(ofDevice),
         streams: ofDevice.map(
             ({ type, channelNames, sampleRateHz, samples, timestamps }) => ({
                 type,
@@ -175,6 +193,11 @@ function devicesFrom(streams: XdfStream[]): RecordedDevice[] {
             })
         ),
     }))
+}
+
+function nicknameOf(streams: XdfStream[]) {
+    const nickname = streams.find((stream) => stream.nickname)?.nickname
+    return nickname ? { nickname } : {}
 }
 
 function hasSamples(stream: XdfStream) {
@@ -228,6 +251,7 @@ export interface Recording {
 
 export interface RecordedDevice {
     deviceName: string
+    nickname?: string
     streams: RecordedStream[]
 }
 
@@ -242,6 +266,7 @@ export interface RecordedStream {
 interface XdfStream extends RecordedStream {
     name: string
     sourceId: string
+    nickname?: string
     channelCount: number
     valueReader?: ValueReader
 }

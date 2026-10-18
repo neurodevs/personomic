@@ -668,6 +668,86 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesTypedNicknameBackToMonitor() {
+        this.renderWithMuse()
+
+        this.typeNickname('Muse S Gen 2', 'Alice')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.nicknames,
+            { 'Muse S Gen 2': 'Alice' },
+            'Did not pass typed nickname back to monitor!'
+        )
+    }
+
+    @test()
+    protected static async keepsNicknameOfEachRepeatSeparate() {
+        this.renderWithTwoMuses()
+
+        this.typeNickname('Muse S Gen 2', 'Alice')
+        this.typeNickname('Muse S Gen 2 #2', 'Bob')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.nicknames,
+            { 'Muse S Gen 2': 'Alice', 'Muse S Gen 2 #2': 'Bob' },
+            'Did not keep nickname of each repeat separate!'
+        )
+    }
+
+    @test()
+    protected static async startsOrchestratorWithTrimmedNicknames() {
+        this.renderWithMuse()
+
+        this.addBiosensor('Zephyr BioHarness 3')
+        this.typeNickname('Muse S Gen 2', ' Alice ')
+        this.typeNickname('Zephyr BioHarness 3', '   ')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [
+                { deviceName: 'Muse S Gen 2', nickname: 'Alice' },
+                { deviceName: 'Zephyr BioHarness 3' },
+            ],
+            'Did not start orchestrator with trimmed nicknames!'
+        )
+    }
+
+    @test()
+    protected static async doesNotLetNicknamesChangeWhileLocked() {
+        this.renderWithMuse()
+
+        this.connect()
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.onNicknameChange,
+            'Let nicknames change while locked!'
+        )
+    }
+
+    @test()
+    protected static async restoresNicknamesOfSessionRunningOnLoad() {
+        render(<App />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [
+                    { deviceName: 'Muse S Athena', nickname: 'Alice' },
+                    { deviceName: 'Muse S Athena', nickname: 'Bob' },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.nicknames,
+            { 'Muse S Athena': 'Alice', 'Muse S Athena #2': 'Bob' },
+            'Did not restore nicknames of session running on load!'
+        )
+    }
+
+    @test()
     protected static async placesSessionButtonAboveBiosensors() {
         this.renderWithMuse()
 
@@ -1962,6 +2042,29 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async monitorsNicknamesOfDevicesInRecording() {
+        this.renderWithMuse()
+        this.typeNickname('Muse S Gen 2', 'Typed before playing')
+
+        await this.chooseRecording(
+            buildXdfFile([
+                {
+                    sourceId: 'muse-eeg-X',
+                    nickname: 'Alice',
+                    channelNames: ['EEG_TP9'],
+                    chunks: [{ samples: [[1]], timestamps: [10] }],
+                },
+            ])
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.nicknames,
+            { Muse: 'Alice' },
+            'Did not monitor nicknames of devices in recording!'
+        )
+    }
+
+    @test()
     protected static async locksWhilePlayingAndOffersToStop() {
         render(<App />)
 
@@ -2829,6 +2932,10 @@ export default class AppTest extends AbstractPackageTest {
 
     private static typeIdentifier(name: string, value: string) {
         act(() => lastStreamMonitorProps?.onIdentifierChange?.(name, value))
+    }
+
+    private static typeNickname(name: string, value: string) {
+        act(() => lastStreamMonitorProps?.onNicknameChange?.(name, value))
     }
 
     private static turnRecordOn() {

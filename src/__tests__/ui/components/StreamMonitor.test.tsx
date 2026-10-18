@@ -1042,6 +1042,96 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async reportsTypedNicknameWithDeviceKey() {
+        const changes: [string, string][] = []
+
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName, this.deviceName], {
+            nicknames: { [this.deviceName]: 'Alice' },
+            onNicknameChange: (key, typed) => changes.push([key, typed]),
+        })
+
+        fireEvent.change(this.nicknameInputOf(this.secondTwinKey)!, {
+            target: { value: 'Bob' },
+        })
+
+        assert.isEqualDeep(
+            changes,
+            [[this.secondTwinKey, 'Bob']],
+            'Did not report typed nickname with device key!'
+        )
+    }
+
+    @test()
+    protected static async offersEditableNicknameEvenWithoutIdentifierEntry() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            identifiers: {},
+            onNicknameChange: () => {},
+        })
+
+        const input = this.nicknameInput as HTMLInputElement | null
+
+        assert.isEqualDeep(
+            { value: input?.value, isReadOnly: input?.readOnly },
+            { value: '', isReadOnly: false },
+            'Did not offer editable nickname without identifier entry!'
+        )
+    }
+
+    @test('connecting hides nickname input', 'connecting')
+    @test('streaming hides nickname input', 'streaming')
+    protected static async hidesNicknameInputUnlessDisconnected(state: string) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { onNicknameChange: () => {} })
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqual(
+            this.nicknameInput,
+            null,
+            `Did not hide nickname input for ${state} device!`
+        )
+    }
+
+    @test('connecting keeps locked nickname', 'connecting')
+    @test('streaming keeps locked nickname', 'streaming')
+    protected static async showsFilledNicknameAsReadOnlyWithoutChangeHandler(
+        state: string
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            nicknames: { [this.deviceName]: 'Alice' },
+        })
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+        const input = this.nicknameInput as HTMLInputElement | null
+
+        assert.isEqualDeep(
+            { value: input?.value, isReadOnly: input?.readOnly },
+            { value: 'Alice', isReadOnly: true },
+            `Did not show filled nickname as read-only when locked and ${state}!`
+        )
+    }
+
+    @test('empty nickname is removed when locked', '')
+    @test('blank nickname is removed when locked', '   ')
+    protected static async removesUnfilledNicknameInputWithoutChangeHandler(
+        nickname: string
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            nicknames: { [this.deviceName]: nickname },
+        })
+
+        assert.isEqual(
+            this.nicknameInput,
+            null,
+            'Did not remove unfilled nickname input without change handler!'
+        )
+    }
+
+    @test()
     protected static async hidesRememberedIdentifiersUntilInputIsFocused() {
         await this.mountWithRememberedIdentifiers()
 
@@ -3130,6 +3220,14 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return screen
             .queryAllByRole('option')
             .map((option) => option.textContent)
+    }
+
+    private static get nicknameInput() {
+        return this.nicknameInputOf(this.deviceName)
+    }
+
+    private static nicknameInputOf(deviceKey: string) {
+        return screen.queryByRole('textbox', { name: `${deviceKey} nickname` })
     }
 
     private static get identifierInput() {

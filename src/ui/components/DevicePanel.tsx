@@ -12,6 +12,8 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     rememberedIdentifiers,
     onForgetIdentifier,
     onIdentifierChange,
+    nickname = '',
+    onNicknameChange,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -21,6 +23,11 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     const isIdentifierShown =
         identifier !== undefined &&
         (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
+
+    const isNicknameShown =
+        onNicknameChange === undefined
+            ? nickname.trim() !== ''
+            : status === 'disconnected'
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
     const wereHiddenByRunningOut = useRef(false)
@@ -55,6 +62,16 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 <span className="stream-monitor__device-name">
                     {device.label}
                 </span>
+                {isNicknameShown && (
+                    <NicknameInput
+                        deviceLabel={device.label}
+                        nickname={nickname}
+                        onChange={
+                            onNicknameChange &&
+                            ((value) => onNicknameChange(device.key, value))
+                        }
+                    />
+                )}
                 {identifier && isIdentifierShown && (
                     <IdentifierInput
                         deviceLabel={device.label}
@@ -107,7 +124,31 @@ export interface DevicePanelProps {
     rememberedIdentifiers?: readonly string[]
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
+    nickname?: string
+    onNicknameChange?: (name: string, value: string) => void
     children?: React.ReactNode
+}
+
+const NicknameInput: React.FC<NicknameInputProps> = ({
+    deviceLabel,
+    nickname,
+    onChange,
+}) => (
+    <input
+        type="text"
+        className="stream-monitor__device-nickname"
+        aria-label={`${deviceLabel} nickname`}
+        placeholder="Nickname (optional)"
+        value={nickname}
+        readOnly={onChange === undefined}
+        onChange={(event) => onChange?.(event.target.value)}
+    />
+)
+
+interface NicknameInputProps {
+    deviceLabel: string
+    nickname: string
+    onChange?: (value: string) => void
 }
 
 const DeviceStatusIndicator: React.FC<{ status: DeviceStatus }> = ({

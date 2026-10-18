@@ -1,10 +1,12 @@
+import { TextEncoder } from 'node:util'
+
 export default function buildXdfFile(streams: XdfTestStream[]): ArrayBuffer {
-    const bytes: number[] = [...asciiBytesOf('XDF:')]
+    const bytes: number[] = [...utf8BytesOf('XDF:')]
 
     streams.forEach((stream, index) => {
         const streamId = index + 1
 
-        bytes.push(...chunkOf(2, streamId, asciiBytesOf(headerXmlFor(stream))))
+        bytes.push(...chunkOf(2, streamId, utf8BytesOf(headerXmlFor(stream))))
 
         for (const chunk of stream.chunks ?? []) {
             bytes.push(
@@ -35,6 +37,7 @@ function headerXmlFor(stream: XdfTestStream) {
         channelCount = channelNames.length,
         channelFormat = 'float32',
         sampleRateHz = 0,
+        nickname,
     } = stream
 
     const channels = channelNames
@@ -52,8 +55,21 @@ function headerXmlFor(stream: XdfTestStream) {
         `<channel_format>${channelFormat}</channel_format>`,
         `<source_id>${sourceId}</source_id>`,
         `<nominal_srate>${sampleRateHz}</nominal_srate>`,
-        `<desc><channels>${channels}</channels></desc></info>`,
+        `<desc><channels>${channels}</channels>${nicknameXmlFor(nickname)}</desc></info>`,
     ].join('\n')
+}
+
+function nicknameXmlFor(nickname: string | undefined) {
+    return nickname === undefined
+        ? ''
+        : `<nickname>${escapedForXml(nickname)}</nickname>`
+}
+
+function escapedForXml(text: string) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
 }
 
 function samplesContentFor(chunk: XdfTestChunk, stream: XdfTestStream) {
@@ -113,8 +129,8 @@ function littleEndianBytesOf(value: number, type: ValueType) {
     return [...new Uint8Array(view.buffer)]
 }
 
-function asciiBytesOf(text: string) {
-    return [...text].map((character) => character.charCodeAt(0))
+function utf8BytesOf(text: string) {
+    return [...new TextEncoder().encode(text)]
 }
 
 export interface XdfTestStream {
@@ -125,6 +141,7 @@ export interface XdfTestStream {
     channelCount?: number
     channelFormat?: string
     sampleRateHz?: number
+    nickname?: string
     chunks?: XdfTestChunk[]
 }
 

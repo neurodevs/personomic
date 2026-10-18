@@ -123,7 +123,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     )
 
     const addDevice = (name: string) =>
-        setDevices((previous) => [...previous, { name, identifier: '' }])
+        setDevices((previous) => [
+            ...previous,
+            { name, identifier: '', nickname: '' },
+        ])
 
     const removeDevice = (key: string) =>
         setDevices((previous) =>
@@ -139,6 +142,19 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             )
         )
 
+    const setNickname = (key: string, nickname: string) =>
+        setDevices((previous) =>
+            previous.map((device, index) =>
+                index === deviceKeys.indexOf(key)
+                    ? { ...device, nickname }
+                    : device
+            )
+        )
+
+    const nicknames = Object.fromEntries(
+        devices.map(({ nickname }, index) => [deviceKeys[index], nickname])
+    )
+
     const identifiers = Object.fromEntries(
         devices
             .map(({ name, identifier }, index) => [
@@ -148,9 +164,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             .filter((_, index) => deviceNames[index] in identifierLabels)
     )
 
-    const deviceRequests = devices.map(({ name }, index) => ({
+    const deviceRequests = devices.map(({ name, nickname }, index) => ({
         deviceName: name,
         identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
+        nickname: nickname.trim() || undefined,
     }))
 
     const saveRememberedIdentifiers = (remembered: RememberedIdentifiers) => {
@@ -325,9 +342,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             setPlaybackSpeed(1)
             setIsPaused(false)
             setDevices(
-                recording.devices.map(({ deviceName }) => ({
+                recording.devices.map(({ deviceName, nickname = '' }) => ({
                     name: deviceName,
                     identifier: '',
+                    nickname,
                 }))
             )
             setSession('playing')
@@ -490,6 +508,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 rememberedIdentifiers={rememberedIdentifiers}
                 onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
+                nicknames={nicknames}
+                onNicknameChange={isLocked ? undefined : setNickname}
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />
             {!isLocked && addableNames.length > 0 && (
@@ -537,9 +557,10 @@ function requestedFrom(request: DeviceRequest): DeviceRequest {
 }
 
 function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
-    return requests.map(({ deviceName, identifier = '' }) => ({
+    return requests.map(({ deviceName, identifier = '', nickname = '' }) => ({
         name: deviceName,
         identifier,
+        nickname,
     }))
 }
 
@@ -648,11 +669,13 @@ type RememberedIdentifiers = Record<string, string[]>
 interface SelectedDevice {
     name: string
     identifier: string
+    nickname: string
 }
 
 interface DeviceRequest {
     deviceName: string
     identifier?: string
+    nickname?: string
 }
 
 // Test doubles

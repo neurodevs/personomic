@@ -37,11 +37,14 @@ let sessionRequest
 let commandInFlight
 let directoryChoiceInFlight
 
-function specificationFor({ deviceName, identifier }) {
+function specificationFor({ deviceName, identifier, nickname }) {
     const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
-    return identifier && option
-        ? { deviceName, [option]: identifier }
-        : deviceName
+
+    return {
+        deviceName,
+        ...(identifier && option && { [option]: identifier }),
+        ...(nickname && { nickname }),
+    }
 }
 
 async function withDetectedModel(device) {
