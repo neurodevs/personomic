@@ -43,5 +43,5 @@ const PlayRecordingButton: React.FC<PlayRecordingButtonProps> = (
 
 export default PlayRecordingButton
 
-const playRecordingLabel = 'Play recording…'
+const playRecordingLabel = 'Play XDF recording…'
 const recordingToPlayLabel = 'Recording to play'

@@ -749,6 +749,26 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async tellsMonitorItIsRecordingOnlyWhileRecordIsOn() {
+        this.renderWithMuse()
+
+        const beforeRecordIsOn = lastStreamMonitorProps?.isRecording
+        this.turnRecordOn()
+        const whileRecordIsOn = lastStreamMonitorProps?.isRecording
+        this.turnRecordOn()
+
+        assert.isEqualDeep(
+            [
+                beforeRecordIsOn,
+                whileRecordIsOn,
+                lastStreamMonitorProps?.isRecording,
+            ],
+            [false, true, false],
+            'Did not tell monitor it is recording only while record is on!'
+        )
+    }
+
+    @test()
     protected static async placesSessionButtonAboveBiosensors() {
         this.renderWithMuse()
 
@@ -1954,6 +1974,22 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async namesRecordAndPlayAfterXdf() {
+        this.renderWithMuse()
+
+        assert.isEqualDeep(
+            {
+                record: this.recordToggle.closest('label')?.textContent,
+                play: screen.queryByRole('button', {
+                    name: 'Play XDF recording…',
+                })?.textContent,
+            },
+            { record: 'Record XDF', play: 'Play XDF recording…' },
+            'Did not name record and play after XDF!'
+        )
+    }
+
+    @test()
     protected static async offersToPlayRecordingBeforeConnecting() {
         render(<App />)
 
@@ -1981,7 +2017,9 @@ export default class AppTest extends AbstractPackageTest {
         let numTimesAsked = 0
         this.recordingToPlayInput.click = () => numTimesAsked++
 
-        fireEvent.click(screen.getByRole('button', { name: /play recording/i }))
+        fireEvent.click(
+            screen.getByRole('button', { name: /play xdf recording/i })
+        )
 
         assert.isEqual(
             numTimesAsked,
@@ -2865,7 +2903,8 @@ export default class AppTest extends AbstractPackageTest {
 
     private static get isPlayRecordingOffered() {
         return (
-            screen.queryByRole('button', { name: /play recording/i }) !== null
+            screen.queryByRole('button', { name: /play xdf recording/i }) !==
+            null
         )
     }
 

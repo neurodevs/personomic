@@ -15,6 +15,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onIdentifierChange,
     nickname = '',
     onNicknameChange,
+    isDescribed = false,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -107,7 +108,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
             </header>
             {hasStreams && !arePlotsHidden && (
                 <div className={deviceStreamsClassName}>
-                    <XdfDescription streams={device.describedStreams} />
+                    {isDescribed && (
+                        <XdfDescription streams={device.describedStreams} />
+                    )}
                     {children}
                 </div>
             )}
@@ -130,6 +133,7 @@ export interface DevicePanelProps {
     onIdentifierChange?: (name: string, value: string) => void
     nickname?: string
     onNicknameChange?: (name: string, value: string) => void
+    isDescribed?: boolean
     children?: React.ReactNode
 }
 

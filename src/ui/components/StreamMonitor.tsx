@@ -44,6 +44,7 @@ export interface StreamMonitorProps {
     windowSecondsByDevice?: Record<string, number>
     downsampling?: Downsampling
     isConnecting?: boolean
+    isRecording?: boolean
     identifiers?: Record<string, DeviceIdentifier>
     rememberedIdentifiers?: Record<string, readonly string[]>
     onForgetIdentifier?: (name: string, identifier: string) => void
@@ -72,6 +73,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         downsampling,
         onRemoveDevice,
         isConnecting = false,
+        isRecording = false,
         identifiers = {},
         rememberedIdentifiers = {},
         onForgetIdentifier,
@@ -541,6 +543,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         }
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
+                        isDescribed={recording !== undefined || isRecording}
                         nickname={nicknames[device.key] ?? ''}
                         onNicknameChange={onNicknameChange}
                     >

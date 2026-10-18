@@ -451,7 +451,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                                 setIsRecordEnabled(event.target.checked)
                             }
                         />
-                        Record
+                        Record XDF
                     </label>
                 )}
                 {isRecordEnabled && !recordingPath && !isPlaying && (
@@ -504,6 +504,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 streamOptions={streamOptions}
                 windowSecondsByDevice={windowSecondsByDevice}
                 isConnecting={session === 'connecting'}
+                isRecording={isRecordEnabled}
                 identifiers={identifiers}
                 rememberedIdentifiers={rememberedIdentifiers}
                 onForgetIdentifier={isLocked ? undefined : forgetIdentifier}

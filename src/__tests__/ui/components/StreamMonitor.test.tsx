@@ -1430,7 +1430,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     @test()
     protected static async describesStreamsInSameOrderAsTheirPlots() {
         this.setFakeStreamPlot()
-        await this.mount([this.deviceName])
+        await this.mount([this.deviceName], { isRecording: true })
 
         const [slow, quick] = this.streams
         const device = this.gatewayDeviceFor(this.devicesFor([slow, quick])[0])
@@ -1455,13 +1455,31 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async offersNoXdfDescriptionOfLiveSessionNotRecording() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.describedGatewayDeviceFor(this.streams[0], [
+                { name: 'nickname', value: 'Alice' },
+            ]),
+        ])
+
+        assert.isEqual(
+            this.descriptionToggle,
+            null,
+            'Offered an XDF description of a live session not recording!'
+        )
+    }
+
     @test('no desc offers no XDF description', undefined)
     @test('empty desc offers no XDF description', [])
     protected static async offersNoXdfDescriptionWithoutOne(
         desc: DescElement[] | undefined
     ) {
         this.setFakeStreamPlot()
-        await this.mount([this.deviceName])
+        await this.mount([this.deviceName], { isRecording: true })
 
         this.receiveGatewayDevices([
             this.describedGatewayDeviceFor(this.streams[0], desc),
@@ -3567,7 +3585,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
     private static async showLiveStreamDescribedBy(desc: DescElement[]) {
         this.setFakeStreamPlot()
-        await this.mount([this.deviceName])
+        await this.mount([this.deviceName], { isRecording: true })
 
         this.receiveGatewayDevices([
             this.describedGatewayDeviceFor(this.streams[0], desc),
@@ -3576,7 +3594,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
     private static async showLiveStreamsDescribedBy(descs: DescElement[][]) {
         this.setFakeStreamPlot()
-        await this.mount([this.deviceName])
+        await this.mount([this.deviceName], { isRecording: true })
 
         const device = this.gatewayDeviceFor(
             this.devicesFor(this.streams.slice(0, descs.length))[0]
