@@ -1236,6 +1236,161 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsFieldsSharedByAllChannelsOnceAboveThem() {
+        await this.showLiveStreamDescribedBy([
+            this.channelsDesc([
+                { label: 'TP9', unit: 'microvolt', type: 'EEG' },
+                { label: 'AF7', unit: 'microvolt', type: 'EEG' },
+            ]),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [this.streams[0].name],
+                fields: [
+                    'type (all channels)',
+                    'unit (all channels)',
+                    'channels',
+                    'channel',
+                    'label',
+                    'channel',
+                    'label',
+                ],
+                values: ['EEG', 'microvolt', 'TP9', 'AF7'],
+            },
+            'Did not show fields shared by all channels once above them!'
+        )
+    }
+
+    @test()
+    protected static async keepsFieldThatDiffersInAnyChannelOnEachChannel() {
+        await this.showLiveStreamDescribedBy([
+            this.channelsDesc([
+                { label: 'TP9', type: 'EEG' },
+                { label: 'AUX', type: 'AUX' },
+            ]),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription.fields,
+            [
+                'channels',
+                'channel',
+                'label',
+                'type',
+                'channel',
+                'label',
+                'type',
+            ],
+            'Did not keep field that differs in any channel on each channel!'
+        )
+    }
+
+    @test()
+    protected static async showsLoneChannelWithoutHoisting() {
+        await this.showLiveStreamDescribedBy([
+            this.channelsDesc([{ label: 'TP9', unit: 'microvolt' }]),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription.fields,
+            ['channels', 'channel', 'label', 'unit'],
+            'Did not show lone channel without hoisting!'
+        )
+    }
+
+    @test()
+    protected static async showsLabelThenTypeThenUnitBeforeOtherFields() {
+        await this.showLiveStreamDescribedBy([
+            this.channelsDesc([
+                {
+                    location: 'left ear',
+                    unit: 'microvolt',
+                    type: 'EEG',
+                    label: 'TP9',
+                    impedance: 'low',
+                },
+            ]),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription.fields,
+            [
+                'channels',
+                'channel',
+                'label',
+                'type',
+                'unit',
+                'location',
+                'impedance',
+            ],
+            'Did not show label, then type, then unit before other fields!'
+        )
+    }
+
+    @test()
+    protected static async showsFieldsSharedByAllStreamsOnceAtTop() {
+        await this.showLiveStreamsDescribedBy([
+            [
+                { name: 'manufacturer', value: 'Interaxon Inc.' },
+                { name: 'nickname', value: 'Alice' },
+                { name: 'units', value: 'microvolt' },
+            ],
+            [
+                { name: 'manufacturer', value: 'Interaxon Inc.' },
+                { name: 'nickname', value: 'Alice' },
+                { name: 'units', value: 'g' },
+            ],
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [this.streams[0].name, this.streams[1].name],
+                fields: [
+                    'manufacturer (all streams)',
+                    'nickname (all streams)',
+                    'units',
+                    'units',
+                ],
+                values: ['Interaxon Inc.', 'Alice', 'microvolt', 'g'],
+            },
+            'Did not show fields shared by all streams once at top!'
+        )
+    }
+
+    @test()
+    protected static async leavesOutStreamsWithNothingOfTheirOwn() {
+        await this.showLiveStreamsDescribedBy([
+            [{ name: 'manufacturer', value: 'Interaxon Inc.' }],
+            [{ name: 'manufacturer', value: 'Interaxon Inc.' }],
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [],
+                fields: ['manufacturer (all streams)'],
+                values: ['Interaxon Inc.'],
+            },
+            'Did not leave out streams with nothing of their own!'
+        )
+    }
+
     @test('no desc offers no LSL description', undefined)
     @test('empty desc offers no LSL description', [])
     protected static async offersNoLslDescriptionWithoutOne(
@@ -3353,6 +3508,40 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         this.receiveGatewayDevices([
             this.describedGatewayDeviceFor(this.streams[0], desc),
         ])
+    }
+
+    private static async showLiveStreamsDescribedBy(descs: DescElement[][]) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        const device = this.gatewayDeviceFor(
+            this.devicesFor(this.streams.slice(0, descs.length))[0]
+        )
+
+        this.receiveGatewayDevices([
+            {
+                ...device,
+                streams: device.streams.map((reported, index) => ({
+                    ...reported,
+                    desc: descs[index],
+                })),
+            },
+        ])
+    }
+
+    private static channelsDesc(
+        channels: Record<string, string>[]
+    ): DescElement {
+        return {
+            name: 'channels',
+            children: channels.map((fields) => ({
+                name: 'channel',
+                children: Object.entries(fields).map(([name, value]) => ({
+                    name,
+                    value,
+                })),
+            })),
+        }
     }
 
     private static describedGatewayDeviceFor(

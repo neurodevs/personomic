@@ -925,3 +925,7 @@ body {
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
+
+.lsl-description__scope {
+  opacity: 0.6;
+}
