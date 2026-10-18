@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 import type { BiosignalDevice, DeviceStatus } from './StreamMonitor'
-import IdentifierInput, { DeviceIdentifier } from './IdentifierInput'
+import IdentifierInput, {
+    DeviceIdentifier,
+    ScannedIdentifier,
+} from './IdentifierInput'
 import XdfDescription from './XdfDescription'
 
 const DevicePanel: React.FC<DevicePanelProps> = ({
@@ -11,6 +14,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onRemove,
     identifier,
     rememberedIdentifiers,
+    scannedIdentifiers,
     onForgetIdentifier,
     onIdentifierChange,
     nickname = '',
@@ -79,6 +83,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                         deviceLabel={device.label}
                         identifier={identifier}
                         remembered={rememberedIdentifiers}
+                        scanned={scannedIdentifiers}
                         onChange={
                             onIdentifierChange &&
                             ((value) => onIdentifierChange(device.key, value))
@@ -129,6 +134,7 @@ export interface DevicePanelProps {
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier
     rememberedIdentifiers?: readonly string[]
+    scannedIdentifiers?: readonly ScannedIdentifier[]
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     nickname?: string

@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { LibndxAdapter } from '@neurodevs/ndx-native'
 import {
     BiosensorStreamingOrchestrator,
     detectMuseModel,
@@ -25,6 +26,20 @@ const IDENTIFIER_OPTION_BY_DEVICE = {
     'Muse 1 Gen 2': 'bleUuid',
     'OpenBCI Cyton': 'serialNumber',
 }
+
+const BLE_NAME_PREFIX_BY_DEVICE = {
+    'Govee Thermohygrometer H5074': 'Govee_H5074',
+    Muse: 'Muse',
+    'Muse S Athena': 'Muse',
+    'Muse S Gen 2': 'Muse',
+    'Muse S Gen 1': 'Muse',
+    'Muse 2': 'Muse',
+    'Muse 1 Gen 2': 'Muse',
+}
+
+const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
+
+const BLE_SCAN_MS = 5000
 
 const CHOOSE_FOLDER_SCRIPT =
     'tell application (path to frontmost application as text) to POSIX path of (choose folder with prompt "Choose a folder for recordings")'
@@ -128,6 +143,74 @@ async function revealRecording() {
     await promisify(execFile)('open', args)
 }
 
+async function scan({ deviceNames = [] }) {
+    if (orchestrator) {
+        return { scanned: {} }
+    }
+
+    const prefixes = [
+        ...new Set(
+            deviceNames
+                .map((name) => BLE_NAME_PREFIX_BY_DEVICE[name])
+                .filter(Boolean)
+        ),
+    ]
+    const isUsbWanted = deviceNames.some((name) => USB_DEVICES.has(name))
+
+    const [scannedByPrefix, serialNumbers] = await Promise.all([
+        Promise.all(
+            prefixes.map(async (prefix) => [
+                prefix,
+                await scannedBleDevices(prefix),
+            ])
+        ).then(Object.fromEntries),
+        isUsbWanted ? connectedUsbSerialNumbers() : [],
+    ])
+
+    return {
+        scanned: Object.fromEntries(
+            deviceNames.map((name) => [
+                name,
+                scannedFor(name, scannedByPrefix, serialNumbers),
+            ])
+        ),
+    }
+}
+
+function scannedFor(name, scannedByPrefix, serialNumbers) {
+    if (USB_DEVICES.has(name)) {
+        return serialNumbers.map((value) => ({ value, source: 'USB' }))
+    }
+
+    return scannedByPrefix[BLE_NAME_PREFIX_BY_DEVICE[name]] ?? []
+}
+
+async function scannedBleDevices(namePrefix) {
+    const ndx = LibndxAdapter.getInstance()
+    const nameByUuid = new Map()
+
+    const { status } = ndx.startBleScan({
+        namePrefix,
+        onScanned: (uuid, name) => nameByUuid.set(uuid, name),
+    })
+
+    if (status !== 200) {
+        return []
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, BLE_SCAN_MS))
+    ndx.stopBleScan({ namePrefix })
+
+    return [...nameByUuid].map(([value, source]) => ({ value, source }))
+}
+
+function connectedUsbSerialNumbers() {
+    const { status, serialNumbers = [] } =
+        LibndxAdapter.getInstance().discoverUsbSerialNumbers()
+
+    return status === 200 ? serialNumbers : []
+}
+
 async function start(request) {
     const xdfRecordPath = request.xdfRecordPath
         ? absolutePathFor(request.xdfRecordPath)
@@ -199,6 +282,10 @@ async function handle(message) {
 
     if (command === 'chooseDirectory') {
         return { directory: await chooseDirectory() }
+    }
+
+    if (command === 'scan') {
+        return await scan(request)
     }
 
     if (command === 'revealRecording') {

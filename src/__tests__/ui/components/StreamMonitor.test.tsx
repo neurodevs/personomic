@@ -1504,6 +1504,81 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersScannedIdentifiersFirstWithoutRepeats() {
+        await this.mountWithScannedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [this.remembered[1], 'scanned-uuid', this.remembered[0]],
+            'Did not offer scanned identifiers first without repeats!'
+        )
+    }
+
+    @test()
+    protected static async tagsEachScannedIdentifierWithWhereItWasFound() {
+        await this.mountWithScannedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredSources,
+            ['Scanned · Muse', 'Scanned · Muse', null],
+            'Did not tag each scanned identifier with where it was found!'
+        )
+    }
+
+    @test()
+    protected static async showsDropdownWithOnlyScannedIdentifiers() {
+        await this.mountWithScannedIdentifiers({ rememberedIdentifiers: {} })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredIdentifiers,
+            [this.remembered[1], 'scanned-uuid'],
+            'Did not show dropdown with only scanned identifiers!'
+        )
+    }
+
+    @test()
+    protected static async letsOnlyRememberedIdentifiersBeForgotten() {
+        await this.mountWithScannedIdentifiers({
+            onForgetIdentifier: () => {},
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            {
+                scannedAndRemembered:
+                    this.forgetButtonFor(this.remembered[1]) !== null,
+                onlyScanned: this.forgetButtonFor('scanned-uuid') !== null,
+            },
+            { scannedAndRemembered: true, onlyScanned: false },
+            'Did not let only remembered identifiers be forgotten!'
+        )
+    }
+
+    @test()
+    protected static async reportsChosenScannedIdentifierWithDeviceKey() {
+        const changes: [string, string][] = []
+
+        await this.mountWithScannedIdentifiers({
+            onIdentifierChange: (key, chosen) => changes.push([key, chosen]),
+        })
+
+        this.chooseRememberedIdentifier('scanned-uuid')
+
+        assert.isEqualDeep(
+            changes,
+            [[this.deviceName, 'scanned-uuid']],
+            'Did not report chosen scanned identifier with device key!'
+        )
+    }
+
+    @test()
     protected static async showsRememberedIdentifiersWhenInputIsFocused() {
         await this.mountWithRememberedIdentifiers()
 
@@ -3566,6 +3641,33 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             rememberedIdentifiers: { [this.deviceName]: this.remembered },
             ...props,
         })
+    }
+
+    private static async mountWithScannedIdentifiers(
+        props: Partial<StreamMonitorProps> = {}
+    ) {
+        return await this.mountWithRememberedIdentifiers({
+            scannedIdentifiers: {
+                [this.deviceName]: [
+                    { value: this.remembered[1], source: 'Muse' },
+                    { value: 'scanned-uuid', source: 'Muse' },
+                ],
+            },
+            ...props,
+        })
+    }
+
+    private static get offeredSources() {
+        return screen
+            .queryAllByRole('option')
+            .map(
+                (option) =>
+                    option
+                        .closest('li')
+                        ?.querySelector(
+                            '.stream-monitor__device-identifier-source'
+                        )?.textContent ?? null
+            )
     }
 
     private static chooseRememberedIdentifier(identifier: string) {

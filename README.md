@@ -34,6 +34,13 @@ needed when more than one USB serial device is plugged in. The script starts a
 `ws://localhost:8764` and streams from `ws://localhost:8765`. Each status dot
 follows its own device: yellow while it connects, green once it has.
 
+While you pick biosensors, the orchestrator scans for them every few seconds,
+and each one's identifier dropdown suggests what it finds, marked "Scanned"
+with where it was found. For USB devices that's every connected serial number.
+For the Muse headsets and the Govee it's every nearby device whose Bluetooth
+name matches, shown with that name, such as "Scanned · Muse-1A2B". Scanning
+stops once you click Connect.
+
 Each biosensor can also take a nickname, such as the name of the person wearing
 it, so two Muse S Athenas on two people are easy to tell apart. The nickname is
 saved into the recording's stream metadata, and the biosensor shows it again when

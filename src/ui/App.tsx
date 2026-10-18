@@ -13,6 +13,7 @@ import RecordPathFields, {
     now,
     recordFileSuffixFor,
 } from './components/RecordPathFields'
+import { ScannedIdentifier } from './components/IdentifierInput'
 import StreamMonitor, {
     deviceKeysFor,
     PlaybackProgress,
@@ -102,6 +103,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [rememberedIdentifiers, setRememberedIdentifiers] = useState(
         readRememberedIdentifiers
     )
+    const [scanned, setScanned] = useState<ScannedIdentifiers>({})
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
@@ -162,6 +164,26 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 { label: identifierLabels[name], value: identifier },
             ])
             .filter((_, index) => deviceNames[index] in identifierLabels)
+    )
+
+    const namesTakingIdentifier = [
+        ...new Set(deviceNames.filter((name) => name in identifierLabels)),
+    ]
+    const namesToScan = [...new Set(namesTakingIdentifier.map(requestedNameOf))]
+    const namesToScanKey = namesToScan.join('\n')
+
+    useEffect(() => {
+        if (isLocked || namesToScan.length === 0) {
+            return undefined
+        }
+
+        return startScanningForIdentifiers(namesToScan, setScanned)
+    }, [isLocked, namesToScanKey])
+
+    const scannedIdentifiers = Object.fromEntries(
+        namesTakingIdentifier
+            .map((name) => [name, scanned[requestedNameOf(name)]] as const)
+            .filter(([, ofName]) => ofName !== undefined)
     )
 
     const deviceRequests = devices.map(({ name, nickname }, index) => ({
@@ -507,6 +529,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 isRecording={isRecordEnabled}
                 identifiers={identifiers}
                 rememberedIdentifiers={rememberedIdentifiers}
+                scannedIdentifiers={scannedIdentifiers}
                 onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 nicknames={nicknames}
@@ -554,7 +577,11 @@ function withoutIllegalFileNameCharacters(name: string) {
 
 function requestedFrom(request: DeviceRequest): DeviceRequest {
     const { deviceName } = request
-    return { ...request, deviceName: requestedNames[deviceName] ?? deviceName }
+    return { ...request, deviceName: requestedNameOf(deviceName) }
+}
+
+function requestedNameOf(name: string) {
+    return requestedNames[name] ?? name
 }
 
 function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
@@ -658,6 +685,7 @@ interface OrchestratorReplyHandlers {
 type OrchestratorReply = Partial<RunningSession> & {
     error?: string
     directory?: string
+    scanned?: ScannedIdentifiers
 }
 
 interface RunningSession {
@@ -666,6 +694,50 @@ interface RunningSession {
 }
 
 type RememberedIdentifiers = Record<string, string[]>
+
+type ScannedIdentifiers = Record<string, ScannedIdentifier[]>
+
+type IdentifierScanner = (
+    deviceNames: string[],
+    onScanned: (scanned: ScannedIdentifiers) => void
+) => () => void
+
+const scanIntervalMs = 3000
+
+export function scanThroughOrchestrator(
+    deviceNames: string[],
+    onScanned: (scanned: ScannedIdentifiers) => void
+) {
+    let isStopped = false
+    let cancelWait = () => {}
+
+    const scanAgainSoon = () => {
+        if (!isStopped) {
+            cancelWait = scanAgainAfter(scan, scanIntervalMs)
+        }
+    }
+
+    const scan = () =>
+        sendToOrchestrator(
+            { command: 'scan', deviceNames },
+            {
+                onReply: ({ scanned }) => {
+                    if (!isStopped && scanned) {
+                        onScanned(scanned)
+                    }
+                    scanAgainSoon()
+                },
+                onUnreachable: scanAgainSoon,
+            }
+        )
+
+    scan()
+
+    return () => {
+        isStopped = true
+        cancelWait()
+    }
+}
 
 interface SelectedDevice {
     name: string
@@ -680,6 +752,22 @@ interface DeviceRequest {
 }
 
 // Test doubles
+
+export let startScanningForIdentifiers: IdentifierScanner =
+    scanThroughOrchestrator
+
+export function setIdentifierScanner(scanner: IdentifierScanner) {
+    startScanningForIdentifiers = scanner
+}
+
+export let scanAgainAfter = (callback: () => void, ms: number) => {
+    const id = setTimeout(callback, ms)
+    return () => clearTimeout(id)
+}
+
+export function setScanAgainAfter(nextScanAgainAfter: typeof scanAgainAfter) {
+    scanAgainAfter = nextScanAgainAfter
+}
 
 export let StreamMonitorComponent = StreamMonitor
 

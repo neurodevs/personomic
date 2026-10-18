@@ -7,7 +7,7 @@ import {
     Recording,
 } from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
-import { DeviceIdentifier } from './IdentifierInput'
+import { DeviceIdentifier, ScannedIdentifier } from './IdentifierInput'
 import { DescribedStream } from './XdfDescription'
 import StreamPlot, {
     BandPowerOptions,
@@ -47,6 +47,7 @@ export interface StreamMonitorProps {
     isRecording?: boolean
     identifiers?: Record<string, DeviceIdentifier>
     rememberedIdentifiers?: Record<string, readonly string[]>
+    scannedIdentifiers?: Record<string, readonly ScannedIdentifier[]>
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     nicknames?: Record<string, string>
@@ -76,6 +77,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         isRecording = false,
         identifiers = {},
         rememberedIdentifiers = {},
+        scannedIdentifiers = {},
         onForgetIdentifier,
         onIdentifierChange,
         nicknames = {},
@@ -541,6 +543,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         rememberedIdentifiers={
                             rememberedIdentifiers[device.name]
                         }
+                        scannedIdentifiers={scannedIdentifiers[device.name]}
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
                         isDescribed={recording !== undefined || isRecording}

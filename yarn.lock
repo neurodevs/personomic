@@ -2258,6 +2258,15 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
+"@neurodevs/ndx-native@^11.1.0":
+  version "11.1.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/ndx-native/-/ndx-native-11.1.0.tgz#77faf21451d01d8567fb1a1ca2cc3035859044b6"
+  integrity sha512-hHYYbmGjdmenxt9WxZbpbPC1Qge63U1yioQWotaWH92xqmznC+gTaDzWK1g3EUm0FOsFhKe7H4RHDI0nCzKz5Q==
+  dependencies:
+    "@neurodevs/node-mangled-names" "^1.0.1"
+    ffi-rs "^1.3.2"
+    koffi "^3.0.1"
+
 "@neurodevs/ndx-native@^8.0.0":
   version "8.0.0"
   resolved "https://registry.yarnpkg.com/@neurodevs/ndx-native/-/ndx-native-8.0.0.tgz#c19656d529a494babde8351ba247f78b175a9408"

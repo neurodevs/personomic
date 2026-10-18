@@ -13,10 +13,14 @@ import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
 import readXdfRecording from '../../functions/readXdfRecording'
 import buildXdfFile from '../../testDoubles/Xdf/buildXdfFile'
 import App, {
+    scanThroughOrchestrator,
     setEverySecond,
+    setIdentifierScanner,
     setNow,
+    setScanAgainAfter,
     setStreamMonitorComponent,
 } from '../../ui/App'
+import { ScannedIdentifier } from '../../ui/components/IdentifierInput'
 import StreamMonitor, {
     setClock,
     setFrameScheduler,
@@ -28,6 +32,8 @@ import AbstractPackageTest from '../AbstractPackageTest'
 export default class AppTest extends AbstractPackageTest {
     private static element: React.ReactElement
     private static secondCallbacks: Set<() => void>
+    private static scans: FakeScan[]
+    private static scanAgainCalls: { callback: () => void; ms: number }[]
     private static readonly anyMuse = 'Muse (auto-detect, slower)'
 
     protected static async beforeEach() {
@@ -47,7 +53,175 @@ export default class AppTest extends AbstractPackageTest {
 
         localStorage.clear()
 
+        this.scans = []
+        setIdentifierScanner((deviceNames, onScanned) => {
+            const scan: FakeScan = { deviceNames, onScanned, isStopped: false }
+            this.scans.push(scan)
+            return () => {
+                scan.isStopped = true
+            }
+        })
+
+        this.scanAgainCalls = []
+        setScanAgainAfter((callback, ms) => {
+            const call = { callback, ms }
+            this.scanAgainCalls.push(call)
+            return () => {
+                this.scanAgainCalls = this.scanAgainCalls.filter(
+                    (other) => other !== call
+                )
+            }
+        })
+
         this.element = this.renderApp()
+    }
+
+    @test()
+    protected static async scansForIdentifiersOfDevicesThatTakeOne() {
+        render(<App />)
+
+        this.addBiosensor('Muse S Gen 2')
+        this.addBiosensor('Zephyr BioHarness 3')
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isEqualDeep(
+            this.activeScan?.deviceNames,
+            ['Muse S Gen 2', 'OpenBCI Cyton'],
+            'Did not scan for identifiers of devices that take one!'
+        )
+    }
+
+    @test()
+    protected static async scansEachDeviceNameOnce() {
+        this.renderWithTwoMuses()
+
+        assert.isEqualDeep(
+            this.activeScan?.deviceNames,
+            ['Muse S Gen 2'],
+            'Did not scan each device name once!'
+        )
+    }
+
+    @test()
+    protected static async scansForAutoDetectedMuseAsAnyMuse() {
+        render(<App />)
+
+        this.addBiosensor('Muse (auto-detect, slower)')
+
+        assert.isEqualDeep(
+            this.activeScan?.deviceNames,
+            ['Muse'],
+            'Did not scan for auto-detected Muse as any Muse!'
+        )
+    }
+
+    @test()
+    protected static async doesNotScanWithoutDevicesThatTakeIdentifier() {
+        render(<App />)
+
+        this.addBiosensor('Zephyr BioHarness 3')
+
+        assert.isUndefined(
+            this.activeScan,
+            'Scanned without devices that take an identifier!'
+        )
+    }
+
+    @test()
+    protected static async passesScannedIdentifiersToMonitorByDeviceName() {
+        render(<App />)
+
+        this.addBiosensor('Muse (auto-detect, slower)')
+        this.addBiosensor('OpenBCI Cyton')
+
+        act(() =>
+            this.activeScan?.onScanned({
+                Muse: [{ value: 'muse-uuid', source: 'Muse' }],
+                'OpenBCI Cyton': [{ value: 'DM00ABCD', source: 'USB' }],
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scannedIdentifiers,
+            {
+                'Muse (auto-detect, slower)': [
+                    { value: 'muse-uuid', source: 'Muse' },
+                ],
+                'OpenBCI Cyton': [{ value: 'DM00ABCD', source: 'USB' }],
+            },
+            'Did not pass scanned identifiers to monitor by device name!'
+        )
+    }
+
+    @test()
+    protected static async stopsScanningOnceConnecting() {
+        this.renderWithMuse()
+
+        const scan = this.activeScan
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            { isStopped: scan?.isStopped, active: this.activeScan },
+            { isStopped: true, active: undefined },
+            'Did not stop scanning once connecting!'
+        )
+    }
+
+    @test()
+    protected static async asksOrchestratorToScanForDeviceNames() {
+        setIdentifierScanner(scanThroughOrchestrator)
+        FakeWebSocket.resetTestDouble()
+
+        this.renderWithMuse()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            {
+                url: FakeWebSocket.callsToConstructor.at(-1),
+                sent: this.lastSentMessage,
+            },
+            {
+                url: 'ws://localhost:8763',
+                sent: { command: 'scan', deviceNames: ['Muse S Gen 2'] },
+            },
+            'Did not ask orchestrator to scan for device names!'
+        )
+    }
+
+    @test()
+    protected static async scansAgainShortlyAfterEachReply() {
+        setIdentifierScanner(scanThroughOrchestrator)
+
+        this.renderWithMuse()
+        act(() =>
+            this.orchestratorSocket.receive({
+                scanned: {
+                    'Muse S Gen 2': [{ value: 'muse-uuid', source: 'Muse' }],
+                },
+            })
+        )
+
+        const shown = lastStreamMonitorProps?.scannedIdentifiers
+        const waitMs = this.scanAgainCalls[0]?.ms
+        const numSocketsBefore = FakeWebSocket.instances.length
+        act(() => this.scanAgainCalls[0]?.callback())
+
+        assert.isEqualDeep(
+            {
+                shown,
+                waitMs,
+                numNewSockets:
+                    FakeWebSocket.instances.length - numSocketsBefore,
+            },
+            {
+                shown: {
+                    'Muse S Gen 2': [{ value: 'muse-uuid', source: 'Muse' }],
+                },
+                waitMs: 3000,
+                numNewSockets: 1,
+            },
+            'Did not scan again shortly after each reply!'
+        )
     }
 
     @test()
@@ -3083,6 +3257,10 @@ export default class AppTest extends AbstractPackageTest {
         return { text: button.textContent, isDisabled: button.disabled }
     }
 
+    private static get activeScan() {
+        return this.scans.filter((scan) => !scan.isStopped).at(-1)
+    }
+
     private static get orchestratorSocket() {
         return FakeWebSocket.instances.at(-1)!
     }
@@ -3109,4 +3287,10 @@ export default class AppTest extends AbstractPackageTest {
     private static renderApp() {
         return <App />
     }
+}
+
+interface FakeScan {
+    deviceNames: string[]
+    onScanned: (scanned: Record<string, ScannedIdentifier[]>) => void
+    isStopped: boolean
 }
