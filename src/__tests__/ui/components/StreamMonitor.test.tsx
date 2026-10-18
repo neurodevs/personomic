@@ -1132,7 +1132,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async collapsesLslDescriptionByDefault() {
+    protected static async collapsesXdfDescriptionByDefault() {
         await this.showLiveStreamDescribedBy([
             { name: 'nickname', value: 'Alice' },
         ])
@@ -1144,12 +1144,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 isAliceShown: screen.queryByText('Alice') !== null,
             },
             { isExpanded: 'false', isAliceShown: false },
-            'Did not collapse LSL description by default!'
+            'Did not collapse XDF description by default!'
         )
     }
 
     @test()
-    protected static async showsLslDescriptionOfLiveStreamWhenExpanded() {
+    protected static async showsXdfDescriptionOfLiveStreamWhenExpanded() {
         await this.showLiveStreamDescribedBy([
             { name: 'nickname', value: 'Alice' },
             {
@@ -1172,12 +1172,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 fields: ['nickname', 'channels', 'channel', 'label'],
                 values: ['Alice', 'TP9'],
             },
-            'Did not show LSL description of live stream when expanded!'
+            'Did not show XDF description of live stream when expanded!'
         )
     }
 
     @test()
-    protected static async showsLslDescriptionOfRecordedStreamsWhenExpanded() {
+    protected static async showsXdfDescriptionOfRecordedStreamsWhenExpanded() {
         const [first, second] = this.recording.devices[0].streams
 
         await this.play({
@@ -1212,12 +1212,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 fields: ['nickname', 'manufacturer'],
                 values: ['Alice', 'Interaxon Inc.'],
             },
-            'Did not show LSL description of recorded streams when expanded!'
+            'Did not show XDF description of recorded streams when expanded!'
         )
     }
 
     @test()
-    protected static async collapsesLslDescriptionWhenToggledAgain() {
+    protected static async collapsesXdfDescriptionWhenToggledAgain() {
         await this.showLiveStreamDescribedBy([
             { name: 'nickname', value: 'Alice' },
         ])
@@ -1232,7 +1232,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 isAliceShown: screen.queryByText('Alice') !== null,
             },
             { isExpanded: 'false', isAliceShown: false },
-            'Did not collapse LSL description when toggled again!'
+            'Did not collapse XDF description when toggled again!'
         )
     }
 
@@ -1455,9 +1455,9 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
-    @test('no desc offers no LSL description', undefined)
-    @test('empty desc offers no LSL description', [])
-    protected static async offersNoLslDescriptionWithoutOne(
+    @test('no desc offers no XDF description', undefined)
+    @test('empty desc offers no XDF description', [])
+    protected static async offersNoXdfDescriptionWithoutOne(
         desc: DescElement[] | undefined
     ) {
         this.setFakeStreamPlot()
@@ -1470,7 +1470,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqual(
             this.descriptionToggle,
             null,
-            'Offered an LSL description without one!'
+            'Offered an XDF description without one!'
         )
     }
 
@@ -3640,7 +3640,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static get descriptionToggle() {
-        return screen.queryByRole('button', { name: 'LSL description' })
+        return screen.queryByRole('button', { name: 'XDF description' })
     }
 
     private static get shownDescription() {

@@ -8,7 +8,7 @@ import {
 } from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
 import { DeviceIdentifier } from './IdentifierInput'
-import { DescribedStream } from './LslDescription'
+import { DescribedStream } from './XdfDescription'
 import StreamPlot, {
     BandPowerOptions,
     Downsampling,

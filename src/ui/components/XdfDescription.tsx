@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 import { DescElement } from '../../functions/readXdfRecording'
 
-const LslDescription: React.FC<LslDescriptionProps> = ({ streams }) => {
+const XdfDescription: React.FC<XdfDescriptionProps> = ({ streams }) => {
     const [isExpanded, setIsExpanded] = useState(false)
 
     const described = streams
@@ -29,14 +29,14 @@ const LslDescription: React.FC<LslDescriptionProps> = ({ streams }) => {
         .filter(({ elements }) => elements.length > 0)
 
     return (
-        <section className="lsl-description">
+        <section className="xdf-description">
             <button
                 type="button"
-                className="lsl-description__toggle"
+                className="xdf-description__toggle"
                 aria-expanded={isExpanded}
                 onClick={() => setIsExpanded((wasExpanded) => !wasExpanded)}
             >
-                LSL description
+                XDF description
             </button>
             {isExpanded && sharedByStreams.length > 0 && (
                 <DescElements
@@ -48,8 +48,8 @@ const LslDescription: React.FC<LslDescriptionProps> = ({ streams }) => {
             )}
             {isExpanded &&
                 ownByStream.map(({ name, elements }) => (
-                    <div key={name} className="lsl-description__stream">
-                        <h3 className="lsl-description__stream-name">{name}</h3>
+                    <div key={name} className="xdf-description__stream">
+                        <h3 className="xdf-description__stream-name">{name}</h3>
                         <DescElements elements={elements} />
                     </div>
                 ))}
@@ -57,22 +57,22 @@ const LslDescription: React.FC<LslDescriptionProps> = ({ streams }) => {
     )
 }
 
-export default LslDescription
+export default XdfDescription
 
 const DescElements: React.FC<{ elements: ShownElement[] }> = ({ elements }) => (
-    <dl className="lsl-description__entries">
+    <dl className="xdf-description__entries">
         {elements.map(({ name, value, children, sharedBy }, index) => (
             <React.Fragment key={index}>
-                <dt className="lsl-description__field">
+                <dt className="xdf-description__field">
                     {name}
                     {sharedBy && (
-                        <span className="lsl-description__scope">
+                        <span className="xdf-description__scope">
                             {' '}
                             (all {sharedBy})
                         </span>
                     )}
                 </dt>
-                <dd className="lsl-description__value">
+                <dd className="xdf-description__value">
                     {children ? <DescElements elements={children} /> : value}
                 </dd>
             </React.Fragment>
@@ -179,7 +179,7 @@ interface ShownElement extends DescElement {
     sharedBy?: string
 }
 
-interface LslDescriptionProps {
+interface XdfDescriptionProps {
     streams: readonly DescribedStream[]
 }
 
