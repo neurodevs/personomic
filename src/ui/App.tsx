@@ -721,13 +721,18 @@ export function scanThroughOrchestrator(
         sendToOrchestrator(
             { command: 'scan', deviceNames },
             {
-                onReply: ({ scanned }) => {
-                    if (!isStopped && scanned) {
+                onReply: ({ scanned = {} }) => {
+                    if (!isStopped) {
                         onScanned(scanned)
                     }
                     scanAgainSoon()
                 },
-                onUnreachable: scanAgainSoon,
+                onUnreachable: () => {
+                    if (!isStopped) {
+                        onScanned({})
+                    }
+                    scanAgainSoon()
+                },
             }
         )
 

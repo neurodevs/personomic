@@ -81,6 +81,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 {identifier && isIdentifierShown && (
                     <IdentifierInput
                         deviceLabel={device.label}
+                        deviceName={device.name}
                         identifier={identifier}
                         remembered={rememberedIdentifiers}
                         scanned={scannedIdentifiers}

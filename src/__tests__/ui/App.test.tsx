@@ -189,6 +189,34 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async clearsScannedIdentifiersWhenScanFails() {
+        this.showScannedMuseThroughOrchestrator()
+
+        act(() => this.scanAgainCalls[0]?.callback())
+        act(() => this.orchestratorSocket.receive({ error: 'Scan failed.' }))
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scannedIdentifiers,
+            {},
+            'Did not clear scanned identifiers when scan failed!'
+        )
+    }
+
+    @test()
+    protected static async clearsScannedIdentifiersWhenOrchestratorIsUnreachable() {
+        this.showScannedMuseThroughOrchestrator()
+
+        act(() => this.scanAgainCalls[0]?.callback())
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scannedIdentifiers,
+            {},
+            'Did not clear scanned identifiers when orchestrator was unreachable!'
+        )
+    }
+
+    @test()
     protected static async scansAgainShortlyAfterEachReply() {
         setIdentifierScanner(scanThroughOrchestrator)
 
@@ -3255,6 +3283,19 @@ export default class AppTest extends AbstractPackageTest {
     private static get sessionButtonState() {
         const button = this.sessionButton as HTMLButtonElement
         return { text: button.textContent, isDisabled: button.disabled }
+    }
+
+    private static showScannedMuseThroughOrchestrator() {
+        setIdentifierScanner(scanThroughOrchestrator)
+
+        this.renderWithMuse()
+        act(() =>
+            this.orchestratorSocket.receive({
+                scanned: {
+                    'Muse S Gen 2': [{ value: 'muse-uuid', source: 'Muse' }],
+                },
+            })
+        )
     }
 
     private static get activeScan() {

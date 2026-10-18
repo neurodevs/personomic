@@ -530,6 +530,9 @@ body {
 }
 
 .stream-monitor__device-identifier-menu {
+  display: grid;
+  grid-template-columns: auto auto 24px;
+  column-gap: 2px;
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -549,9 +552,9 @@ body {
 
 .stream-monitor__device-identifier-row {
   display: grid;
-  grid-template-columns: 1fr auto 24px;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: 2px;
 }
 
 .stream-monitor__device-identifier-option {

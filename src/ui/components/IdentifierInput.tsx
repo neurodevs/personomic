@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 
 const IdentifierInput: React.FC<IdentifierInputProps> = ({
     deviceLabel,
+    deviceName = deviceLabel,
     identifier,
     remembered = [],
     scanned = [],
@@ -12,7 +13,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
 
     const isLocked = onChange === undefined
 
-    const offered = offeredFrom(scanned, remembered)
+    const offered = offeredFrom(scanned, remembered, deviceName)
 
     const choose = (value: string) => {
         onChange?.(value)
@@ -39,9 +40,9 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                     role="listbox"
                     aria-label={`Previous ${deviceLabel} ${identifier.label} values`}
                 >
-                    {offered.map(({ value, source }) => (
+                    {offered.map(({ value, tag, isRemembered }) => (
                         <li
-                            key={value}
+                            key={`${tag}/${value}`}
                             role="none"
                             className="stream-monitor__device-identifier-row"
                         >
@@ -55,12 +56,10 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                             >
                                 {value}
                             </button>
-                            {source && (
-                                <span className="stream-monitor__device-identifier-source">
-                                    Scanned · {source}
-                                </span>
-                            )}
-                            {onForget && remembered.includes(value) && (
+                            <span className="stream-monitor__device-identifier-source">
+                                {tag}
+                            </span>
+                            {onForget && isRemembered && (
                                 <button
                                     type="button"
                                     className="stream-monitor__device-identifier-forget"
@@ -84,20 +83,27 @@ export default IdentifierInput
 
 function offeredFrom(
     scanned: readonly ScannedIdentifier[],
-    remembered: readonly string[]
+    remembered: readonly string[],
+    deviceName: string
 ): OfferedIdentifier[] {
     const offered: OfferedIdentifier[] = []
 
     for (const { value, source } of scanned) {
         if (!offered.some((other) => other.value === value)) {
-            offered.push({ value, source })
+            offered.push({
+                value,
+                tag: `Scanned · ${source}`,
+                isRemembered: false,
+            })
         }
     }
 
     for (const value of remembered) {
-        if (!offered.some((other) => other.value === value)) {
-            offered.push({ value })
-        }
+        offered.push({
+            value,
+            tag: `Memory · ${deviceName}`,
+            isRemembered: true,
+        })
     }
 
     return offered
@@ -109,6 +115,7 @@ function keepInputFocused(event: React.MouseEvent) {
 
 interface IdentifierInputProps {
     deviceLabel: string
+    deviceName?: string
     identifier: DeviceIdentifier
     remembered?: readonly string[]
     scanned?: readonly ScannedIdentifier[]
@@ -118,7 +125,8 @@ interface IdentifierInputProps {
 
 interface OfferedIdentifier {
     value: string
-    source?: string
+    tag: string
+    isRemembered: boolean
 }
 
 export interface ScannedIdentifier {

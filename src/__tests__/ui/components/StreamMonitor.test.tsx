@@ -1504,15 +1504,20 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersScannedIdentifiersFirstWithoutRepeats() {
+    protected static async offersScannedFirstThenEveryRememberedIdentifier() {
         await this.mountWithScannedIdentifiers()
 
         fireEvent.focus(this.identifierInput!)
 
         assert.isEqualDeep(
             this.offeredIdentifiers,
-            [this.remembered[1], 'scanned-uuid', this.remembered[0]],
-            'Did not offer scanned identifiers first without repeats!'
+            [
+                this.remembered[1],
+                'scanned-uuid',
+                this.remembered[0],
+                this.remembered[1],
+            ],
+            'Did not offer scanned first, then every remembered identifier!'
         )
     }
 
@@ -1524,8 +1529,26 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.offeredSources,
-            ['Scanned · Muse', 'Scanned · Muse', null],
+            [
+                'Scanned · Muse',
+                'Scanned · Muse',
+                `Memory · ${this.deviceName}`,
+                `Memory · ${this.deviceName}`,
+            ],
             'Did not tag each scanned identifier with where it was found!'
+        )
+    }
+
+    @test()
+    protected static async tagsRememberedIdentifiersWithTheirDevice() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.offeredSources,
+            [`Memory · ${this.deviceName}`, `Memory · ${this.deviceName}`],
+            'Did not tag remembered identifiers with their device!'
         )
     }
 
@@ -1774,10 +1797,16 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             Array.from(screen.getByRole('listbox').children, (row) =>
                 Array.from(row.children, (control) =>
-                    control.getAttribute('role')
+                    control.getAttribute('role') === 'option'
+                        ? 'option'
+                        : control
+                                .getAttribute('aria-label')
+                                ?.startsWith('Forget')
+                          ? 'forget'
+                          : 'tag'
                 )
             ),
-            this.remembered.map(() => ['option', null]),
+            this.remembered.map(() => ['option', 'tag', 'forget']),
             'Did not place forget button right of its identifier!'
         )
     }
