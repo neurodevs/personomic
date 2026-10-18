@@ -1427,6 +1427,34 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async describesStreamsInSameOrderAsTheirPlots() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        const [slow, quick] = this.streams
+        const device = this.gatewayDeviceFor(this.devicesFor([slow, quick])[0])
+
+        this.receiveGatewayDevices([
+            {
+                ...device,
+                streams: device.streams.map((stream, index) => ({
+                    ...stream,
+                    sampleRateHz: [52, 256][index],
+                    desc: [{ name: 'manufacturer', value: `Maker ${index}` }],
+                })),
+            },
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription.headings,
+            [quick.name, slow.name],
+            'Did not describe streams in same order as their plots!'
+        )
+    }
+
     @test('no desc offers no LSL description', undefined)
     @test('empty desc offers no LSL description', [])
     protected static async offersNoLslDescriptionWithoutOne(

@@ -588,7 +588,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
 export default StreamMonitor
 
-function quickestFirst(streams: BiosignalStream[]) {
+function quickestFirst<Stream extends { sampleRateHz?: number }>(
+    streams: Stream[]
+) {
     return [...streams].sort(
         (a, b) => (b.sampleRateHz ?? 0) - (a.sampleRateHz ?? 0)
     )
@@ -709,10 +711,12 @@ function deviceFor(
         streams: (gatewayStreams ?? []).map((stream) =>
             streamFor(stream, streamOptions[stream.type])
         ),
-        describedStreams: (gatewayStreams ?? []).map(({ type, desc }) => ({
-            name: type,
-            desc,
-        })),
+        describedStreams: quickestFirst(gatewayStreams ?? []).map(
+            ({ type, desc }) => ({
+                name: type,
+                desc,
+            })
+        ),
     }
 }
 
