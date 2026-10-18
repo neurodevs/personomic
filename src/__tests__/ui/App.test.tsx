@@ -92,6 +92,78 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async stopsScanningForDeviceOnceItHasIdentifier() {
+        this.renderWithMuse()
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+
+        assert.isUndefined(
+            this.activeScan,
+            'Kept scanning for a device that has an identifier!'
+        )
+    }
+
+    @test()
+    protected static async keepsScanningWhileARepeatHasNoIdentifier() {
+        this.renderWithTwoMuses()
+
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+
+        assert.isEqualDeep(
+            this.activeScan?.deviceNames,
+            ['Muse S Gen 2'],
+            'Did not keep scanning while a repeat has no identifier!'
+        )
+    }
+
+    @test()
+    protected static async tellsMonitorWhichDevicesAreBeingScannedFor() {
+        render(<App />)
+
+        this.addBiosensor('Muse S Gen 2')
+        this.addBiosensor('OpenBCI Cyton')
+        this.addBiosensor('Zephyr BioHarness 3')
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scanningDeviceNames,
+            ['OpenBCI Cyton'],
+            'Did not tell monitor which devices are being scanned for!'
+        )
+    }
+
+    @test()
+    protected static async tellsMonitorNothingIsScannedForWhileConnecting() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scanningDeviceNames,
+            [],
+            'Told monitor a device is scanned for while connecting!'
+        )
+    }
+
+    @test()
+    protected static async dropsScannedIdentifiersOfDevicesNoLongerScannedFor() {
+        this.renderWithMuse()
+
+        act(() =>
+            this.activeScan?.onScanned({
+                'Muse S Gen 2': [{ value: 'muse-uuid', source: 'Muse' }],
+            })
+        )
+        this.typeIdentifier('Muse S Gen 2', 'muse-uuid')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.scannedIdentifiers,
+            {},
+            'Kept scanned identifiers of a device no longer scanned for!'
+        )
+    }
+
+    @test()
     protected static async scansEachDeviceNameOnce() {
         this.renderWithTwoMuses()
 

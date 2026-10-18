@@ -48,6 +48,7 @@ export interface StreamMonitorProps {
     identifiers?: Record<string, DeviceIdentifier>
     rememberedIdentifiers?: Record<string, readonly string[]>
     scannedIdentifiers?: Record<string, readonly ScannedIdentifier[]>
+    scanningDeviceNames?: readonly string[]
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     nicknames?: Record<string, string>
@@ -78,6 +79,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         identifiers = {},
         rememberedIdentifiers = {},
         scannedIdentifiers = {},
+        scanningDeviceNames = [],
         onForgetIdentifier,
         onIdentifierChange,
         nicknames = {},
@@ -544,6 +546,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             rememberedIdentifiers[device.name]
                         }
                         scannedIdentifiers={scannedIdentifiers[device.name]}
+                        isScanning={scanningDeviceNames.includes(device.name)}
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
                         isDescribed={recording !== undefined || isRecording}

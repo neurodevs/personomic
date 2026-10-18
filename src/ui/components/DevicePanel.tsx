@@ -15,6 +15,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     identifier,
     rememberedIdentifiers,
     scannedIdentifiers,
+    isScanning = false,
     onForgetIdentifier,
     onIdentifierChange,
     nickname = '',
@@ -85,6 +86,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                         identifier={identifier}
                         remembered={rememberedIdentifiers}
                         scanned={scannedIdentifiers}
+                        isScanning={isScanning}
                         onChange={
                             onIdentifierChange &&
                             ((value) => onIdentifierChange(device.key, value))
@@ -136,6 +138,7 @@ export interface DevicePanelProps {
     identifier?: DeviceIdentifier
     rememberedIdentifiers?: readonly string[]
     scannedIdentifiers?: readonly ScannedIdentifier[]
+    isScanning?: boolean
     onForgetIdentifier?: (name: string, identifier: string) => void
     onIdentifierChange?: (name: string, value: string) => void
     nickname?: string

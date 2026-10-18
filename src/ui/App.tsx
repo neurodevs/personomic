@@ -166,11 +166,21 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             .filter((_, index) => deviceNames[index] in identifierLabels)
     )
 
-    const namesTakingIdentifier = [
-        ...new Set(deviceNames.filter((name) => name in identifierLabels)),
+    const namesMissingIdentifier = [
+        ...new Set(
+            devices
+                .filter(
+                    ({ name, identifier }) =>
+                        name in identifierLabels && identifier.trim() === ''
+                )
+                .map(({ name }) => name)
+        ),
     ]
-    const namesToScan = [...new Set(namesTakingIdentifier.map(requestedNameOf))]
+    const namesToScan = [
+        ...new Set(namesMissingIdentifier.map(requestedNameOf)),
+    ]
     const namesToScanKey = namesToScan.join('\n')
+    const scanningDeviceNames = isLocked ? [] : namesMissingIdentifier
 
     useEffect(() => {
         if (isLocked || namesToScan.length === 0) {
@@ -181,7 +191,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     }, [isLocked, namesToScanKey])
 
     const scannedIdentifiers = Object.fromEntries(
-        namesTakingIdentifier
+        scanningDeviceNames
             .map((name) => [name, scanned[requestedNameOf(name)]] as const)
             .filter(([, ofName]) => ofName !== undefined)
     )
@@ -530,6 +540,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 identifiers={identifiers}
                 rememberedIdentifiers={rememberedIdentifiers}
                 scannedIdentifiers={scannedIdentifiers}
+                scanningDeviceNames={scanningDeviceNames}
                 onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 nicknames={nicknames}

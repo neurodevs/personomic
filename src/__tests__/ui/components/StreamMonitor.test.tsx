@@ -1602,6 +1602,49 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async endsDropdownWithScanningRowWhileScanning() {
+        await this.mountWithRememberedIdentifiers({
+            scanningDeviceNames: [this.deviceName],
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.dropdownRowTexts.at(-1),
+            'Scanning…',
+            'Did not end dropdown with a scanning row while scanning!'
+        )
+    }
+
+    @test()
+    protected static async showsScanningRowEvenBeforeAnythingIsFound() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            scanningDeviceNames: [this.deviceName],
+        })
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isEqualDeep(
+            this.dropdownRowTexts,
+            ['Scanning…'],
+            'Did not show scanning row before anything was found!'
+        )
+    }
+
+    @test()
+    protected static async showsNoScanningRowWhenNotScanning() {
+        await this.mountWithRememberedIdentifiers()
+
+        fireEvent.focus(this.identifierInput!)
+
+        assert.isFalse(
+            this.dropdownRowTexts.includes('Scanning…'),
+            'Showed a scanning row when not scanning!'
+        )
+    }
+
+    @test()
     protected static async showsRememberedIdentifiersWhenInputIsFocused() {
         await this.mountWithRememberedIdentifiers()
 
@@ -3684,6 +3727,15 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             },
             ...props,
         })
+    }
+
+    private static get dropdownRowTexts() {
+        return Array.from(
+            screen.queryByRole('listbox')?.children ?? [],
+            (row) =>
+                row.querySelector('[role="option"]')?.textContent ??
+                row.textContent
+        )
     }
 
     private static get offeredSources() {

@@ -6,6 +6,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
     identifier,
     remembered = [],
     scanned = [],
+    isScanning = false,
     onChange,
     onForget,
 }) => {
@@ -34,7 +35,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                 onClick={() => setIsOpen(true)}
                 onBlur={() => setIsOpen(false)}
             />
-            {isOpen && !isLocked && offered.length > 0 && (
+            {isOpen && !isLocked && (offered.length > 0 || isScanning) && (
                 <ul
                     className="stream-monitor__device-identifier-menu"
                     role="listbox"
@@ -73,6 +74,14 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                             )}
                         </li>
                     ))}
+                    {isScanning && (
+                        <li
+                            role="none"
+                            className="stream-monitor__device-identifier-scanning"
+                        >
+                            Scanning…
+                        </li>
+                    )}
                 </ul>
             )}
         </span>
@@ -119,6 +128,7 @@ interface IdentifierInputProps {
     identifier: DeviceIdentifier
     remembered?: readonly string[]
     scanned?: readonly ScannedIdentifier[]
+    isScanning?: boolean
     onChange?: (value: string) => void
     onForget?: (value: string) => void
 }

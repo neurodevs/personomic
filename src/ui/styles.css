@@ -581,6 +581,21 @@ body {
   white-space: nowrap;
 }
 
+.stream-monitor__device-identifier-scanning {
+  grid-column: 1 / -1;
+  padding: 5px 6px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  animation: identifier-scanning-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes identifier-scanning-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .stream-monitor__device-identifier-forget {
   grid-column: 3;
   padding: 2px 6px;
