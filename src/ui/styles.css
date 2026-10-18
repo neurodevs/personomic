@@ -846,3 +846,82 @@ body {
 .stream-plot--scrubs-time .stream-plot__channel .u-over:active {
   cursor: grabbing;
 }
+
+.lsl-description {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 4px;
+}
+
+.lsl-description__toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.lsl-description__toggle::before {
+  display: inline-block;
+  margin-right: 8px;
+  content: '▸';
+  transition: transform 0.15s ease;
+}
+
+.lsl-description__toggle[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+
+.lsl-description__toggle:hover,
+.lsl-description__toggle:focus-visible,
+.lsl-description__toggle[aria-expanded='true'] {
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.lsl-description__stream {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.lsl-description__stream-name {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.lsl-description__entries {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 1px 16px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.lsl-description__entries:has(
+  > .lsl-description__value > .lsl-description__entries
+) {
+  row-gap: 10px;
+}
+
+.lsl-description__field {
+  color: var(--text-muted);
+}
+
+.lsl-description__value {
+  margin: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}

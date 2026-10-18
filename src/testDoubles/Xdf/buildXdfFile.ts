@@ -38,6 +38,7 @@ function headerXmlFor(stream: XdfTestStream) {
         channelFormat = 'float32',
         sampleRateHz = 0,
         nickname,
+        descXml,
     } = stream
 
     const channels = channelNames
@@ -55,7 +56,7 @@ function headerXmlFor(stream: XdfTestStream) {
         `<channel_format>${channelFormat}</channel_format>`,
         `<source_id>${sourceId}</source_id>`,
         `<nominal_srate>${sampleRateHz}</nominal_srate>`,
-        `<desc><channels>${channels}</channels>${nicknameXmlFor(nickname)}</desc></info>`,
+        `<desc>${descXml ?? `<channels>${channels}</channels>${nicknameXmlFor(nickname)}`}</desc></info>`,
     ].join('\n')
 }
 
@@ -142,6 +143,7 @@ export interface XdfTestStream {
     channelFormat?: string
     sampleRateHz?: number
     nickname?: string
+    descXml?: string
     chunks?: XdfTestChunk[]
 }
 

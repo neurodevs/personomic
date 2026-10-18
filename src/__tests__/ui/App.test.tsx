@@ -10,6 +10,7 @@ import FakeStreamMonitor, {
     numStreamMonitorMounts,
 } from '../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
+import readXdfRecording from '../../functions/readXdfRecording'
 import buildXdfFile from '../../testDoubles/Xdf/buildXdfFile'
 import App, {
     setEverySecond,
@@ -2008,22 +2009,7 @@ export default class AppTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.recording,
-            {
-                devices: [
-                    {
-                        deviceName: 'Muse',
-                        streams: [
-                            {
-                                type: 'EEG',
-                                channelNames: ['EEG_TP9'],
-                                sampleRateHz: 256,
-                                samples: [1, 2],
-                                timestamps: [10, 11],
-                            },
-                        ],
-                    },
-                ],
-            },
+            readXdfRecording(this.museRecordingFile),
             'Did not pass recording read from chosen file to monitor!'
         )
     }

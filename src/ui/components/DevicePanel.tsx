@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import type { BiosignalDevice, DeviceStatus } from './StreamMonitor'
 import IdentifierInput, { DeviceIdentifier } from './IdentifierInput'
+import LslDescription from './LslDescription'
 
 const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
@@ -105,7 +106,10 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 )}
             </header>
             {hasStreams && !arePlotsHidden && (
-                <div className={deviceStreamsClassName}>{children}</div>
+                <div className={deviceStreamsClassName}>
+                    <LslDescription streams={device.describedStreams} />
+                    {children}
+                </div>
             )}
         </section>
     )

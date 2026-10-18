@@ -21,7 +21,7 @@ import StreamMonitor, {
     streamColors,
     StreamMonitorProps,
 } from '../../../ui/components/StreamMonitor'
-import { Recording } from '../../../functions/readXdfRecording'
+import { DescElement, Recording } from '../../../functions/readXdfRecording'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class StreamMonitorTest extends AbstractPackageTest {
@@ -1128,6 +1128,130 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.nicknameInput,
             null,
             'Did not remove unfilled nickname input without change handler!'
+        )
+    }
+
+    @test()
+    protected static async collapsesLslDescriptionByDefault() {
+        await this.showLiveStreamDescribedBy([
+            { name: 'nickname', value: 'Alice' },
+        ])
+
+        assert.isEqualDeep(
+            {
+                isExpanded:
+                    this.descriptionToggle?.getAttribute('aria-expanded'),
+                isAliceShown: screen.queryByText('Alice') !== null,
+            },
+            { isExpanded: 'false', isAliceShown: false },
+            'Did not collapse LSL description by default!'
+        )
+    }
+
+    @test()
+    protected static async showsLslDescriptionOfLiveStreamWhenExpanded() {
+        await this.showLiveStreamDescribedBy([
+            { name: 'nickname', value: 'Alice' },
+            {
+                name: 'channels',
+                children: [
+                    {
+                        name: 'channel',
+                        children: [{ name: 'label', value: 'TP9' }],
+                    },
+                ],
+            },
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [this.streams[0].name],
+                fields: ['nickname', 'channels', 'channel', 'label'],
+                values: ['Alice', 'TP9'],
+            },
+            'Did not show LSL description of live stream when expanded!'
+        )
+    }
+
+    @test()
+    protected static async showsLslDescriptionOfRecordedStreamsWhenExpanded() {
+        const [first, second] = this.recording.devices[0].streams
+
+        await this.play({
+            devices: [
+                {
+                    deviceName: this.deviceName,
+                    streams: [
+                        {
+                            ...first,
+                            desc: [{ name: 'nickname', value: 'Alice' }],
+                        },
+                        {
+                            ...second,
+                            desc: [
+                                {
+                                    name: 'manufacturer',
+                                    value: 'Interaxon Inc.',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        })
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [first.type, second.type],
+                fields: ['nickname', 'manufacturer'],
+                values: ['Alice', 'Interaxon Inc.'],
+            },
+            'Did not show LSL description of recorded streams when expanded!'
+        )
+    }
+
+    @test()
+    protected static async collapsesLslDescriptionWhenToggledAgain() {
+        await this.showLiveStreamDescribedBy([
+            { name: 'nickname', value: 'Alice' },
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            {
+                isExpanded:
+                    this.descriptionToggle?.getAttribute('aria-expanded'),
+                isAliceShown: screen.queryByText('Alice') !== null,
+            },
+            { isExpanded: 'false', isAliceShown: false },
+            'Did not collapse LSL description when toggled again!'
+        )
+    }
+
+    @test('no desc offers no LSL description', undefined)
+    @test('empty desc offers no LSL description', [])
+    protected static async offersNoLslDescriptionWithoutOne(
+        desc: DescElement[] | undefined
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.describedGatewayDeviceFor(this.streams[0], desc),
+        ])
+
+        assert.isEqual(
+            this.descriptionToggle,
+            null,
+            'Offered an LSL description without one!'
         )
     }
 
@@ -3220,6 +3344,48 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         return screen
             .queryAllByRole('option')
             .map((option) => option.textContent)
+    }
+
+    private static async showLiveStreamDescribedBy(desc: DescElement[]) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.describedGatewayDeviceFor(this.streams[0], desc),
+        ])
+    }
+
+    private static describedGatewayDeviceFor(
+        stream: TestStream,
+        desc: DescElement[] | undefined
+    ) {
+        const device = this.gatewayDeviceFor(this.devicesFor([stream])[0])
+
+        return {
+            ...device,
+            streams: device.streams.map((reported) => ({
+                ...reported,
+                desc,
+            })),
+        }
+    }
+
+    private static get descriptionToggle() {
+        return screen.queryByRole('button', { name: 'LSL description' })
+    }
+
+    private static get shownDescription() {
+        const textsOf = (role: string) =>
+            screen.queryAllByRole(role).map((element) => element.textContent)
+
+        return {
+            headings: textsOf('heading'),
+            fields: textsOf('term'),
+            values: screen
+                .queryAllByRole('definition')
+                .filter((definition) => definition.children.length === 0)
+                .map((definition) => definition.textContent),
+        }
     }
 
     private static get nicknameInput() {

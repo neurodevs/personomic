@@ -237,6 +237,66 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsDescOfEachStream() {
+        const [stream] = this.streamsReadFrom([
+            {
+                nickname: 'José & <Ana>',
+                channelNames: ['A'],
+                chunks: this.oneSample,
+            },
+        ])
+
+        assert.isEqualDeep(
+            stream.desc,
+            [
+                {
+                    name: 'channels',
+                    children: [
+                        {
+                            name: 'channel',
+                            children: [
+                                { name: 'label', value: 'A' },
+                                { name: 'type', value: 'ignored' },
+                            ],
+                        },
+                    ],
+                },
+                { name: 'nickname', value: 'José & <Ana>' },
+            ],
+            'Did not read desc of each stream!'
+        )
+    }
+
+    @test()
+    protected static async readsIndentedDescAsLabRecorderWritesIt() {
+        const [stream] = this.streamsReadFrom([
+            {
+                descXml:
+                    '\n\t\t<channels>\n\t\t\t<channel>\n\t\t\t\t<label>A</label>\n\t\t\t</channel>\n\t\t</channels>\n\t\t<empty />\n\t',
+                channelNames: ['A'],
+                chunks: this.oneSample,
+            },
+        ])
+
+        assert.isEqualDeep(
+            stream.desc,
+            [
+                {
+                    name: 'channels',
+                    children: [
+                        {
+                            name: 'channel',
+                            children: [{ name: 'label', value: 'A' }],
+                        },
+                    ],
+                },
+                { name: 'empty', value: '' },
+            ],
+            'Did not read indented desc as LabRecorder writes it!'
+        )
+    }
+
+    @test()
     protected static async leavesNicknameOutWhenNoneWasRecorded() {
         const nicknames = this.nicknamesReadFrom([
             { sourceId: 'muse-eeg-Device-1' },

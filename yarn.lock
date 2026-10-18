@@ -2249,10 +2249,10 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/ndx-native@^10.2.0":
-  version "10.2.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/ndx-native/-/ndx-native-10.2.0.tgz#9fb168fe36e39f22a3c892f62c90f32248b655a1"
-  integrity sha512-eMwukZdJ43IcXmhxaptRa8f/7tP9vtrjPnWs2nnwtVel0S2Vl/ZjIlyUTlxm8CesEzZtKV7vJKyFn7MdUjURwQ==
+"@neurodevs/ndx-native@^11.0.0":
+  version "11.0.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/ndx-native/-/ndx-native-11.0.0.tgz#fb1ed9cbb42a269005cec0e06531ae37f0952555"
+  integrity sha512-zdTSI/lUhF+7w1vWtyBTdu9nfZmzVLdvynYyS1GZBV6uRTISP5bVn6YaIjoGRdw+FkiktIRuho8vJ9u2H7IPmw==
   dependencies:
     "@neurodevs/node-mangled-names" "^1.0.1"
     ffi-rs "^1.3.2"
@@ -2267,12 +2267,12 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/node-biosensors@^9.2.0":
-  version "9.2.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.2.0.tgz#4c475400dbc9b721bb3797f28f2fcf801f12566b"
-  integrity sha512-5TR6sdEd4aECmEFEahAC7EFb1fQlHRoikOzHaaEwWh3GpvDgl6BqpTE3cdQRiIL0HtxhpkG9IPnWAY6E04JSYw==
+"@neurodevs/node-biosensors@^9.2.1":
+  version "9.2.1"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.2.1.tgz#7817f92da43a38433d4b3f708bf415eb38c39a6c"
+  integrity sha512-eXsnL/OI0TcDxyUlu3IMhlbGDpcUReUw8yllpb9jORXBHG1R+jWxu+L7gENl4Bv29aNO1WrvfPcp/y9TniM3qQ==
   dependencies:
-    "@neurodevs/node-lsl" "^23.4.0"
+    "@neurodevs/node-lsl" "^23.5.0"
     "@neurodevs/node-xdf" "^5.0.1"
     ftdi-d2xx "^1.3.1"
     koffi "^3.0.2"
@@ -2323,13 +2323,13 @@
     "@neurodevs/ndx-native" "^10.0.0"
     ws "^8.18.3"
 
-"@neurodevs/node-lsl@^23.4.0":
-  version "23.4.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.4.0.tgz#e0266954ac61a79b9f6869c39b5bc6c5a8b48159"
-  integrity sha512-BvqU7Vew/oI7mTe7Mp7XVRi9d3gsXvFl+njzS5L4BAS90B8qYzqkjBruSPBBqYOt/SgK3r5FxqmN/D2ls0CfXQ==
+"@neurodevs/node-lsl@^23.5.0":
+  version "23.5.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.5.0.tgz#b1c8b9ce7a164fa2e8db8df0bb6c307a986a0a9d"
+  integrity sha512-Qzra6qlopooKWKk66QOUB0K1L+G36Y9btIZQpmpouzlqwogbiViCLDRnJ/UojaGpFzE1lEFw1Fz+uqjOzNiT0A==
   dependencies:
     "@neurodevs/generate-id" "^1.1.3"
-    "@neurodevs/ndx-native" "^10.2.0"
+    "@neurodevs/ndx-native" "^11.0.0"
     ws "^8.18.3"
 
 "@neurodevs/node-mangled-names@^1.0.1":

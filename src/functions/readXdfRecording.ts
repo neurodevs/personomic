@@ -99,7 +99,24 @@ function streamFrom(headerXml: string): XdfStream {
             valueReaders[textOf('channel_format', headerXml) as ChannelFormat],
         samples: [],
         timestamps: [],
+        desc: descIn(headerXml),
     }
+}
+
+function descIn(headerXml: string) {
+    const desc = new DOMParser()
+        .parseFromString(headerXml, 'application/xml')
+        .querySelector('info > desc')
+
+    return desc ? descElementsIn(desc) : []
+}
+
+function descElementsIn(parent: Element): DescElement[] {
+    return [...parent.children].map((child) =>
+        child.children.length > 0
+            ? { name: child.tagName, children: descElementsIn(child) }
+            : { name: child.tagName, value: child.textContent ?? '' }
+    )
 }
 
 function textOf(tag: string, xml: string): string | undefined {
@@ -184,12 +201,20 @@ function devicesFrom(streams: XdfStream[]): RecordedDevice[] {
         deviceName: deviceNameFor(ofDevice),
         ...nicknameOf(ofDevice),
         streams: ofDevice.map(
-            ({ type, channelNames, sampleRateHz, samples, timestamps }) => ({
+            ({
                 type,
                 channelNames,
                 sampleRateHz,
                 samples,
                 timestamps,
+                desc,
+            }) => ({
+                type,
+                channelNames,
+                sampleRateHz,
+                samples,
+                timestamps,
+                desc,
             })
         ),
     }))
@@ -261,6 +286,13 @@ export interface RecordedStream {
     sampleRateHz: number
     samples: number[]
     timestamps: number[]
+    desc?: DescElement[]
+}
+
+export interface DescElement {
+    name: string
+    value?: string
+    children?: DescElement[]
 }
 
 interface XdfStream extends RecordedStream {

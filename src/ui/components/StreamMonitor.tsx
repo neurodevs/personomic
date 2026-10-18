@@ -1,9 +1,14 @@
 import PpgPeakDetector from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
-import { RecordedStream, Recording } from '../../functions/readXdfRecording'
+import {
+    DescElement,
+    RecordedStream,
+    Recording,
+} from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
 import { DeviceIdentifier } from './IdentifierInput'
+import { DescribedStream } from './LslDescription'
 import StreamPlot, {
     BandPowerOptions,
     Downsampling,
@@ -704,6 +709,10 @@ function deviceFor(
         streams: (gatewayStreams ?? []).map((stream) =>
             streamFor(stream, streamOptions[stream.type])
         ),
+        describedStreams: (gatewayStreams ?? []).map(({ type, desc }) => ({
+            name: type,
+            desc,
+        })),
     }
 }
 
@@ -820,6 +829,7 @@ interface GatewayStream {
     listenPort: number
     channelNames: string[]
     sampleRateHz: number
+    desc?: DescElement[]
 }
 
 export interface StreamOptions {
@@ -838,6 +848,7 @@ interface ShownDevice {
 
 export interface BiosignalDevice extends ShownDevice {
     streams: BiosignalStream[]
+    describedStreams: DescribedStream[]
 }
 
 interface BiosignalStream {
@@ -861,11 +872,12 @@ function gatewayDevicesPlaying(
     return recording.devices.map(({ deviceName, streams }, index) => ({
         deviceName,
         state: runOutDevices[index] ? 'disconnected' : 'streaming',
-        streams: streams.map(({ type, channelNames, sampleRateHz }) => ({
+        streams: streams.map(({ type, channelNames, sampleRateHz, desc }) => ({
             type,
             channelNames,
             sampleRateHz,
             listenPort: playbackPortOf(numStreamsBefore++),
+            desc,
         })),
     }))
 }
