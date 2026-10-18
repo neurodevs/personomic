@@ -1391,6 +1391,42 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async passesUnitOfEachChannelInDescToPlot() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.gatewayDeviceWithChannels([
+                { label: 'TP9', unit: 'microvolt' },
+                { label: 'ACC_X', unit: 'g' },
+            ]),
+        ])
+
+        assert.isEqualDeep(
+            passedStreamPlotProps.at(-1)?.channelUnits,
+            ['microvolt', 'g'],
+            'Did not pass unit of each channel in desc to plot!'
+        )
+    }
+
+    @test()
+    protected static async passesNoChannelUnitsWithoutChannelsInDesc() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName])
+
+        this.receiveGatewayDevices([
+            this.describedGatewayDeviceFor(this.streams[0], [
+                { name: 'manufacturer', value: 'Interaxon Inc.' },
+            ]),
+        ])
+
+        assert.isUndefined(
+            passedStreamPlotProps.at(-1)?.channelUnits,
+            'Passed channel units without channels in desc!'
+        )
+    }
+
     @test('no desc offers no LSL description', undefined)
     @test('empty desc offers no LSL description', [])
     protected static async offersNoLslDescriptionWithoutOne(
@@ -3527,6 +3563,22 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 })),
             },
         ])
+    }
+
+    private static gatewayDeviceWithChannels(
+        channels: Record<string, string>[]
+    ) {
+        const device = this.describedGatewayDeviceFor(this.streams[0], [
+            this.channelsDesc(channels),
+        ])
+
+        return {
+            ...device,
+            streams: device.streams.map((stream) => ({
+                ...stream,
+                channelNames: channels.map(({ label }) => label),
+            })),
+        }
     }
 
     private static channelsDesc(

@@ -32,6 +32,7 @@ export interface StreamPlotProps {
     downsampling?: Downsampling
     yLimits?: YLimits
     units?: string
+    channelUnits?: string[]
 }
 
 export interface YLimits {
@@ -77,6 +78,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         downsampling,
         yLimits,
         units,
+        channelUnits,
     } = props
 
     const yMinLimit = yLimits?.min
@@ -95,6 +97,11 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         timestamps.length > 0 ? samples.length / timestamps.length : 0
 
     const plottedChannelCount = isHidden ? 0 : channelCount
+
+    const yAxisLabels = Array.from({ length: channelCount }, (_, channel) =>
+        shownUnitOf(units ?? channelUnits?.[channel])
+    )
+    const yAxisLabelsKey = yAxisLabels.join('\n')
 
     const toggleHiddenUnlessClickedOnWindowPicker = (
         event: React.MouseEvent
@@ -451,6 +458,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         color,
                         hasPeakMarkers,
                         yLimits: { min: yMinLimit, max: yMaxLimit },
+                        yAxisLabel: yAxisLabels[channel],
                         occurrencesOf: () => occurrencesRef.current[channel],
                         markedTimestampOf: () => markedTimestampRef.current,
                         sessionStartTimestampOf: () =>
@@ -471,6 +479,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         hasPeakMarkers,
         yMinLimit,
         yMaxLimit,
+        yAxisLabelsKey,
     ])
 
     useEffect(() => {
@@ -551,7 +560,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
 
     const plotStyle: PlotStyle = {
         '--stream-color': color,
-        '--y-axis-width': `${yAxisWidth}px`,
+        '--y-axis-width': `${yAxisWidth + yAxisLabelSize}px`,
         '--channel-name-length': Math.max(
             0,
             ...Array.from(
@@ -805,6 +814,7 @@ interface PlotAppearance {
     color: string
     hasPeakMarkers: boolean
     yLimits: YLimits
+    yAxisLabel: string
     occurrencesOf: () => ValueOccurrences | undefined
     markedTimestampOf: () => number | undefined
     sessionStartTimestampOf: () => number
@@ -818,6 +828,7 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
         color,
         hasPeakMarkers,
         yLimits,
+        yAxisLabel,
         occurrencesOf,
         markedTimestampOf,
         sessionStartTimestampOf,
@@ -836,7 +847,10 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
                     yRangeFor(plot, { min, max }, yLimits),
             },
         },
-        axes: [labelsTime ? labeledXAxis : unlabeledXAxis, yAxis],
+        axes: [
+            labelsTime ? labeledXAxis : unlabeledXAxis,
+            { ...yAxis, label: yAxisLabel },
+        ],
         hooks: {
             draw: [
                 (plot) => drawOccurrenceStrip(plot, occurrencesOf(), color),
@@ -862,6 +876,7 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
 
 const leftSide = 3
 const yAxisWidth = 54
+const yAxisLabelSize = 14
 const yPadding = 6
 const numYBarsByPreference = [4, 3]
 const maxYTickLabelLength = 7
@@ -890,6 +905,9 @@ const yAxis: uPlot.Axis = {
     ...axisLook,
     side: leftSide,
     size: yAxisWidth,
+    labelSize: yAxisLabelSize,
+    labelGap: 0,
+    labelFont: axisLabelFontAt(1),
     gap: occurrenceStripGap + occurrenceStripWidth + axisLabelGap,
     splits: (_, __, min, max) => tightestYBarsCovering(min, max),
     values: (_, ticks) => ticks.map(yTickLabelFor),
@@ -908,6 +926,11 @@ const labeledXAxis: uPlot.Axis = {
     gap: axisLabelGap,
     values: (plot, ticks) =>
         ticks.map((tick) => xTickLabelFor(plot.scales.x.max! - tick)),
+}
+
+function shownUnitOf(unit: string | undefined) {
+    const trimmed = unit?.trim() ?? ''
+    return trimmed === 'N/A' ? '' : trimmed
 }
 
 function heightWithXAxis(height: number, labelsTime: boolean) {

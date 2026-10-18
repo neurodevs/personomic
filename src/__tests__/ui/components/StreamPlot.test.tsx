@@ -171,6 +171,73 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async labelsYAxisOfEachChannelWithItsUnit() {
+        await this.render({
+            ...this.twoChannels,
+            channelUnits: ['microvolt', 'g'],
+        })
+
+        assert.isEqualDeep(
+            this.yAxisLabels,
+            ['microvolt', 'g'],
+            'Did not label y-axis of each channel with its unit!'
+        )
+    }
+
+    @test()
+    protected static async labelsYAxisWithUnitsGivenForStreamFirst() {
+        await this.render({
+            ...this.twoChannels,
+            units: '°C',
+            channelUnits: ['Celsius', 'Celsius'],
+        })
+
+        assert.isEqualDeep(
+            this.yAxisLabels,
+            ['°C', '°C'],
+            'Did not label y-axis with units given for stream first!'
+        )
+    }
+
+    @test('no channel units leave y-axis label empty', undefined)
+    @test('N/A units leave y-axis label empty', ['N/A', 'N/A'])
+    @test('blank units leave y-axis label empty', ['', ' '])
+    protected static async leavesYAxisLabelEmptyWithoutUnit(
+        channelUnits: string[] | undefined
+    ) {
+        await this.render({ ...this.twoChannels, channelUnits })
+
+        assert.isEqualDeep(
+            this.yAxisLabels,
+            ['', ''],
+            'Did not leave y-axis label empty without unit!'
+        )
+    }
+
+    @test()
+    protected static async keepsSameYAxisLabelSpaceWithOrWithoutUnit() {
+        await this.render({
+            ...this.twoChannels,
+            channelUnits: ['microvolt', 'N/A'],
+        })
+
+        const labelSizes = FakeUPlot.instances.map(
+            (plot) => plot.options.axes?.[1].labelSize
+        )
+
+        assert.isEqualDeep(
+            {
+                areNumbers: labelSizes.every(
+                    (size) => typeof size === 'number'
+                ),
+                numDistinct: new Set(labelSizes).size,
+            },
+            { areNumbers: true, numDistinct: 1 },
+            'Did not keep same y-axis label space with or without unit!'
+        )
+    }
+
+    @test()
     protected static async givesEachChannelSameYAxisWidthToKeepTimeAligned() {
         await this.render(this.twoChannels)
 
@@ -2811,6 +2878,10 @@ export default class StreamPlotTest extends AbstractPackageTest {
                 '.stream-plot__band-power-swatch'
             )
         )
+    }
+
+    private static get yAxisLabels() {
+        return FakeUPlot.instances.map((plot) => plot.options.axes?.[1].label)
     }
 
     private static readonly twoChannels = {

@@ -741,7 +741,17 @@ function streamFor(
         downsampling,
         yLimits,
         units,
+        channelUnits: channelUnitsIn(stream.desc),
     }
+}
+
+function channelUnitsIn(desc: DescElement[] = []) {
+    const channels = desc.find(({ name }) => name === 'channels')?.children
+
+    return channels?.map(
+        (channel) =>
+            channel.children?.find(({ name }) => name === 'unit')?.value ?? ''
+    )
 }
 
 function withoutTypePrefix(channel: string, type: string) {
@@ -861,6 +871,7 @@ interface BiosignalStream {
     downsampling?: Downsampling
     yLimits?: YLimits
     units?: string
+    channelUnits?: string[]
 }
 
 function gatewayDevicesPlaying(
