@@ -2,7 +2,14 @@
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import {
+    mkdir,
+    readdir,
+    readFile,
+    rename,
+    unlink,
+    writeFile,
+} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -44,6 +51,7 @@ const BLE_SCAN_MS = 5000
 
 const PROTOCOLS_DIRECTORY = '~/Documents/Personomic/Protocols'
 const UNTITLED_PROTOCOL_FILE_STEM = 'untitled-protocol'
+const REMOVED_PROTOCOLS_FOLDER = 'Removed'
 
 const CHOOSE_FOLDER_SCRIPT =
     'tell application (path to frontmost application as text) to POSIX path of (choose folder with prompt "Choose a folder for recordings")'
@@ -199,7 +207,8 @@ async function saveProtocol({ fileName, protocol }) {
     const directory = absolutePathFor(PROTOCOLS_DIRECTORY)
     await mkdir(directory, { recursive: true })
 
-    const savedAs = fileName ?? unusedFileNameFor(protocol.name, directory)
+    const savedAs =
+        fileName ?? unusedFileNameFor(fileStemFor(protocol.name), directory)
 
     await writeFile(
         path.join(directory, savedAs),
@@ -218,9 +227,41 @@ function isProtocolFileName(fileName) {
     )
 }
 
-function unusedFileNameFor(name, directory) {
-    const stem = fileStemFor(name)
+async function removeProtocol({ fileName, shouldDeleteFile }) {
+    if (!isProtocolFileName(fileName)) {
+        throw new Error(`Cannot remove a protocol saved as ${fileName}.`)
+    }
 
+    const directory = absolutePathFor(PROTOCOLS_DIRECTORY)
+    const filePath = path.join(directory, fileName)
+
+    if (!existsSync(filePath)) {
+        console.log(`Protocol ${fileName} was already gone`)
+        return {}
+    }
+
+    if (shouldDeleteFile) {
+        await unlink(filePath)
+        console.log(`Deleted protocol ${fileName}`)
+        return {}
+    }
+
+    const removedDirectory = path.join(directory, REMOVED_PROTOCOLS_FOLDER)
+    await mkdir(removedDirectory, { recursive: true })
+
+    const movedAs = unusedFileNameFor(
+        path.basename(fileName, '.json'),
+        removedDirectory
+    )
+    await rename(filePath, path.join(removedDirectory, movedAs))
+    console.log(
+        `Moved protocol ${fileName} to ${REMOVED_PROTOCOLS_FOLDER}/${movedAs}`
+    )
+
+    return {}
+}
+
+function unusedFileNameFor(stem, directory) {
     for (let number = 1; ; number++) {
         const fileName =
             number === 1 ? `${stem}.json` : `${stem}-${number}.json`
@@ -392,6 +433,10 @@ async function handle(message) {
 
     if (command === 'saveProtocol') {
         return await saveProtocol(request)
+    }
+
+    if (command === 'removeProtocol') {
+        return await removeProtocol(request)
     }
 
     if (command === 'revealRecording') {

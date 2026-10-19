@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 
 import FakeStreamMonitor from '../../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
@@ -262,6 +262,209 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async removesProtocolThatWasNeverSavedRightAway() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickRemoveOf('Untitled protocol')
+
+        assert.isEqualDeep(
+            this.listedNames,
+            [],
+            'Did not remove a protocol that was never saved right away!'
+        )
+    }
+
+    @test()
+    protected static async asksBeforeRemovingSavedProtocol() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+
+        this.clickRemoveOf('Beeps')
+
+        assert.isTruthy(
+            screen.queryByText('Remove Beeps?'),
+            'Did not ask before removing a saved protocol!'
+        )
+    }
+
+    @test()
+    protected static async offersToDeleteTheFileUncheckedByDefault() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+
+        this.clickRemoveOf('Beeps')
+
+        assert.isFalse(
+            this.deleteFileCheckbox.checked,
+            'Did not offer to delete the file, unchecked by default!'
+        )
+    }
+
+    @test()
+    protected static async movesFileAsideByDefault() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+
+        this.clickConfirmRemove()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            {
+                command: 'removeProtocol',
+                fileName: 'beeps.json',
+                shouldDeleteFile: false,
+            },
+            'Did not move the file aside by default!'
+        )
+    }
+
+    @test()
+    protected static async deletesFileWhenAskedTo() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+        fireEvent.click(this.deleteFileCheckbox)
+
+        this.clickConfirmRemove()
+        this.openOrchestratorSocket()
+
+        assert.isTrue(
+            this.lastSentMessage.shouldDeleteFile,
+            'Did not delete the file when asked to!'
+        )
+    }
+
+    @test()
+    protected static async keepsProtocolListedUntilOrchestratorReplies() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+
+        this.clickConfirmRemove()
+
+        assert.isEqualDeep(
+            this.listedNames,
+            ['Beeps'],
+            'Did not keep the protocol listed until the orchestrator replied!'
+        )
+    }
+
+    @test()
+    protected static async removesProtocolOnceOrchestratorReplies() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt-series.json', 'Tilt series'),
+        ])
+
+        this.remove('Beeps')
+
+        assert.isEqualDeep(
+            this.listedNames,
+            ['Tilt series'],
+            'Did not remove the protocol once the orchestrator replied!'
+        )
+    }
+
+    @test()
+    protected static async keepsProtocolAndShowsErrorFromRemoving() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+        this.clickConfirmRemove()
+
+        this.answer({ error: 'Permission denied' })
+
+        assert.isEqualDeep(
+            { listed: this.listedNames, error: this.alertText },
+            { listed: ['Beeps'], error: 'Permission denied' },
+            'Did not keep the protocol and show the error from removing!'
+        )
+    }
+
+    @test()
+    protected static async saysOrchestratorIsUnreachableWhenRemoving() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+        this.clickConfirmRemove()
+
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            this.alertText,
+            'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            'Did not say the orchestrator is unreachable when removing!'
+        )
+    }
+
+    @test()
+    protected static async keepsProtocolWhenRemovingIsCancelled() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickRemoveOf('Beeps')
+
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        assert.isEqualDeep(
+            {
+                listed: this.listedNames,
+                isAsking: screen.queryByText('Remove Beeps?') !== null,
+            },
+            { listed: ['Beeps'], isAsking: false },
+            'Did not keep the protocol when removing was cancelled!'
+        )
+    }
+
+    @test()
+    protected static async stopsEditingProtocolOnceRemoved() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+
+        this.remove('Beeps')
+
+        assert.isNull(
+            screen.queryByLabelText('Name'),
+            'Kept editing the protocol once it was removed!'
+        )
+    }
+
+    @test()
+    protected static async keepsEditingProtocolListedAfterRemovedOne() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt-series.json', 'Tilt series'),
+        ])
+        this.chooseListed('Tilt series')
+
+        this.remove('Beeps')
+
+        assert.isEqual(
+            this.nameInput.value,
+            'Tilt series',
+            'Did not keep editing the protocol listed after the removed one!'
+        )
+    }
+
+    private static clickRemoveOf(name: string) {
+        fireEvent.click(screen.getByRole('button', { name: `Remove ${name}` }))
+    }
+
+    private static clickConfirmRemove() {
+        fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    }
+
+    private static remove(name: string) {
+        this.clickRemoveOf(name)
+        this.clickConfirmRemove()
+        this.answer({})
+    }
+
+    private static chooseListed(name: string) {
+        fireEvent.click(screen.getByRole('button', { name }))
+    }
+
+    private static get deleteFileCheckbox() {
+        return screen.getByRole('checkbox', {
+            name: /^Delete /,
+        }) as HTMLInputElement
+    }
+
     private static answerListing(files: ProtocolFileReply[] = []) {
         this.answer({ protocols: files })
     }
@@ -323,7 +526,9 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     private static get listedNames() {
-        return screen.getAllByRole('listitem').map((item) => item.textContent)
+        return screen
+            .queryAllByRole('listitem')
+            .map((item) => within(item).getAllByRole('button')[0].textContent)
     }
 
     private static get selectedName() {

@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 
 import FakeStreamMonitor, {
     lastStreamMonitorProps,
@@ -268,7 +268,9 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     private static get listedProtocolNames() {
-        return screen.getAllByRole('listitem').map((item) => item.textContent)
+        return screen
+            .queryAllByRole('listitem')
+            .map((item) => within(item).getAllByRole('button')[0].textContent)
     }
 
     private static chooseTab(name: string) {

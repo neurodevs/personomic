@@ -17,7 +17,9 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
 
     const [selectedIndex, setSelectedIndex] = useState<number>()
     const [savedTo, setSavedTo] = useState<string>()
-    const [saveError, setSaveError] = useState<string>()
+    const [actionError, setActionError] = useState<string>()
+    const [confirmingRemoveAt, setConfirmingRemoveAt] = useState<number>()
+    const [shouldDeleteFile, setShouldDeleteFile] = useState(false)
 
     if (files === undefined) {
         return <p className="protocols__empty">Loading protocols…</p>
@@ -26,12 +28,12 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
     const selected =
         selectedIndex === undefined ? undefined : files[selectedIndex]
 
-    const error = saveError ?? listingError
+    const error = actionError ?? listingError
 
     const select = (index: number) => {
         setSelectedIndex(index)
         setSavedTo(undefined)
-        setSaveError(undefined)
+        setActionError(undefined)
     }
 
     const addProtocol = () => {
@@ -58,7 +60,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
         const { fileName, protocol } = selected!
 
         setSavedTo(undefined)
-        setSaveError(undefined)
+        setActionError(undefined)
 
         sendToOrchestrator<{ fileName?: string }>(
             {
@@ -68,7 +70,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
             },
             {
                 onReply: ({ error, fileName }) => {
-                    setSaveError(error)
+                    setActionError(error)
 
                     if (fileName) {
                         changeFileAt(index, { fileName })
@@ -76,7 +78,50 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                     }
                 },
                 onUnreachable: () =>
-                    setSaveError(orchestratorUnreachableMessage),
+                    setActionError(orchestratorUnreachableMessage),
+            }
+        )
+    }
+
+    const removeAt = (index: number) => {
+        onFilesChange((previous) =>
+            previous.filter((_, other) => other !== index)
+        )
+        setSelectedIndex((previous) =>
+            selectedIndexAfterRemoving(index, previous)
+        )
+        setConfirmingRemoveAt(undefined)
+    }
+
+    const askToRemove = (index: number) => {
+        if (files[index].fileName === undefined) {
+            removeAt(index)
+            return
+        }
+
+        setConfirmingRemoveAt(index)
+        setShouldDeleteFile(false)
+        setActionError(undefined)
+    }
+
+    const confirmRemove = () => {
+        const index = confirmingRemoveAt!
+        const { fileName } = files[index]
+
+        setActionError(undefined)
+
+        sendToOrchestrator(
+            { command: 'removeProtocol', fileName, shouldDeleteFile },
+            {
+                onReply: ({ error }) => {
+                    if (error) {
+                        setActionError(error)
+                    } else {
+                        removeAt(index)
+                    }
+                },
+                onUnreachable: () =>
+                    setActionError(orchestratorUnreachableMessage),
             }
         )
     }
@@ -86,8 +131,8 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
             <nav className="protocols__list" aria-label="Protocols">
                 {files.length > 0 && (
                     <ul className="protocols__items">
-                        {files.map(({ protocol }, index) => (
-                            <li key={index}>
+                        {files.map(({ fileName, protocol }, index) => (
+                            <li key={index} className="protocols__row">
                                 <button
                                     type="button"
                                     className="protocols__item"
@@ -96,6 +141,51 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 >
                                     {displayNameOf(protocol)}
                                 </button>
+                                {confirmingRemoveAt === index ? (
+                                    <div className="protocols__confirm-remove">
+                                        <p>Remove {displayNameOf(protocol)}?</p>
+                                        <label className="protocols__delete-file">
+                                            <input
+                                                type="checkbox"
+                                                checked={shouldDeleteFile}
+                                                onChange={(event) =>
+                                                    setShouldDeleteFile(
+                                                        event.target.checked
+                                                    )
+                                                }
+                                            />
+                                            Delete {fileName}
+                                        </label>
+                                        <div className="protocols__confirm-actions">
+                                            <button
+                                                type="button"
+                                                onClick={confirmRemove}
+                                            >
+                                                Remove
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setConfirmingRemoveAt(
+                                                        undefined
+                                                    )
+                                                }
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="protocols__remove"
+                                        aria-label={`Remove ${displayNameOf(protocol)}`}
+                                        title="Remove"
+                                        onClick={() => askToRemove(index)}
+                                    >
+                                        ×
+                                    </button>
+                                )}
                             </li>
                         ))}
                     </ul>
@@ -170,6 +260,14 @@ export interface Protocol {
 const schemaVersion = 1
 
 const untitledName = 'Untitled protocol'
+
+function selectedIndexAfterRemoving(removed: number, selected?: number) {
+    if (selected === undefined || selected === removed) {
+        return undefined
+    }
+
+    return selected > removed ? selected - 1 : selected
+}
 
 function displayNameOf(protocol: Protocol) {
     return protocol.name.trim() || untitledName
