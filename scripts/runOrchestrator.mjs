@@ -2,6 +2,7 @@
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -40,6 +41,9 @@ const BLE_NAME_PREFIX_BY_DEVICE = {
 const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
 
 const BLE_SCAN_MS = 5000
+
+const PROTOCOLS_DIRECTORY = '~/Documents/Personomic/Protocols'
+const UNTITLED_PROTOCOL_FILE_STEM = 'untitled-protocol'
 
 const CHOOSE_FOLDER_SCRIPT =
     'tell application (path to frontmost application as text) to POSIX path of (choose folder with prompt "Choose a folder for recordings")'
@@ -141,6 +145,100 @@ async function revealRecording() {
         : [path.dirname(xdfRecordPath)]
 
     await promisify(execFile)('open', args)
+}
+
+async function listProtocols() {
+    const directory = absolutePathFor(PROTOCOLS_DIRECTORY)
+    const protocols = []
+
+    for (const fileName of await jsonFileNamesIn(directory)) {
+        try {
+            const protocol = JSON.parse(
+                await readFile(path.join(directory, fileName), 'utf8')
+            )
+
+            if (!isPlainObject(protocol)) {
+                throw new Error('It does not hold a protocol.')
+            }
+
+            protocols.push({ fileName, protocol })
+        } catch (err) {
+            console.error(`Skipping protocol ${fileName}: ${err.message}`)
+        }
+    }
+
+    return { protocols }
+}
+
+async function jsonFileNamesIn(directory) {
+    try {
+        const fileNames = await readdir(directory)
+        return fileNames.filter((name) => name.endsWith('.json')).sort()
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return []
+        }
+
+        throw err
+    }
+}
+
+function isPlainObject(value) {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+async function saveProtocol({ fileName, protocol }) {
+    if (!isPlainObject(protocol)) {
+        throw new Error('There is no protocol to save.')
+    }
+
+    if (fileName !== undefined && !isProtocolFileName(fileName)) {
+        throw new Error(`Cannot save a protocol as ${fileName}.`)
+    }
+
+    const directory = absolutePathFor(PROTOCOLS_DIRECTORY)
+    await mkdir(directory, { recursive: true })
+
+    const savedAs = fileName ?? unusedFileNameFor(protocol.name, directory)
+
+    await writeFile(
+        path.join(directory, savedAs),
+        `${JSON.stringify(protocol, null, 4)}\n`
+    )
+    console.log(`Saved protocol ${savedAs}`)
+
+    return { fileName: savedAs }
+}
+
+function isProtocolFileName(fileName) {
+    return (
+        typeof fileName === 'string' &&
+        fileName.endsWith('.json') &&
+        path.basename(fileName) === fileName
+    )
+}
+
+function unusedFileNameFor(name, directory) {
+    const stem = fileStemFor(name)
+
+    for (let number = 1; ; number++) {
+        const fileName =
+            number === 1 ? `${stem}.json` : `${stem}-${number}.json`
+
+        if (!existsSync(path.join(directory, fileName))) {
+            return fileName
+        }
+    }
+}
+
+function fileStemFor(name) {
+    const stem = String(name ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+
+    return stem || UNTITLED_PROTOCOL_FILE_STEM
 }
 
 async function scan({ deviceNames = [] }) {
@@ -286,6 +384,14 @@ async function handle(message) {
 
     if (command === 'scan') {
         return await scan(request)
+    }
+
+    if (command === 'listProtocols') {
+        return await listProtocols()
+    }
+
+    if (command === 'saveProtocol') {
+        return await saveProtocol(request)
     }
 
     if (command === 'revealRecording') {

@@ -4,6 +4,9 @@ import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 
 import familyOf from '../../functions/familyOf'
 import readXdfRecording, { Recording } from '../../functions/readXdfRecording'
+import sendToOrchestrator, {
+    orchestratorUnreachableMessage,
+} from '../../functions/sendToOrchestrator'
 import AddBiosensorButton from '../components/AddBiosensorButton'
 import PlaybackControls from '../components/PlaybackControls'
 import PlayRecordingButton from '../components/PlayRecordingButton'
@@ -19,11 +22,8 @@ import StreamMonitor, {
     PlaybackProgress,
     PlaybackSeek,
     StreamOptions,
-    WebSocketComponent,
 } from '../components/StreamMonitor'
 import { Downsampling } from '../components/StreamPlot'
-
-const orchestratorPort = 8763
 
 const anyMuseName = 'Muse (auto-detect, slower)'
 
@@ -44,9 +44,6 @@ const identifierLabels: Record<string, string> = {
     'Muse 1 Gen 2': 'UUID',
     'OpenBCI Cyton': 'Serial number',
 }
-
-const orchestratorUnreachableMessage =
-    'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.'
 
 const recordDirectoryStorageKey = 'personomic.recordDirectory'
 const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
@@ -229,7 +226,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setIsBrowsing(true)
         setSessionError(undefined)
 
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             { command: 'chooseDirectory' },
             {
                 onReply: ({ error, directory }) => {
@@ -251,7 +248,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const revealRecording = () => {
         setSessionError(undefined)
 
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             { command: 'revealRecording' },
             {
                 onReply: ({ error }) => setSessionError(error),
@@ -271,7 +268,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     }
 
     useEffect(() => {
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             { command: 'status' },
             {
                 onReply: ({ devices, xdfRecordPath }) => {
@@ -302,7 +299,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setSessionError(undefined)
         setRecordStartedAt(startedAt)
 
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             {
                 command: 'start',
                 devices: deviceRequests.map(requestedFrom),
@@ -336,7 +333,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setSession('stopping')
         setSessionError(undefined)
 
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             { command: 'stop' },
             {
                 onReply: ({ error }) => {
@@ -660,37 +657,7 @@ function withoutIdentifier(
         : ofOtherDevices
 }
 
-function sendToOrchestrator(
-    message: object,
-    handlers: OrchestratorReplyHandlers
-) {
-    const { onReply, onUnreachable } = handlers
-
-    const socket = new WebSocketComponent(`ws://localhost:${orchestratorPort}`)
-    let hasReplied = false
-
-    socket.onopen = () => socket.send(JSON.stringify(message))
-
-    socket.onmessage = (event) => {
-        hasReplied = true
-        onReply(JSON.parse(event.data))
-        socket.close()
-    }
-
-    socket.onclose = () => {
-        if (!hasReplied) {
-            onUnreachable()
-        }
-    }
-}
-
-interface OrchestratorReplyHandlers {
-    onReply: (reply: OrchestratorReply) => void
-    onUnreachable: () => void
-}
-
 type OrchestratorReply = Partial<RunningSession> & {
-    error?: string
     directory?: string
     scanned?: ScannedIdentifiers
 }
@@ -725,7 +692,7 @@ export function scanThroughOrchestrator(
     }
 
     const scan = () =>
-        sendToOrchestrator(
+        sendToOrchestrator<OrchestratorReply>(
             { command: 'scan', deviceNames },
             {
                 onReply: ({ scanned = {} }) => {

@@ -1,7 +1,10 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 
+import sendToOrchestrator, {
+    orchestratorUnreachableMessage,
+} from '../functions/sendToOrchestrator'
 import { Downsampling } from './components/StreamPlot'
-import ProtocolsView from './views/ProtocolsView'
+import ProtocolsView, { ProtocolFile } from './views/ProtocolsView'
 import SessionView from './views/SessionView'
 
 const viewLabels: Record<View, string> = {
@@ -19,6 +22,39 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const { downsampling } = props
 
     const [view, setView] = useState<View>('session')
+    const [protocolFiles, setProtocolFiles] = useState<ProtocolFile[]>()
+    const [listingError, setListingError] = useState<string>()
+    const hasAskedForProtocols = useRef(false)
+
+    const listProtocols = () => {
+        hasAskedForProtocols.current = true
+
+        sendToOrchestrator<{ protocols?: ListedProtocolFile[] }>(
+            { command: 'listProtocols' },
+            {
+                onReply: ({ error, protocols = [] }) => {
+                    setListingError(error)
+                    setProtocolFiles(protocols.map(protocolFileFrom))
+                },
+                onUnreachable: () => {
+                    setListingError(orchestratorUnreachableMessage)
+                    setProtocolFiles([])
+                },
+            }
+        )
+    }
+
+    const chooseView = (id: View) => {
+        setView(id)
+
+        if (id === 'protocols' && !hasAskedForProtocols.current) {
+            listProtocols()
+        }
+    }
+
+    const changeProtocolFiles = (
+        change: (files: ProtocolFile[]) => ProtocolFile[]
+    ) => setProtocolFiles((previous) => change(previous ?? []))
 
     return (
         <main className="app">
@@ -34,7 +70,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                             className="app__tab"
                             aria-selected={view === id}
                             aria-controls={panelIdOf(id)}
-                            onClick={() => setView(id)}
+                            onClick={() => chooseView(id)}
                         >
                             {viewLabels[id]}
                         </button>
@@ -55,7 +91,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     id={panelIdOf('protocols')}
                     aria-labelledby={tabIdOf('protocols')}
                 >
-                    <ProtocolsView />
+                    <ProtocolsView
+                        files={protocolFiles}
+                        listingError={listingError}
+                        onFilesChange={changeProtocolFiles}
+                    />
                 </div>
             )}
         </main>
@@ -65,6 +105,18 @@ const App: React.FC<AppProps> = (props: AppProps) => {
 export default App
 
 type View = 'session' | 'protocols'
+
+interface ListedProtocolFile {
+    fileName: string
+    protocol: { name?: unknown }
+}
+
+function protocolFileFrom(listed: ListedProtocolFile): ProtocolFile {
+    const { fileName, protocol } = listed
+    const name = typeof protocol.name === 'string' ? protocol.name : ''
+
+    return { fileName, protocol: { name } }
+}
 
 function tabIdOf(view: View) {
     return `app-tab-${view}`
