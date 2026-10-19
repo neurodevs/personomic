@@ -141,6 +141,21 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 >
                                     {displayNameOf(protocol)}
                                 </button>
+                                <button
+                                    type="button"
+                                    className="protocols__download"
+                                    aria-label={`Download ${displayNameOf(protocol)}`}
+                                    title="Download"
+                                    onClick={() =>
+                                        downloadFile(
+                                            fileName ??
+                                                fileNameFrom(protocol.name),
+                                            fileTextOf(protocol)
+                                        )
+                                    }
+                                >
+                                    ↓
+                                </button>
                                 {confirmingRemoveAt === index ? (
                                     <div className="protocols__confirm-remove">
                                         <p>Remove {displayNameOf(protocol)}?</p>
@@ -260,6 +275,7 @@ export interface Protocol {
 const schemaVersion = 1
 
 const untitledName = 'Untitled protocol'
+const untitledFileStem = 'untitled-protocol'
 
 function selectedIndexAfterRemoving(removed: number, selected?: number) {
     if (selected === undefined || selected === removed) {
@@ -269,6 +285,43 @@ function selectedIndexAfterRemoving(removed: number, selected?: number) {
     return selected > removed ? selected - 1 : selected
 }
 
+function fileNameFrom(name: string) {
+    const stem = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+
+    return `${stem || untitledFileStem}.json`
+}
+
+function fileTextOf(protocol: Protocol) {
+    return `${JSON.stringify({ schemaVersion, ...protocol }, null, 4)}\n`
+}
+
+function downloadThroughBrowser(fileName: string, text: string) {
+    const url = URL.createObjectURL(
+        new Blob([text], { type: 'application/json' })
+    )
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = fileName
+    link.click()
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 function displayNameOf(protocol: Protocol) {
     return protocol.name.trim() || untitledName
 }
+
+// Test doubles
+
+export let downloadFile: FileDownloader = downloadThroughBrowser
+
+export function setDownloadFile(nextDownloadFile: FileDownloader) {
+    downloadFile = nextDownloadFile
+}
+
+type FileDownloader = (fileName: string, text: string) => void

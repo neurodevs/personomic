@@ -5,6 +5,7 @@ import FakeStreamMonitor from '../../../testDoubles/StreamMonitor/FakeStreamMoni
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import App from '../../../ui/App'
 import { setWebSocketComponent } from '../../../ui/components/StreamMonitor'
+import { setDownloadFile } from '../../../ui/views/ProtocolsView'
 import {
     setIdentifierScanner,
     setStreamMonitorComponent,
@@ -12,8 +13,15 @@ import {
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class ProtocolsViewTest extends AbstractPackageTest {
+    private static downloads: { fileName: string; text: string }[]
+
     protected static async beforeEach() {
         await super.beforeEach()
+
+        this.downloads = []
+        setDownloadFile((fileName, text) =>
+            this.downloads.push({ fileName, text })
+        )
 
         setStreamMonitorComponent(FakeStreamMonitor)
         setWebSocketComponent(FakeWebSocket as any)
@@ -263,6 +271,68 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async downloadsSavedProtocolUnderItsFileName() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+
+        this.clickDownloadOf('Beeps')
+
+        assert.isEqualDeep(
+            this.downloads,
+            [
+                {
+                    fileName: 'beeps.json',
+                    text: '{\n    "schemaVersion": 1,\n    "name": "Beeps"\n}\n',
+                },
+            ],
+            'Did not download a saved protocol under its file name!'
+        )
+    }
+
+    @test()
+    protected static async downloadsProtocolAsCurrentlyEdited() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+        this.typeName('Loud beeps')
+
+        this.clickDownloadOf('Loud beeps')
+
+        assert.isEqual(
+            JSON.parse(this.downloads[0].text).name,
+            'Loud beeps',
+            'Did not download the protocol as currently edited!'
+        )
+    }
+
+    @test()
+    protected static async downloadsUnsavedProtocolUnderFileNameFromItsName() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.typeName('Tilt series: Left & Right')
+
+        this.clickDownloadOf('Tilt series: Left & Right')
+
+        assert.isEqual(
+            this.downloads[0].fileName,
+            'tilt-series-left-right.json',
+            'Did not download an unsaved protocol under a file name from its name!'
+        )
+    }
+
+    @test()
+    protected static async downloadsUnsavedUntitledProtocolAsUntitled() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickDownloadOf('Untitled protocol')
+
+        assert.isEqual(
+            this.downloads[0].fileName,
+            'untitled-protocol.json',
+            'Did not download an unsaved untitled protocol as untitled!'
+        )
+    }
+
+    @test()
     protected static async removesProtocolThatWasNeverSavedRightAway() {
         this.answerListing()
         this.clickNewProtocol()
@@ -438,6 +508,12 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             this.nameInput.value,
             'Tilt series',
             'Did not keep editing the protocol listed after the removed one!'
+        )
+    }
+
+    private static clickDownloadOf(name: string) {
+        fireEvent.click(
+            screen.getByRole('button', { name: `Download ${name}` })
         )
     }
 
