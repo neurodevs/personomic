@@ -19,12 +19,14 @@ import StreamMonitor, {
     setStreamPlotComponent,
     setWebSocketComponent,
 } from '../../../ui/components/StreamMonitor'
-import SessionView, {
+import {
     scanThroughOrchestrator,
-    setEverySecond,
     setIdentifierScanner,
-    setNow,
     setScanAgainAfter,
+} from '../../../ui/hooks/useBiosensorChoices'
+import SessionView, {
+    setEverySecond,
+    setNow,
     setStreamMonitorComponent,
 } from '../../../ui/views/SessionView'
 import AbstractPackageTest from '../../AbstractPackageTest'

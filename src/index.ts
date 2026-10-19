@@ -3,6 +3,11 @@
 export { default as App } from './ui/App'
 export * from './ui/App'
 
+// useBiosensorChoices
+
+export { default as useBiosensorChoices } from './ui/hooks/useBiosensorChoices'
+export * from './ui/hooks/useBiosensorChoices'
+
 // SessionView
 
 export { default as SessionView } from './ui/views/SessionView'

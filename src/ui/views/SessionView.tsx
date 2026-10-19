@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react'
 
-import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
-
 import familyOf from '../../functions/familyOf'
 import readXdfRecording, { Recording } from '../../functions/readXdfRecording'
 import sendToOrchestrator, {
@@ -16,37 +14,22 @@ import RecordPathFields, {
     now,
     recordFileSuffixFor,
 } from '../components/RecordPathFields'
-import { ScannedIdentifier } from '../components/IdentifierInput'
 import StreamMonitor, {
-    deviceKeysFor,
     PlaybackProgress,
     PlaybackSeek,
     StreamOptions,
 } from '../components/StreamMonitor'
 import { Downsampling } from '../components/StreamPlot'
-
-const anyMuseName = 'Muse (auto-detect, slower)'
-
-const biosensorNames = [...DEVICE_NAMES, anyMuseName]
-
-const requestedNames: Record<string, string> = {
-    [anyMuseName]: 'Muse',
-}
-
-const identifierLabels: Record<string, string> = {
-    'Cognionics Quick-20r': 'Serial number',
-    'Govee Thermohygrometer H5074': 'UUID',
-    [anyMuseName]: 'UUID',
-    'Muse S Athena': 'UUID',
-    'Muse S Gen 2': 'UUID',
-    'Muse S Gen 1': 'UUID',
-    'Muse 2': 'UUID',
-    'Muse 1 Gen 2': 'UUID',
-    'OpenBCI Cyton': 'Serial number',
-}
+import useBiosensorChoices, {
+    anyMuseName,
+    DeviceRequest,
+    identifierLabels,
+    requestedFrom,
+    SelectedDevice,
+    selectedFrom,
+} from '../hooks/useBiosensorChoices'
 
 const recordDirectoryStorageKey = 'personomic.recordDirectory'
-const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
 
 const streamOptions: Record<string, StreamOptions> = {
     EEG: {
@@ -97,10 +80,6 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [recordStartedAt, setRecordStartedAt] = useState<Date>()
     const [recordingPath, setRecordingPath] = useState<string>()
     const [isBrowsing, setIsBrowsing] = useState(false)
-    const [rememberedIdentifiers, setRememberedIdentifiers] = useState(
-        readRememberedIdentifiers
-    )
-    const [scanned, setScanned] = useState<ScannedIdentifiers>({})
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
@@ -114,108 +93,22 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
     const resetMonitor = () => setNumMonitorResets((previous) => previous + 1)
 
-    const deviceNames = devices.map(({ name }) => name)
-    const deviceKeys = deviceKeysFor(deviceNames)
-
-    const addableNames = biosensorNames.filter(
-        (name) => name in identifierLabels || !deviceNames.includes(name)
-    )
-
-    const addDevice = (name: string) =>
-        setDevices((previous) => [
-            ...previous,
-            { name, identifier: '', nickname: '' },
-        ])
-
-    const removeDevice = (key: string) =>
-        setDevices((previous) =>
-            previous.filter((_, index) => index !== deviceKeys.indexOf(key))
-        )
-
-    const setIdentifierValue = (key: string, value: string) =>
-        setDevices((previous) =>
-            previous.map((device, index) =>
-                index === deviceKeys.indexOf(key)
-                    ? { ...device, identifier: value }
-                    : device
-            )
-        )
-
-    const setNickname = (key: string, nickname: string) =>
-        setDevices((previous) =>
-            previous.map((device, index) =>
-                index === deviceKeys.indexOf(key)
-                    ? { ...device, nickname }
-                    : device
-            )
-        )
-
-    const nicknames = Object.fromEntries(
-        devices.map(({ nickname }, index) => [deviceKeys[index], nickname])
-    )
-
-    const identifiers = Object.fromEntries(
-        devices
-            .map(({ name, identifier }, index) => [
-                deviceKeys[index],
-                { label: identifierLabels[name], value: identifier },
-            ])
-            .filter((_, index) => deviceNames[index] in identifierLabels)
-    )
-
-    const namesMissingIdentifier = [
-        ...new Set(
-            devices
-                .filter(
-                    ({ name, identifier }) =>
-                        name in identifierLabels && identifier.trim() === ''
-                )
-                .map(({ name }) => name)
-        ),
-    ]
-    const namesToScan = [
-        ...new Set(namesMissingIdentifier.map(requestedNameOf)),
-    ]
-    const namesToScanKey = namesToScan.join('\n')
-    const scanningDeviceNames = isLocked ? [] : namesMissingIdentifier
-
-    useEffect(() => {
-        if (isLocked || namesToScan.length === 0) {
-            return undefined
-        }
-
-        return startScanningForIdentifiers(namesToScan, setScanned)
-    }, [isLocked, namesToScanKey])
-
-    const scannedIdentifiers = Object.fromEntries(
-        scanningDeviceNames
-            .map((name) => [name, scanned[requestedNameOf(name)]] as const)
-            .filter(([, ofName]) => ofName !== undefined)
-    )
-
-    const deviceRequests = devices.map(({ name, nickname }, index) => ({
-        deviceName: name,
-        identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
-        nickname: nickname.trim() || undefined,
-    }))
-
-    const saveRememberedIdentifiers = (remembered: RememberedIdentifiers) => {
-        setRememberedIdentifiers(remembered)
-        localStorage.setItem(
-            rememberedIdentifiersStorageKey,
-            JSON.stringify(remembered)
-        )
-    }
-
-    const rememberIdentifiersOf = (requests: DeviceRequest[]) =>
-        saveRememberedIdentifiers(
-            withIdentifiersOf(requests, rememberedIdentifiers)
-        )
-
-    const forgetIdentifier = (name: string, identifier: string) =>
-        saveRememberedIdentifiers(
-            withoutIdentifier(name, identifier, rememberedIdentifiers)
-        )
+    const {
+        deviceNames,
+        addableNames,
+        addDevice,
+        removeDevice,
+        setIdentifierValue,
+        setNickname,
+        nicknames,
+        identifiers,
+        scanningDeviceNames,
+        scannedIdentifiers,
+        deviceRequests,
+        rememberedIdentifiers,
+        rememberIdentifiersOf,
+        forgetIdentifier,
+    } = useBiosensorChoices({ devices, changeDevices: setDevices, isLocked })
 
     const rememberRecordDirectory = (directory: string) => {
         setRecordDirectory(directory)
@@ -579,23 +472,6 @@ function withoutIllegalFileNameCharacters(name: string) {
     return name.trim().replace(/[\\/:*?"<>|]/g, '-')
 }
 
-function requestedFrom(request: DeviceRequest): DeviceRequest {
-    const { deviceName } = request
-    return { ...request, deviceName: requestedNameOf(deviceName) }
-}
-
-function requestedNameOf(name: string) {
-    return requestedNames[name] ?? name
-}
-
-function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
-    return requests.map(({ deviceName, identifier = '', nickname = '' }) => ({
-        name: deviceName,
-        identifier,
-        nickname,
-    }))
-}
-
 function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {
     const seen = new Set<string>()
 
@@ -616,50 +492,8 @@ function nameOfDevicesWithoutOwnIdentifier(requests: DeviceRequest[]) {
     return undefined
 }
 
-function readRememberedIdentifiers(): RememberedIdentifiers {
-    try {
-        return JSON.parse(
-            localStorage.getItem(rememberedIdentifiersStorageKey) ?? '{}'
-        )
-    } catch {
-        return {}
-    }
-}
-
-function withIdentifiersOf(
-    requests: DeviceRequest[],
-    remembered: RememberedIdentifiers
-) {
-    const next = { ...remembered }
-
-    for (const { deviceName, identifier } of requests) {
-        if (identifier) {
-            const others = (next[deviceName] ?? []).filter(
-                (other) => other !== identifier
-            )
-            next[deviceName] = [identifier, ...others]
-        }
-    }
-
-    return next
-}
-
-function withoutIdentifier(
-    name: string,
-    identifier: string,
-    remembered: RememberedIdentifiers
-) {
-    const { [name]: ofDevice = [], ...ofOtherDevices } = remembered
-    const kept = ofDevice.filter((other) => other !== identifier)
-
-    return kept.length > 0
-        ? { ...ofOtherDevices, [name]: kept }
-        : ofOtherDevices
-}
-
 type OrchestratorReply = Partial<RunningSession> & {
     directory?: string
-    scanned?: ScannedIdentifiers
 }
 
 interface RunningSession {
@@ -667,86 +501,7 @@ interface RunningSession {
     xdfRecordPath?: string
 }
 
-type RememberedIdentifiers = Record<string, string[]>
-
-type ScannedIdentifiers = Record<string, ScannedIdentifier[]>
-
-type IdentifierScanner = (
-    deviceNames: string[],
-    onScanned: (scanned: ScannedIdentifiers) => void
-) => () => void
-
-const scanIntervalMs = 3000
-
-export function scanThroughOrchestrator(
-    deviceNames: string[],
-    onScanned: (scanned: ScannedIdentifiers) => void
-) {
-    let isStopped = false
-    let cancelWait = () => {}
-
-    const scanAgainSoon = () => {
-        if (!isStopped) {
-            cancelWait = scanAgainAfter(scan, scanIntervalMs)
-        }
-    }
-
-    const scan = () =>
-        sendToOrchestrator<OrchestratorReply>(
-            { command: 'scan', deviceNames },
-            {
-                onReply: ({ scanned = {} }) => {
-                    if (!isStopped) {
-                        onScanned(scanned)
-                    }
-                    scanAgainSoon()
-                },
-                onUnreachable: () => {
-                    if (!isStopped) {
-                        onScanned({})
-                    }
-                    scanAgainSoon()
-                },
-            }
-        )
-
-    scan()
-
-    return () => {
-        isStopped = true
-        cancelWait()
-    }
-}
-
-interface SelectedDevice {
-    name: string
-    identifier: string
-    nickname: string
-}
-
-interface DeviceRequest {
-    deviceName: string
-    identifier?: string
-    nickname?: string
-}
-
 // Test doubles
-
-export let startScanningForIdentifiers: IdentifierScanner =
-    scanThroughOrchestrator
-
-export function setIdentifierScanner(scanner: IdentifierScanner) {
-    startScanningForIdentifiers = scanner
-}
-
-export let scanAgainAfter = (callback: () => void, ms: number) => {
-    const id = setTimeout(callback, ms)
-    return () => clearTimeout(id)
-}
-
-export function setScanAgainAfter(nextScanAgainAfter: typeof scanAgainAfter) {
-    scanAgainAfter = nextScanAgainAfter
-}
 
 export let StreamMonitorComponent = StreamMonitor
 

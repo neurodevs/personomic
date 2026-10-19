@@ -805,7 +805,7 @@ function occurrenceOf(shown: ShownDevice) {
 
 const repeatSeparator = ' #'
 
-function deviceLabelFor(index: number, deviceNames: string[]) {
+export function deviceLabelFor(index: number, deviceNames: string[]) {
     const name = deviceNames[index]
     const isRepeated =
         deviceNames.indexOf(name) !== deviceNames.lastIndexOf(name)

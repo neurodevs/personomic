@@ -4,6 +4,7 @@ import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../functions/sendToOrchestrator'
 import { Downsampling } from './components/StreamPlot'
+import { SelectedDevice, selectedNameOf } from './hooks/useBiosensorChoices'
 import ProtocolsView, { ProtocolFile } from './views/ProtocolsView'
 import SessionView from './views/SessionView'
 
@@ -108,14 +109,32 @@ type View = 'session' | 'protocols'
 
 interface ListedProtocolFile {
     fileName: string
-    protocol: { name?: unknown }
+    protocol: { name?: unknown; devices?: unknown }
 }
 
 function protocolFileFrom(listed: ListedProtocolFile): ProtocolFile {
     const { fileName, protocol } = listed
     const name = typeof protocol.name === 'string' ? protocol.name : ''
 
-    return { fileName, protocol: { name } }
+    return { fileName, protocol: { name, devices: devicesFrom(protocol) } }
+}
+
+function devicesFrom(protocol: { devices?: unknown }): SelectedDevice[] {
+    if (!Array.isArray(protocol.devices)) {
+        return []
+    }
+
+    return protocol.devices
+        .filter((device) => typeof device?.deviceName === 'string')
+        .map(({ deviceName, identifier, nickname }) => ({
+            name: selectedNameOf(deviceName),
+            identifier: textOr(identifier),
+            nickname: textOr(nickname),
+        }))
+}
+
+function textOr(value: unknown) {
+    return typeof value === 'string' ? value : ''
 }
 
 function tabIdOf(view: View) {

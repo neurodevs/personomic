@@ -8,10 +8,8 @@ import FakeStreamMonitor, {
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
 import App from '../../ui/App'
 import { setWebSocketComponent } from '../../ui/components/StreamMonitor'
-import {
-    setIdentifierScanner,
-    setStreamMonitorComponent,
-} from '../../ui/views/SessionView'
+import { setIdentifierScanner } from '../../ui/hooks/useBiosensorChoices'
+import { setStreamMonitorComponent } from '../../ui/views/SessionView'
 import AbstractPackageTest from '../AbstractPackageTest'
 
 export default class AppTest extends AbstractPackageTest {
@@ -53,8 +51,8 @@ export default class AppTest extends AbstractPackageTest {
 
         this.chooseTab('Protocols')
 
-        assert.isTruthy(
-            screen.queryByRole('tabpanel', { name: 'Protocols' }),
+        assert.isTrue(
+            screen.queryByRole('tabpanel', { name: 'Protocols' }) !== null,
             'Did not show the Protocols view when its tab was chosen!'
         )
     }
@@ -78,8 +76,8 @@ export default class AppTest extends AbstractPackageTest {
 
         this.chooseTab('Protocols')
 
-        assert.isNull(
-            screen.queryByRole('tabpanel', { name: 'Session' }),
+        assert.isFalse(
+            screen.queryByRole('tabpanel', { name: 'Session' }) !== null,
             'Did not hide the Session view while on Protocols!'
         )
     }
@@ -91,8 +89,8 @@ export default class AppTest extends AbstractPackageTest {
         this.chooseTab('Protocols')
         this.chooseTab('Session')
 
-        assert.isTruthy(
-            screen.queryByRole('tabpanel', { name: 'Session' }),
+        assert.isTrue(
+            screen.queryByRole('tabpanel', { name: 'Session' }) !== null,
             'Did not show the Session view again when its tab was chosen!'
         )
     }
@@ -147,8 +145,8 @@ export default class AppTest extends AbstractPackageTest {
 
         this.chooseTab('Protocols')
 
-        assert.isTruthy(
-            screen.queryByText('Loading protocols…'),
+        assert.isTrue(
+            screen.queryByText('Loading protocols…') !== null,
             'Did not say protocols are loading!'
         )
     }
@@ -236,9 +234,139 @@ export default class AppTest extends AbstractPackageTest {
         this.chooseTab('Protocols')
         act(() => this.orchestratorSocket.dropConnection())
 
-        assert.isTruthy(
-            screen.queryByText('No protocols yet.'),
+        assert.isTrue(
+            screen.queryByText('No protocols yet.') !== null,
             'Kept loading when the orchestrator was unreachable!'
+        )
+    }
+
+    @test()
+    protected static async readsBiosensorsOfListedProtocol() {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'i-insula.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'I-INSULA',
+                    devices: [
+                        { deviceName: 'Cognionics Quick-20r' },
+                        { deviceName: 'OpenBCI Cyton' },
+                    ],
+                },
+            },
+        ])
+
+        this.chooseListedProtocol('I-INSULA')
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['Cognionics Quick-20r', 'OpenBCI Cyton'],
+            'Did not read the biosensors of a listed protocol!'
+        )
+    }
+
+    @test()
+    protected static async readsListedProtocolWithoutBiosensorsAsHavingNone() {
+        render(<App />)
+        this.visitProtocolsListing([this.protocolFile('beeps.json', 'Beeps')])
+
+        this.chooseListedProtocol('Beeps')
+
+        assert.isTrue(
+            screen.queryByText('No biosensors yet.') !== null,
+            'Did not read a listed protocol without biosensors as having none!'
+        )
+    }
+
+    @test()
+    protected static async skipsListedBiosensorsWithoutTextName() {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'odd.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Odd',
+                    devices: [
+                        { deviceName: 'OpenBCI Cyton' },
+                        { deviceName: 5 },
+                        'Muse 2',
+                        null,
+                    ],
+                },
+            },
+        ])
+
+        this.chooseListedProtocol('Odd')
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['OpenBCI Cyton'],
+            'Did not skip listed biosensors without a text name!'
+        )
+    }
+
+    @test()
+    protected static async readsNicknameAndIdentifierOfListedBiosensor() {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'i-insula.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'I-INSULA',
+                    devices: [
+                        {
+                            deviceName: 'OpenBCI Cyton',
+                            identifier: 'DQ0081',
+                            nickname: 'EMG',
+                        },
+                    ],
+                },
+            },
+        ])
+
+        this.chooseListedProtocol('I-INSULA')
+
+        assert.isEqualDeep(
+            {
+                nickname: (
+                    screen.getByLabelText(
+                        'OpenBCI Cyton nickname'
+                    ) as HTMLInputElement
+                ).value,
+                identifier: (
+                    screen.getByLabelText(
+                        'OpenBCI Cyton Serial number (optional)'
+                    ) as HTMLInputElement
+                ).value,
+            },
+            { nickname: 'EMG', identifier: 'DQ0081' },
+            'Did not read the nickname and identifier of a listed biosensor!'
+        )
+    }
+
+    @test()
+    protected static async readsListedMuseAsAutoDetectedMuse() {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'muse.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Muse',
+                    devices: [{ deviceName: 'Muse' }],
+                },
+            },
+        ])
+
+        this.chooseListedProtocol('Muse')
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['Muse (auto-detect, slower)'],
+            'Did not read a listed Muse as an auto-detected Muse!'
         )
     }
 
@@ -267,8 +395,22 @@ export default class AppTest extends AbstractPackageTest {
         return { fileName, protocol: { schemaVersion: 1, name } }
     }
 
+    private static chooseListedProtocol(name: string) {
+        fireEvent.click(screen.getByRole('button', { name }))
+    }
+
+    private static get biosensorNames() {
+        return within(screen.getByRole('list', { name: 'Biosensors' }))
+            .getAllByRole('listitem')
+            .map(
+                (item) =>
+                    item.querySelector('.stream-monitor__device-name')!
+                        .textContent
+            )
+    }
+
     private static get listedProtocolNames() {
-        return screen
+        return within(screen.getByRole('navigation', { name: 'Protocols' }))
             .queryAllByRole('listitem')
             .map((item) => within(item).getAllByRole('button')[0].textContent)
     }

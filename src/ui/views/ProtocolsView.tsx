@@ -3,6 +3,14 @@ import React, { useState } from 'react'
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../../functions/sendToOrchestrator'
+import AddBiosensorButton from '../components/AddBiosensorButton'
+import DevicePanel from '../components/DevicePanel'
+import { deviceLabelFor } from '../components/StreamMonitor'
+import useBiosensorChoices, {
+    DeviceRequest,
+    requestedFrom,
+    SelectedDevice,
+} from '../hooks/useBiosensorChoices'
 
 export interface ProtocolsViewProps {
     files?: ProtocolFile[]
@@ -37,7 +45,10 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
     }
 
     const addProtocol = () => {
-        onFilesChange((previous) => [...previous, { protocol: { name: '' } }])
+        onFilesChange((previous) => [
+            ...previous,
+            { protocol: { name: '', devices: [] } },
+        ])
         select(files.length)
     }
 
@@ -48,9 +59,9 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
             )
         )
 
-    const renameSelected = (name: string) => {
+    const changeSelectedProtocol = (change: Partial<Protocol>) => {
         changeFileAt(selectedIndex!, {
-            protocol: { ...selected!.protocol, name },
+            protocol: { ...selected!.protocol, ...change },
         })
         setSavedTo(undefined)
     }
@@ -66,7 +77,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
             {
                 command: 'saveProtocol',
                 fileName,
-                protocol: { schemaVersion, ...protocol },
+                protocol: fileContentsOf(protocol),
             },
             {
                 onReply: ({ error, fileName }) => {
@@ -233,10 +244,19 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 placeholder={untitledName}
                                 autoFocus
                                 onChange={(event) =>
-                                    renameSelected(event.target.value)
+                                    changeSelectedProtocol({
+                                        name: event.target.value,
+                                    })
                                 }
                             />
                         </label>
+                        <ProtocolBiosensors
+                            key={selectedIndex}
+                            devices={selected.protocol.devices}
+                            onDevicesChange={(devices) =>
+                                changeSelectedProtocol({ devices })
+                            }
+                        />
                         <div className="protocols__actions">
                             <button
                                 type="button"
@@ -270,6 +290,92 @@ export interface ProtocolFile {
 
 export interface Protocol {
     name: string
+    devices: SelectedDevice[]
+}
+
+const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
+    devices,
+    onDevicesChange,
+}) => {
+    const {
+        deviceNames,
+        deviceKeys,
+        addableNames,
+        addDevice,
+        removeDevice,
+        setIdentifierValue,
+        setNickname,
+        nicknames,
+        identifiers,
+        scanningDeviceNames,
+        scannedIdentifiers,
+        rememberedIdentifiers,
+        forgetIdentifier,
+    } = useBiosensorChoices({
+        devices,
+        changeDevices: (change) => onDevicesChange(change(devices)),
+        isLocked: false,
+    })
+
+    return (
+        <section className="protocols__devices">
+            <h3 id="protocol-devices-heading">Biosensors</h3>
+            {devices.length === 0 ? (
+                <p className="protocols__no-devices">No biosensors yet.</p>
+            ) : (
+                <ul
+                    className="protocols__device-list"
+                    aria-labelledby="protocol-devices-heading"
+                >
+                    {deviceKeys.map((key, index) => {
+                        const name = deviceNames[index]
+
+                        return (
+                            <li key={key}>
+                                <DevicePanel
+                                    device={{
+                                        key,
+                                        name,
+                                        label: deviceLabelFor(
+                                            index,
+                                            deviceNames
+                                        ),
+                                        streams: [],
+                                        describedStreams: [],
+                                    }}
+                                    status="disconnected"
+                                    isStatusShown={false}
+                                    onRemove={removeDevice}
+                                    identifier={identifiers[key]}
+                                    rememberedIdentifiers={
+                                        rememberedIdentifiers[name]
+                                    }
+                                    scannedIdentifiers={
+                                        scannedIdentifiers[name]
+                                    }
+                                    isScanning={scanningDeviceNames.includes(
+                                        name
+                                    )}
+                                    onForgetIdentifier={forgetIdentifier}
+                                    onIdentifierChange={setIdentifierValue}
+                                    nickname={nicknames[key]}
+                                    onNicknameChange={setNickname}
+                                />
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+            {addableNames.length > 0 && (
+                <AddBiosensorButton names={addableNames} onAdd={addDevice} />
+            )}
+        </section>
+    )
+}
+
+interface ProtocolBiosensorsProps {
+    devices: SelectedDevice[]
+    onDevicesChange: (devices: SelectedDevice[]) => void
 }
 
 const schemaVersion = 1
@@ -295,8 +401,24 @@ function fileNameFrom(name: string) {
     return `${stem || untitledFileStem}.json`
 }
 
+function fileContentsOf(protocol: Protocol) {
+    const { name, devices } = protocol
+
+    return { schemaVersion, name, devices: devices.map(requestOf) }
+}
+
+function requestOf(device: SelectedDevice): DeviceRequest {
+    const { name, identifier, nickname } = device
+
+    return requestedFrom({
+        deviceName: name,
+        identifier: identifier.trim() || undefined,
+        nickname: nickname.trim() || undefined,
+    })
+}
+
 function fileTextOf(protocol: Protocol) {
-    return `${JSON.stringify({ schemaVersion, ...protocol }, null, 4)}\n`
+    return `${JSON.stringify(fileContentsOf(protocol), null, 4)}\n`
 }
 
 function downloadThroughBrowser(fileName: string, text: string) {

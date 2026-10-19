@@ -10,6 +10,7 @@ import XdfDescription from './XdfDescription'
 const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
+    isStatusShown = true,
     hasRunOut = false,
     onRemove,
     identifier,
@@ -65,7 +66,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
             onClick={togglePlotsUnlessClickedOnContents}
         >
             <header className="stream-monitor__device-header">
-                <DeviceStatusIndicator status={status} />
+                {isStatusShown && <DeviceStatusIndicator status={status} />}
                 <span className="stream-monitor__device-name">
                     {device.label}
                 </span>
@@ -133,6 +134,7 @@ const deviceStreamsClassName = 'stream-monitor__device-streams'
 export interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
+    isStatusShown?: boolean
     hasRunOut?: boolean
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier

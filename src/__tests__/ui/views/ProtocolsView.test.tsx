@@ -7,9 +7,10 @@ import App from '../../../ui/App'
 import { setWebSocketComponent } from '../../../ui/components/StreamMonitor'
 import { setDownloadFile } from '../../../ui/views/ProtocolsView'
 import {
+    biosensorNames,
     setIdentifierScanner,
-    setStreamMonitorComponent,
-} from '../../../ui/views/SessionView'
+} from '../../../ui/hooks/useBiosensorChoices'
+import { setStreamMonitorComponent } from '../../../ui/views/SessionView'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class ProtocolsViewTest extends AbstractPackageTest {
@@ -37,8 +38,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     protected static async saysThereAreNoProtocolsYetWhenFolderIsEmpty() {
         this.answerListing()
 
-        assert.isTruthy(
-            screen.queryByText('No protocols yet.'),
+        assert.isTrue(
+            screen.queryByText('No protocols yet.') !== null,
             'Did not say there are no protocols yet!'
         )
     }
@@ -62,8 +63,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.clickNewProtocol()
 
-        assert.isNull(
-            screen.queryByText('No protocols yet.'),
+        assert.isFalse(
+            screen.queryByText('No protocols yet.') !== null,
             'Kept saying there are no protocols once one existed!'
         )
     }
@@ -174,7 +175,11 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             this.lastSentMessage,
             {
                 command: 'saveProtocol',
-                protocol: { schemaVersion: 1, name: 'Tilt series' },
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt series',
+                    devices: [],
+                },
             },
             'Did not save the new protocol without a file name!'
         )
@@ -234,8 +239,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.typeName('Tilt series')
 
-        assert.isNull(
-            screen.queryByRole('status'),
+        assert.isFalse(
+            screen.queryByRole('status') !== null,
             'Kept saying saved once the name changed!'
         )
     }
@@ -271,6 +276,259 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async saysNewProtocolHasNoBiosensorsYet() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isTrue(
+            screen.queryByText('No biosensors yet.') !== null,
+            'Did not say the new protocol has no biosensors yet!'
+        )
+    }
+
+    @test()
+    protected static async offersEveryBiosensorModel() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.openBiosensorMenu()
+
+        assert.isEqualDeep(
+            screen
+                .getAllByRole('menuitem')
+                .map((item) => item.textContent)
+                .sort(),
+            [...biosensorNames].sort(),
+            'Did not offer every biosensor model!'
+        )
+    }
+
+    @test()
+    protected static async addsChosenBiosensorToProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['OpenBCI Cyton'],
+            'Did not add the chosen biosensor to the protocol!'
+        )
+    }
+
+    @test()
+    protected static async stopsSayingThereAreNoBiosensorsOnceOneIsAdded() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isFalse(
+            screen.queryByText('No biosensors yet.') !== null,
+            'Kept saying there are no biosensors once one was added!'
+        )
+    }
+
+    @test()
+    protected static async numbersRepeatsOfTheSameModel() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('Muse S Gen 2')
+        this.addBiosensor('Muse S Gen 2')
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['Muse S Gen 2 #1', 'Muse S Gen 2 #2'],
+            'Did not number repeats of the same model!'
+        )
+    }
+
+    @test()
+    protected static async removesBiosensorFromProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Cognionics Quick-20r')
+        this.addBiosensor('OpenBCI Cyton')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Remove Cognionics Quick-20r' })
+        )
+
+        assert.isEqualDeep(
+            this.biosensorNames,
+            ['OpenBCI Cyton'],
+            'Did not remove the biosensor from the protocol!'
+        )
+    }
+
+    @test()
+    protected static async savesBiosensorsWithProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Cognionics Quick-20r')
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices,
+            [
+                { deviceName: 'Cognionics Quick-20r' },
+                { deviceName: 'OpenBCI Cyton' },
+            ],
+            'Did not save the biosensors with the protocol!'
+        )
+    }
+
+    @test()
+    protected static async stopsSayingSavedOnceBiosensorsChange() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.save('untitled-protocol.json')
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isFalse(
+            screen.queryByRole('status') !== null,
+            'Kept saying saved once the biosensors changed!'
+        )
+    }
+
+    @test()
+    protected static async hidesConnectionStatusOfBiosensors() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isFalse(
+            screen
+                .getByRole('list', { name: 'Biosensors' })
+                .querySelector('.stream-monitor__device-status') !== null,
+            'Showed the connection status of biosensors!'
+        )
+    }
+
+    @test()
+    protected static async offersEachModelWithoutIdentifierOnlyOnce() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Zephyr BioHarness 3')
+
+        this.openBiosensorMenu()
+
+        assert.isFalse(
+            screen.queryByRole('menuitem', { name: 'Zephyr BioHarness 3' }) !==
+                null,
+            'Offered a model without an identifier more than once!'
+        )
+    }
+
+    @test()
+    protected static async asksForNicknameAndIdentifierOfBiosensor() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isEqualDeep(
+            {
+                nickname:
+                    screen.queryByLabelText('OpenBCI Cyton nickname') !== null,
+                identifier:
+                    screen.queryByLabelText(
+                        'OpenBCI Cyton Serial number (optional)'
+                    ) !== null,
+            },
+            { nickname: true, identifier: true },
+            'Did not ask for the nickname and identifier of the biosensor!'
+        )
+    }
+
+    @test()
+    protected static async savesNicknameAndIdentifierOfBiosensor() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('OpenBCI Cyton')
+        this.typeInto('OpenBCI Cyton nickname', ' EMG ')
+        this.typeInto('OpenBCI Cyton Serial number (optional)', 'DQ0081')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices,
+            [
+                {
+                    deviceName: 'OpenBCI Cyton',
+                    identifier: 'DQ0081',
+                    nickname: 'EMG',
+                },
+            ],
+            'Did not save the nickname and identifier of the biosensor!'
+        )
+    }
+
+    @test()
+    protected static async savesAutoDetectedMuseAsMuse() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Muse (auto-detect, slower)')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices,
+            [{ deviceName: 'Muse' }],
+            'Did not save an auto-detected Muse as Muse!'
+        )
+    }
+
+    @test()
+    protected static async offersRememberedIdentifiers() {
+        localStorage.setItem(
+            'personomic.rememberedIdentifiers',
+            JSON.stringify({ 'OpenBCI Cyton': ['DQ0081'] })
+        )
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('OpenBCI Cyton')
+
+        fireEvent.focus(
+            screen.getByLabelText('OpenBCI Cyton Serial number (optional)')
+        )
+
+        assert.isTrue(
+            screen.queryByRole('option', { name: 'DQ0081' }) !== null,
+            'Did not offer remembered identifiers!'
+        )
+    }
+
+    @test()
+    protected static async scansForIdentifiersOfBiosensorsWithoutOne() {
+        const scannedFor: string[][] = []
+        setIdentifierScanner((deviceNames) => {
+            scannedFor.push(deviceNames)
+            return () => {}
+        })
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.addBiosensor('OpenBCI Cyton')
+
+        assert.isEqualDeep(
+            scannedFor.at(-1),
+            ['OpenBCI Cyton'],
+            'Did not scan for identifiers of biosensors without one!'
+        )
+    }
+
+    @test()
     protected static async downloadsSavedProtocolUnderItsFileName() {
         this.answerListing([this.file('beeps.json', 'Beeps')])
 
@@ -281,7 +539,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             [
                 {
                     fileName: 'beeps.json',
-                    text: '{\n    "schemaVersion": 1,\n    "name": "Beeps"\n}\n',
+                    text: '{\n    "schemaVersion": 1,\n    "name": "Beeps",\n    "devices": []\n}\n',
                 },
             ],
             'Did not download a saved protocol under its file name!'
@@ -352,8 +610,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.clickRemoveOf('Beeps')
 
-        assert.isTruthy(
-            screen.queryByText('Remove Beeps?'),
+        assert.isTrue(
+            screen.queryByText('Remove Beeps?') !== null,
             'Did not ask before removing a saved protocol!'
         )
     }
@@ -488,8 +746,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.remove('Beeps')
 
-        assert.isNull(
-            screen.queryByLabelText('Name'),
+        assert.isFalse(
+            screen.queryByLabelText('Name') !== null,
             'Kept editing the protocol once it was removed!'
         )
     }
@@ -509,6 +767,29 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             'Tilt series',
             'Did not keep editing the protocol listed after the removed one!'
         )
+    }
+
+    private static openBiosensorMenu() {
+        fireEvent.click(screen.getByRole('button', { name: /add biosensor/i }))
+    }
+
+    private static addBiosensor(name: string) {
+        this.openBiosensorMenu()
+        fireEvent.click(screen.getByRole('menuitem', { name }))
+    }
+
+    private static get biosensorNames() {
+        return within(screen.getByRole('list', { name: 'Biosensors' }))
+            .getAllByRole('listitem')
+            .map(
+                (item) =>
+                    item.querySelector('.stream-monitor__device-name')!
+                        .textContent
+            )
+    }
+
+    private static typeInto(label: string, value: string) {
+        fireEvent.change(screen.getByLabelText(label), { target: { value } })
     }
 
     private static clickDownloadOf(name: string) {
@@ -602,7 +883,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     private static get listedNames() {
-        return screen
+        return within(screen.getByRole('navigation', { name: 'Protocols' }))
             .queryAllByRole('listitem')
             .map((item) => within(item).getAllByRole('button')[0].textContent)
     }
