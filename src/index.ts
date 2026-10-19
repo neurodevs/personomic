@@ -3,6 +3,15 @@
 export { default as App } from './ui/App'
 export * from './ui/App'
 
+// SessionView
+
+export { default as SessionView } from './ui/views/SessionView'
+export * from './ui/views/SessionView'
+
+// ProtocolsView
+
+export { default as ProtocolsView } from './ui/views/ProtocolsView'
+
 // StreamMonitor
 
 export { default as StreamMonitor } from './ui/components/StreamMonitor'

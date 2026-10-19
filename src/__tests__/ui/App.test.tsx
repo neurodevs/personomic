@@ -12,14 +12,7 @@ import FakeStreamMonitor, {
 import FakeWebSocket from '../../testDoubles/WebSocket/FakeWebSocket'
 import readXdfRecording from '../../functions/readXdfRecording'
 import buildXdfFile from '../../testDoubles/Xdf/buildXdfFile'
-import App, {
-    scanThroughOrchestrator,
-    setEverySecond,
-    setIdentifierScanner,
-    setNow,
-    setScanAgainAfter,
-    setStreamMonitorComponent,
-} from '../../ui/App'
+import App from '../../ui/App'
 import { ScannedIdentifier } from '../../ui/components/IdentifierInput'
 import StreamMonitor, {
     setClock,
@@ -27,6 +20,14 @@ import StreamMonitor, {
     setStreamPlotComponent,
     setWebSocketComponent,
 } from '../../ui/components/StreamMonitor'
+import {
+    scanThroughOrchestrator,
+    setEverySecond,
+    setIdentifierScanner,
+    setNow,
+    setScanAgainAfter,
+    setStreamMonitorComponent,
+} from '../../ui/views/SessionView'
 import AbstractPackageTest from '../AbstractPackageTest'
 
 export default class AppTest extends AbstractPackageTest {
@@ -3180,6 +3181,105 @@ export default class AppTest extends AbstractPackageTest {
             screen.queryByRole('button', { name: /play xdf recording/i }) !==
             null
         )
+    }
+
+    @test()
+    protected static async opensOnTheSessionTab() {
+        render(<App />)
+
+        assert.isEqual(
+            this.selectedTabName,
+            'Session',
+            'Did not open on the Session tab!'
+        )
+    }
+
+    @test()
+    protected static async showsProtocolsViewWhenItsTabIsChosen() {
+        render(<App />)
+
+        this.chooseTab('Protocols')
+
+        assert.isTruthy(
+            screen.queryByRole('tabpanel', { name: 'Protocols' }),
+            'Did not show the Protocols view when its tab was chosen!'
+        )
+    }
+
+    @test()
+    protected static async selectsTheChosenTab() {
+        render(<App />)
+
+        this.chooseTab('Protocols')
+
+        assert.isEqual(
+            this.selectedTabName,
+            'Protocols',
+            'Did not select the chosen tab!'
+        )
+    }
+
+    @test()
+    protected static async hidesSessionViewWhileOnProtocols() {
+        this.renderWithMuse()
+
+        this.chooseTab('Protocols')
+
+        assert.isNull(
+            screen.queryByRole('tabpanel', { name: 'Session' }),
+            'Did not hide the Session view while on Protocols!'
+        )
+    }
+
+    @test()
+    protected static async showsSessionViewAgainWhenItsTabIsChosen() {
+        this.renderWithMuse()
+
+        this.chooseTab('Protocols')
+        this.chooseTab('Session')
+
+        assert.isTruthy(
+            screen.queryByRole('tabpanel', { name: 'Session' }),
+            'Did not show the Session view again when its tab was chosen!'
+        )
+    }
+
+    @test()
+    protected static async keepsMonitorMountedWhileVisitingProtocols() {
+        this.renderWithMuse()
+        this.connect()
+        const numMountsWhileStreaming = numStreamMonitorMounts
+
+        this.chooseTab('Protocols')
+        this.chooseTab('Session')
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsWhileStreaming,
+            'Remounted the monitor while visiting Protocols!'
+        )
+    }
+
+    @test()
+    protected static async keepsChosenDevicesAfterVisitingProtocols() {
+        this.renderWithMuse()
+
+        this.chooseTab('Protocols')
+        this.chooseTab('Session')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.deviceNames,
+            ['Muse S Gen 2'],
+            'Lost the chosen devices after visiting Protocols!'
+        )
+    }
+
+    private static chooseTab(name: string) {
+        fireEvent.click(screen.getByRole('tab', { name }))
+    }
+
+    private static get selectedTabName() {
+        return screen.getByRole('tab', { selected: true }).textContent
     }
 
     private static renderWithMuse() {
