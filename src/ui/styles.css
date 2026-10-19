@@ -635,6 +635,7 @@ body {
 }
 
 .stream-monitor__device-name {
+  margin-right: auto;
   color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
@@ -643,7 +644,6 @@ body {
 }
 
 .stream-monitor__device-meta {
-  margin-left: auto;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -651,7 +651,6 @@ body {
 }
 
 .stream-monitor__device-remove {
-  margin-left: auto;
   padding: 0 4px;
   border: 0;
   background: none;
@@ -660,10 +659,6 @@ body {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-}
-
-.stream-monitor__device-meta + .stream-monitor__device-remove {
-  margin-left: 0;
 }
 
 .stream-monitor__device-remove:hover,
@@ -764,6 +759,11 @@ body {
 
 .stream-monitor__device-nickname {
   width: 160px;
+}
+
+.stream-monitor__device-identifier-spacer {
+  flex: none;
+  width: 280px;
 }
 
 .stream-monitor__device-identifier::placeholder,

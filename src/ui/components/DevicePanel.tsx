@@ -80,6 +80,12 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                         }
                     />
                 )}
+                {isNicknameShown && !(identifier && isIdentifierShown) && (
+                    <span
+                        className="stream-monitor__device-identifier-spacer"
+                        aria-hidden="true"
+                    />
+                )}
                 {identifier && isIdentifierShown && (
                     <IdentifierInput
                         deviceLabel={device.label}
