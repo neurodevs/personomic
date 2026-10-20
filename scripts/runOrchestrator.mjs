@@ -209,14 +209,12 @@ async function saveProtocol({ fileName, protocol }) {
 
     const savedAs =
         fileName ?? unusedFileNameFor(fileStemFor(protocol.name), directory)
+    const filePath = path.join(directory, savedAs)
 
-    await writeFile(
-        path.join(directory, savedAs),
-        `${JSON.stringify(protocol, null, 4)}\n`
-    )
-    console.log(`Saved protocol ${savedAs}`)
+    await writeFile(filePath, `${JSON.stringify(protocol, null, 4)}\n`)
+    console.log(`Saved protocol ${filePath}`)
 
-    return { fileName: savedAs }
+    return { fileName: savedAs, filePath }
 }
 
 function isProtocolFileName(fileName) {

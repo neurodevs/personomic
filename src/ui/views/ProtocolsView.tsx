@@ -73,19 +73,19 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
         setSavedTo(undefined)
         setActionError(undefined)
 
-        sendToOrchestrator<{ fileName?: string }>(
+        sendToOrchestrator<{ fileName?: string; filePath?: string }>(
             {
                 command: 'saveProtocol',
                 fileName,
                 protocol: fileContentsOf(protocol),
             },
             {
-                onReply: ({ error, fileName }) => {
+                onReply: ({ error, fileName, filePath }) => {
                     setActionError(error)
 
                     if (fileName) {
                         changeFileAt(index, { fileName })
-                        setSavedTo(fileName)
+                        setSavedTo(filePath ?? fileName)
                     }
                 },
                 onUnreachable: () =>

@@ -186,7 +186,26 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async saysWhereProtocolWasSaved() {
+    protected static async saysFullPathWhereProtocolWasSaved() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickSave()
+
+        this.answer({
+            fileName: 'untitled-protocol.json',
+            filePath:
+                '/Users/me/Documents/Personomic/Protocols/untitled-protocol.json',
+        })
+
+        assert.isEqual(
+            this.statusText,
+            'Saved to /Users/me/Documents/Personomic/Protocols/untitled-protocol.json',
+            'Did not say the full path where the protocol was saved!'
+        )
+    }
+
+    @test()
+    protected static async saysFileNameWhenOrchestratorGivesNoPath() {
         this.answerListing()
         this.clickNewProtocol()
 
@@ -195,7 +214,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         assert.isEqual(
             this.statusText,
             'Saved to untitled-protocol.json',
-            'Did not say where the protocol was saved!'
+            'Did not say the file name when the orchestrator gave no path!'
         )
     }
 
