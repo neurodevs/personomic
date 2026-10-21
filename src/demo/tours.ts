@@ -22,15 +22,14 @@ const tours: Tour[] = [
             },
             {
                 caption:
-                    'Personomic scans for nearby headbands. Click the UUID field to see what it found.',
+                    'Nearby headbands are scanned for automatically. Click the UUID field to see what was found.',
                 target: (view) =>
                     view.getByRole('textbox', {
                         name: `${simulatedMuseModel} UUID (optional)`,
                     }),
             },
             {
-                caption:
-                    'Pick your headband. Personomic remembers it for next time.',
+                caption: 'Pick your headband. It is remembered for next time.',
                 target: (view) =>
                     view.getByRole('option', { name: simulatedMuse.uuid }),
             },
@@ -180,9 +179,77 @@ const tours: Tour[] = [
             },
         ],
     },
+    {
+        title: 'How real-time analytics work',
+        steps: [
+            {
+                caption:
+                    'Signals are analyzed as they arrive, whether streaming live or replaying a recording. Switch to Playback to see it on a sample session.',
+                target: (view) => view.getByRole('radio', { name: 'Playback' }),
+            },
+            {
+                caption:
+                    'Click Play XDF recording… and choose a file. For this tour, we will use a sample Muse session.',
+                target: (view) =>
+                    view.getByRole('button', { name: 'Play XDF recording…' }),
+                act: (_, view) =>
+                    fireEvent.change(view.getByLabelText('Recording to play'), {
+                        target: { files: [sampleRecording()] },
+                    }),
+            },
+            {
+                caption:
+                    "Each EEG channel's last 4 seconds are split into frequency bands, from slow delta to fast gamma, showing how much of the power falls in each.",
+                target: (view) =>
+                    plotOf('EEG', view).querySelector<HTMLElement>(
+                        '.stream-plot__channel-header'
+                    )!,
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'The average combines all channels. More alpha often means relaxed with eyes closed; more beta, alert and focused.',
+                target: (view) =>
+                    view.getByText(/^Average \(last/).parentElement!,
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'On the PPG, each heartbeat is detected as a peak in the infrared light reflected by your skin, and marked on the plot.',
+                target: (view) => plotOf('PPG', view),
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'Heart rate counts the beats over the last 30 seconds, so it appears once 30 seconds have played.',
+                target: (view) => view.getByText('Heart rate').parentElement!,
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'HRV (RMSSD) measures how much the time between beats varies. It needs 5 minutes of beats to be reliable, so earlier values are marked unreliable.',
+                target: (view) => view.getByText('HRV (RMSSD)').parentElement!,
+                act: leaveAsIs,
+            },
+            {
+                caption: 'Click Stop to leave the recording.',
+                target: (view) => view.getByRole('button', { name: 'Stop' }),
+            },
+        ],
+    },
 ]
 
 export default tours
+
+function leaveAsIs() {}
+
+function plotOf(streamType: string, view: TourView) {
+    const name = view
+        .getAllByText(streamType)
+        .find((element) => element.classList.contains('stream-plot__name'))
+
+    return name!.closest('section')!
+}
 
 function protocolMenuOffering(protocolName: string, view: TourView) {
     const menu = view.getByRole('combobox', { name: 'Protocol' })

@@ -31,15 +31,16 @@ export default class ToursTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersAMuseSessionAnXdfReplayAndAProtocol() {
+    protected static async offersAMuseSessionAnXdfReplayAProtocolAndLiveAnalysis() {
         assert.isEqualDeep(
             tours.map(({ title }) => title),
             [
                 'How to run a session with Muse',
                 'How to replay an XDF recording',
                 'How to define a new protocol',
+                'How real-time analytics work',
             ],
-            'Did not offer a Muse session, an XDF replay, and a protocol!'
+            'Did not offer a Muse session, an XDF replay, a protocol, and live analysis!'
         )
     }
 
@@ -119,6 +120,31 @@ export default class ToursTest extends AbstractPackageTest {
             ],
             ['eyes-closed-baseline.json', 'Participant 1'],
             'Did not choose the defined protocol before connecting!'
+        )
+    }
+
+    @test()
+    protected static async explainsTheLiveAnalysisToTheEnd() {
+        await this.playToTheEnd('How real-time analytics work')
+
+        assert.isEqual(
+            this.caption,
+            this.lastCaptionOf(this.playedTitle!),
+            `Got stuck in the live analysis tour at ${this.stuckStep}!`
+        )
+    }
+
+    @test()
+    protected static async showsHeartRateAndBandPowersBeforeStopping() {
+        await this.choose('How real-time analytics work')
+
+        await this.goToLastStep()
+
+        assert.isTrue(
+            screen.queryByText('Heart rate') !== null &&
+                screen.queryByText('HRV (RMSSD)') !== null &&
+                screen.queryByText(/^Average \(last/) !== null,
+            'Did not show heart rate, HRV, and band powers before stopping!'
         )
     }
 
