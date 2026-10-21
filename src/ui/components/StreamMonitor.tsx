@@ -552,7 +552,13 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                             recording !== undefined && status === 'disconnected'
                         }
                         onRemove={onRemoveDevice}
-                        identifier={identifiers[device.key]}
+                        identifier={identifierShownFor(
+                            identifiers[device.key],
+                            isReportingDevices
+                                ? gatewayDeviceFor(device, reportedDevices)
+                                      ?.identifier
+                                : undefined
+                        )}
                         rememberedIdentifiers={
                             rememberedIdentifiers[device.name]
                         }
@@ -807,6 +813,15 @@ function statusWhile(
     return isConnecting && reported === 'disconnected' ? 'connecting' : reported
 }
 
+function identifierShownFor(
+    given: DeviceIdentifier | undefined,
+    reported: string | undefined
+) {
+    return given && given.value.trim() === '' && reported
+        ? { ...given, value: reported }
+        : given
+}
+
 function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {
     const sameNamed = gatewayDevices.filter(
         (device) => device.deviceName === shown.name
@@ -860,6 +875,7 @@ type GatewayDeviceState =
 
 interface GatewayDevice {
     deviceName: string
+    identifier?: string
     state: GatewayDeviceState
     streams: GatewayStream[]
 }

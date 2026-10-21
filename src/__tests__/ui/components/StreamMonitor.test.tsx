@@ -997,6 +997,52 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsIdentifierReportedByDeviceLeftBlank() {
+        await this.mountLockedWithIdentifier('')
+
+        this.receiveGatewayDevices([
+            {
+                ...this.gatewayDeviceFor(this.devicesFor(this.streams)[0]),
+                identifier: 'reported-uuid',
+            },
+        ])
+
+        assert.isEqual(
+            (this.identifierInput as HTMLInputElement)?.value,
+            'reported-uuid',
+            'Did not show the identifier reported by a device left blank!'
+        )
+    }
+
+    @test()
+    protected static async keepsGivenIdentifierOverReportedOne() {
+        await this.mountLockedWithIdentifier('given-uuid')
+
+        this.receiveGatewayDevices([
+            {
+                ...this.gatewayDeviceFor(this.devicesFor(this.streams)[0]),
+                identifier: 'reported-uuid',
+            },
+        ])
+
+        assert.isEqual(
+            (this.identifierInput as HTMLInputElement)?.value,
+            'given-uuid',
+            'Did not keep the given identifier over the reported one!'
+        )
+    }
+
+    private static async mountLockedWithIdentifier(value: string) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value },
+            },
+        })
+    }
+
     @test('connecting keeps locked identifier', 'connecting')
     @test('streaming keeps locked identifier', 'streaming')
     protected static async keepsReadOnlyIdentifierWhenNotDisconnected(
