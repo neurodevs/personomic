@@ -378,7 +378,10 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                             <button
                                 type="button"
                                 className="protocols__save"
-                                disabled={protocolWithSameName !== undefined}
+                                disabled={
+                                    !hasUnsavedChanges(selected) ||
+                                    protocolWithSameName !== undefined
+                                }
                                 onClick={saveSelected}
                             >
                                 Save

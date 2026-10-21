@@ -223,6 +223,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         this.clickNewProtocol()
         this.typeName('Tilt series')
         this.save('tilt-series.json')
+        this.typeName('Tilt series 2')
 
         this.clickSave()
         this.openOrchestratorSocket()
@@ -238,6 +239,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     protected static async savesListedProtocolToItsFile() {
         this.answerListing([this.file('beeps.json', 'Beeps')])
         fireEvent.click(screen.getByRole('button', { name: 'Beeps' }))
+        this.typeName('Beeps 2')
 
         this.clickSave()
         this.openOrchestratorSocket()
@@ -426,6 +428,21 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             { beforeChanging, afterChanging: this.cancelButton.disabled },
             { beforeChanging: true, afterChanging: false },
             'Did not disable Cancel until changes were made!'
+        )
+    }
+
+    @test()
+    protected static async disablesSaveUntilChangesAreMade() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+        const beforeChanging = this.saveButton.disabled
+
+        this.typeName('Changed')
+
+        assert.isEqualDeep(
+            { beforeChanging, afterChanging: this.saveButton.disabled },
+            { beforeChanging: true, afterChanging: false },
+            'Did not disable Save until changes were made!'
         )
     }
 
