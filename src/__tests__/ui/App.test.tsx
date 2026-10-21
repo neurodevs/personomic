@@ -126,16 +126,15 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async asksOrchestratorForProtocolsOnFirstVisit() {
+    protected static async asksOrchestratorForProtocolsWhenAppOpens() {
         render(<App />)
 
-        this.chooseTab('Protocols')
         act(() => this.orchestratorSocket.open())
 
         assert.isEqualDeep(
             this.lastSentMessage,
             { command: 'listProtocols' },
-            'Did not ask the orchestrator for protocols on first visit!'
+            'Did not ask the orchestrator for protocols when the app opened!'
         )
     }
 
@@ -183,18 +182,18 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async asksForProtocolsOnlyOnFirstVisit() {
+    protected static async doesNotAskForProtocolsAgainWhenVisitingProtocols() {
         render(<App />)
-        this.visitProtocolsListing([])
-        const numSocketsAfterFirstVisit = FakeWebSocket.instances.length
+        const numSocketsWhenOpened = FakeWebSocket.instances.length
 
+        this.chooseTab('Protocols')
         this.chooseTab('Session')
         this.chooseTab('Protocols')
 
         assert.isEqual(
             FakeWebSocket.instances.length,
-            numSocketsAfterFirstVisit,
-            'Asked for protocols again on a later visit!'
+            numSocketsWhenOpened,
+            'Asked for protocols again when visiting Protocols!'
         )
     }
 

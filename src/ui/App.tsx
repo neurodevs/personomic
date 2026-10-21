@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
@@ -25,11 +25,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [view, setView] = useState<View>('session')
     const [protocolFiles, setProtocolFiles] = useState<ProtocolFile[]>()
     const [listingError, setListingError] = useState<string>()
-    const hasAskedForProtocols = useRef(false)
 
-    const listProtocols = () => {
-        hasAskedForProtocols.current = true
-
+    useEffect(() => {
         sendToOrchestrator<{ protocols?: ListedProtocolFile[] }>(
             { command: 'listProtocols' },
             {
@@ -43,15 +40,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 },
             }
         )
-    }
-
-    const chooseView = (id: View) => {
-        setView(id)
-
-        if (id === 'protocols' && !hasAskedForProtocols.current) {
-            listProtocols()
-        }
-    }
+    }, [])
 
     const changeProtocolFiles = (
         change: (files: ProtocolFile[]) => ProtocolFile[]
@@ -71,7 +60,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                             className="app__tab"
                             aria-selected={view === id}
                             aria-controls={panelIdOf(id)}
-                            onClick={() => chooseView(id)}
+                            onClick={() => setView(id)}
                         >
                             {viewLabels[id]}
                         </button>
