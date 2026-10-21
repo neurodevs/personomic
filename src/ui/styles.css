@@ -423,14 +423,6 @@ body {
   cursor: default;
 }
 
-.session-protocol {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 24px;
-}
-
 .session-protocol__heading {
   display: inline-flex;
   align-items: center;
@@ -534,15 +526,23 @@ body {
   cursor: default;
 }
 
-.connect-devices__record {
+.connect-devices__group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
 }
 
-.connect-devices__record--own-line {
+.connect-devices__group--own-line {
   flex: 0 0 100%;
+}
+
+.connect-devices__group--protocol.connect-devices__group--own-line {
+  order: 1;
+}
+
+.connect-devices__group--record.connect-devices__group--own-line {
+  order: 2;
 }
 
 .connect-devices__record-toggle {

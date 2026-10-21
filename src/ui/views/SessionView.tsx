@@ -495,33 +495,112 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     ))}
                 </div>
                 {isLive && (
-                    <select
-                        className="session-protocol__select"
-                        aria-label="Protocol"
-                        value={chosenProtocolFile?.fileName ?? ''}
-                        disabled={isLocked || isEditingProtocol}
-                        onChange={(event) => chooseProtocol(event.target.value)}
+                    <ControlGroup
+                        kind="protocol"
+                        isOnOwnLine={chosenProtocolFile !== undefined}
                     >
-                        <option value="">No protocol</option>
-                        {savedProtocolFiles.map(({ fileName, protocol }) => (
-                            <option key={fileName} value={fileName}>
-                                {displayNameOf(protocol)}
-                            </option>
-                        ))}
-                    </select>
-                )}
-                {isLive &&
-                    chosenProtocolFile &&
-                    !isEditingProtocol &&
-                    !isLocked && (
-                        <button
-                            type="button"
-                            className="session-protocol__button"
-                            onClick={editProtocol}
+                        <select
+                            className="session-protocol__select"
+                            aria-label="Protocol"
+                            value={chosenProtocolFile?.fileName ?? ''}
+                            disabled={isLocked || isEditingProtocol}
+                            onChange={(event) =>
+                                chooseProtocol(event.target.value)
+                            }
                         >
-                            Edit protocol
-                        </button>
-                    )}
+                            <option value="">No protocol</option>
+                            {savedProtocolFiles.map(
+                                ({ fileName, protocol }) => (
+                                    <option key={fileName} value={fileName}>
+                                        {displayNameOf(protocol)}
+                                    </option>
+                                )
+                            )}
+                        </select>
+                        {chosenProtocolFile &&
+                            !isEditingProtocol &&
+                            !isLocked && (
+                                <button
+                                    type="button"
+                                    className="session-protocol__button"
+                                    onClick={editProtocol}
+                                >
+                                    Edit protocol
+                                </button>
+                            )}
+                        {chosenProtocolFile && isEditingProtocol && (
+                            <>
+                                <span className="session-protocol__heading">
+                                    Editing protocol
+                                    {hasUnsavedProtocolEdits && (
+                                        <span
+                                            className="session-protocol__unsaved"
+                                            role="img"
+                                            aria-label="Unsaved changes"
+                                            title="Unsaved changes"
+                                        />
+                                    )}
+                                </span>
+                                <input
+                                    type="text"
+                                    className="session-protocol__name"
+                                    aria-label="Protocol name"
+                                    placeholder="Protocol name"
+                                    value={protocolName}
+                                    onChange={(event) =>
+                                        setProtocolName(event.target.value)
+                                    }
+                                />
+                                <button
+                                    type="button"
+                                    className="session-protocol__button session-protocol__button--primary"
+                                    disabled={
+                                        protocolWithSameName !== undefined
+                                    }
+                                    onClick={saveProtocol}
+                                >
+                                    {isProtocolRenamed ? 'Save as new' : 'Save'}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="session-protocol__button"
+                                    onClick={cancelEditingProtocol}
+                                >
+                                    Cancel
+                                </button>
+                                {protocolWithSameName && (
+                                    <span className="session-protocol__hint">
+                                        {displayNameOf(
+                                            protocolWithSameName.protocol
+                                        )}{' '}
+                                        is already a protocol.
+                                    </span>
+                                )}
+                            </>
+                        )}
+                        {protocolSavedTo && (
+                            <span
+                                className="session-protocol__saved"
+                                role="status"
+                            >
+                                Saved to{' '}
+                                <button
+                                    type="button"
+                                    className="saved-path"
+                                    title="Show in Finder"
+                                    onClick={() =>
+                                        revealProtocol(
+                                            chosenProtocolFile!.fileName!,
+                                            setSessionError
+                                        )
+                                    }
+                                >
+                                    {protocolSavedTo}
+                                </button>
+                            </span>
+                        )}
+                    </ControlGroup>
+                )}
                 {playing && (
                     <PlaybackControls
                         fileName={playing.fileName}
@@ -541,14 +620,12 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     />
                 )}
                 {(isLive || recordingPath) && (
-                    <span
-                        className={[
-                            'connect-devices__record',
-                            ((isLive && isRecordEnabled) || recordingPath) &&
-                                'connect-devices__record--own-line',
-                        ]
-                            .filter(Boolean)
-                            .join(' ')}
+                    <ControlGroup
+                        kind="record"
+                        isOnOwnLine={
+                            (isLive && isRecordEnabled) ||
+                            recordingPath !== undefined
+                        }
                     >
                         {isLive && (
                             <label className="connect-devices__record-toggle">
@@ -592,25 +669,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                                 </button>
                             </span>
                         )}
-                    </span>
-                )}
-                {isLive && protocolSavedTo && (
-                    <span className="session-protocol__saved" role="status">
-                        Saved to{' '}
-                        <button
-                            type="button"
-                            className="saved-path"
-                            title="Show in Finder"
-                            onClick={() =>
-                                revealProtocol(
-                                    chosenProtocolFile!.fileName!,
-                                    setSessionError
-                                )
-                            }
-                        >
-                            {protocolSavedTo}
-                        </button>
-                    </span>
+                    </ControlGroup>
                 )}
                 {sessionError && (
                     <span className="connect-devices__error" role="alert">
@@ -619,52 +678,6 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 )}
             </div>
             <div className="card">
-                {chosenProtocolFile && isEditingProtocol && (
-                    <div className="session-protocol">
-                        <span className="session-protocol__heading">
-                            Editing protocol
-                            {hasUnsavedProtocolEdits && (
-                                <span
-                                    className="session-protocol__unsaved"
-                                    role="img"
-                                    aria-label="Unsaved changes"
-                                    title="Unsaved changes"
-                                />
-                            )}
-                        </span>
-                        <input
-                            type="text"
-                            className="session-protocol__name"
-                            aria-label="Protocol name"
-                            placeholder="Protocol name"
-                            value={protocolName}
-                            onChange={(event) =>
-                                setProtocolName(event.target.value)
-                            }
-                        />
-                        <button
-                            type="button"
-                            className="session-protocol__button session-protocol__button--primary"
-                            disabled={protocolWithSameName !== undefined}
-                            onClick={saveProtocol}
-                        >
-                            {isProtocolRenamed ? 'Save as new' : 'Save'}
-                        </button>
-                        <button
-                            type="button"
-                            className="session-protocol__button"
-                            onClick={cancelEditingProtocol}
-                        >
-                            Cancel
-                        </button>
-                        {protocolWithSameName && (
-                            <span className="session-protocol__hint">
-                                {displayNameOf(protocolWithSameName.protocol)}{' '}
-                                is already a protocol.
-                            </span>
-                        )}
-                    </div>
-                )}
                 <BiosensorsSection
                     isEmpty={monitoredNames.length === 0}
                     emptyMessage={
@@ -721,6 +734,30 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 }
 
 export default SessionView
+
+interface ControlGroupProps {
+    kind: 'protocol' | 'record'
+    isOnOwnLine: boolean
+    children: React.ReactNode
+}
+
+const ControlGroup: React.FC<ControlGroupProps> = ({
+    kind,
+    isOnOwnLine,
+    children,
+}) => (
+    <span
+        className={[
+            'connect-devices__group',
+            `connect-devices__group--${kind}`,
+            isOnOwnLine && 'connect-devices__group--own-line',
+        ]
+            .filter(Boolean)
+            .join(' ')}
+    >
+        {children}
+    </span>
+)
 
 type SessionMode = 'live' | 'playback'
 
