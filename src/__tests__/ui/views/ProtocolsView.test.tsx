@@ -903,47 +903,48 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async downloadsProtocolAsCurrentlyEdited() {
-        this.answerListing([this.file('beeps.json', 'Beeps')])
+    protected static async disablesDownloadOfProtocolWithUnsavedChanges() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt.json', 'Tilt'),
+        ])
         this.chooseListed('Beeps')
+
         this.typeName('Loud beeps')
 
-        this.clickDownloadOf('Loud beeps')
-
-        assert.isEqual(
-            JSON.parse(this.downloads[0].text).name,
-            'Loud beeps',
-            'Did not download the protocol as currently edited!'
+        assert.isEqualDeep(
+            {
+                edited: this.downloadButtonOf('Loud beeps').disabled,
+                other: this.downloadButtonOf('Tilt').disabled,
+            },
+            { edited: true, other: false },
+            'Did not disable download of only the protocol with unsaved changes!'
         )
     }
 
     @test()
-    protected static async downloadsUnsavedProtocolUnderFileNameFromItsName() {
+    protected static async enablesDownloadOnceNewProtocolIsSaved() {
         this.answerListing()
         this.clickNewProtocol()
-        this.typeName('Tilt series: Left & Right')
+        this.typeName('Tilt')
+        const beforeSaving = this.downloadButtonOf('Tilt').disabled
 
-        this.clickDownloadOf('Tilt series: Left & Right')
+        this.save('tilt.json')
 
-        assert.isEqual(
-            this.downloads[0].fileName,
-            'tilt-series-left-right.json',
-            'Did not download an unsaved protocol under a file name from its name!'
+        assert.isEqualDeep(
+            {
+                beforeSaving,
+                afterSaving: this.downloadButtonOf('Tilt').disabled,
+            },
+            { beforeSaving: true, afterSaving: false },
+            'Did not enable download once the new protocol was saved!'
         )
     }
 
-    @test()
-    protected static async downloadsUnsavedUntitledProtocolAsUntitled() {
-        this.answerListing()
-        this.clickNewProtocol()
-
-        this.clickDownloadOf('Untitled protocol')
-
-        assert.isEqual(
-            this.downloads[0].fileName,
-            'untitled-protocol.json',
-            'Did not download an unsaved untitled protocol as untitled!'
-        )
+    private static downloadButtonOf(name: string) {
+        return screen.getByRole('button', {
+            name: `Download ${name}`,
+        }) as HTMLButtonElement
     }
 
     @test()
@@ -969,6 +970,22 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         assert.isTrue(
             screen.queryByText('Remove Beeps?') !== null,
             'Did not ask before removing a saved protocol!'
+        )
+    }
+
+    @test()
+    protected static async keepsRemoveButtonDisabledWhileAsking() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+
+        this.clickRemoveOf('Beeps')
+
+        assert.isTrue(
+            (
+                screen.getByRole('button', {
+                    name: 'Remove Beeps',
+                }) as HTMLButtonElement
+            ).disabled,
+            'Did not keep the remove button disabled while asking!'
         )
     }
 

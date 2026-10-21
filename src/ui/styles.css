@@ -129,9 +129,14 @@ body {
   cursor: pointer;
 }
 
-.protocols__download:hover,
+.protocols__download:hover:not(:disabled),
 .protocols__remove:hover {
   color: var(--text-primary);
+}
+
+.protocols__download:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .protocols__confirm-remove {

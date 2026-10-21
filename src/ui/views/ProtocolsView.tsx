@@ -235,10 +235,10 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                         className="protocols__download"
                                         aria-label={`Download ${displayNameOf(protocol)}`}
                                         title="Download"
+                                        disabled={hasUnsavedChanges(file)}
                                         onClick={() =>
                                             downloadFile(
-                                                fileName ??
-                                                    fileNameFrom(protocol.name),
+                                                fileName!,
                                                 fileTextOf(protocol)
                                             )
                                         }
@@ -543,10 +543,6 @@ function selectedIndexAfterRemoving(removed: number, selected?: number) {
     }
 
     return selected > removed ? selected - 1 : selected
-}
-
-function fileNameFrom(name: string) {
-    return `${fileStemFrom(name)}.json`
 }
 
 function fileStemFrom(name: string) {
