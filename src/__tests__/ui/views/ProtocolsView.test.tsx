@@ -923,6 +923,29 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async asksToSaveChangesBeforeDownloading() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt.json', 'Tilt'),
+        ])
+        this.chooseListed('Beeps')
+
+        this.typeName('Loud beeps')
+
+        assert.isEqualDeep(
+            {
+                edited: this.downloadButtonOf('Loud beeps').title,
+                other: this.downloadButtonOf('Tilt').title,
+            },
+            {
+                edited: 'Download (save or cancel changes)',
+                other: 'Download',
+            },
+            'Did not ask to save changes before downloading!'
+        )
+    }
+
+    @test()
     protected static async enablesDownloadOnceNewProtocolIsSaved() {
         this.answerListing()
         this.clickNewProtocol()
@@ -948,17 +971,46 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async removesProtocolThatWasNeverSavedRightAway() {
-        this.answerListing()
-        this.clickNewProtocol()
+    protected static async disablesRemoveOfProtocolWithUnsavedChanges() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt.json', 'Tilt'),
+        ])
+        this.chooseListed('Beeps')
 
-        this.clickRemoveOf('Untitled protocol')
+        this.typeName('Loud beeps')
 
         assert.isEqualDeep(
-            this.listedNames,
-            [],
-            'Did not remove a protocol that was never saved right away!'
+            {
+                edited: this.removeStateOf('Loud beeps'),
+                other: this.removeStateOf('Tilt'),
+            },
+            {
+                edited: {
+                    isDisabled: true,
+                    tooltip: 'Remove (save or cancel changes)',
+                },
+                other: { isDisabled: false, tooltip: 'Remove' },
+            },
+            'Did not disable remove of only the protocol with unsaved changes!'
         )
+    }
+
+    @test()
+    protected static async disablesRemoveOfProtocolThatWasNeverSaved() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isTrue(
+            this.removeStateOf('Untitled protocol').isDisabled,
+            'Did not disable remove of a protocol that was never saved!'
+        )
+    }
+
+    private static removeStateOf(name: string) {
+        const button = this.removeButtonOf(name)
+        return { isDisabled: button.disabled, tooltip: button.title }
     }
 
     @test()
@@ -987,6 +1039,31 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             ).disabled,
             'Did not keep the remove button disabled while asking!'
         )
+    }
+
+    @test()
+    protected static async pointsToConfirmationWhileAsking() {
+        this.answerListing([
+            this.file('beeps.json', 'Beeps'),
+            this.file('tilt.json', 'Tilt'),
+        ])
+
+        this.clickRemoveOf('Beeps')
+
+        assert.isEqualDeep(
+            {
+                asking: this.removeButtonOf('Beeps').title,
+                other: this.removeButtonOf('Tilt').title,
+            },
+            { asking: 'Remove (confirm or cancel below)', other: 'Remove' },
+            'Did not point to the confirmation while asking!'
+        )
+    }
+
+    private static removeButtonOf(name: string) {
+        return screen.getByRole('button', {
+            name: `Remove ${name}`,
+        }) as HTMLButtonElement
     }
 
     @test()

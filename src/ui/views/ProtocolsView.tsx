@@ -172,11 +172,6 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
     }
 
     const askToRemove = (index: number) => {
-        if (files[index].fileName === undefined) {
-            removeAt(index)
-            return
-        }
-
         setConfirmingRemoveAt(index)
         setShouldDeleteFile(false)
         setActionError(undefined)
@@ -234,7 +229,11 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                         type="button"
                                         className="protocols__download"
                                         aria-label={`Download ${displayNameOf(protocol)}`}
-                                        title="Download"
+                                        title={
+                                            hasUnsavedChanges(file)
+                                                ? 'Download (save or cancel changes)'
+                                                : 'Download'
+                                        }
                                         disabled={hasUnsavedChanges(file)}
                                         onClick={() =>
                                             downloadFile(
@@ -249,8 +248,14 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                         type="button"
                                         className="protocols__remove"
                                         aria-label={`Remove ${displayNameOf(protocol)}`}
-                                        title="Remove"
-                                        disabled={confirmingRemoveAt === index}
+                                        title={removeTooltipFor(
+                                            file,
+                                            confirmingRemoveAt === index
+                                        )}
+                                        disabled={
+                                            confirmingRemoveAt === index ||
+                                            hasUnsavedChanges(file)
+                                        }
                                         onClick={() => askToRemove(index)}
                                     >
                                         ×
@@ -536,6 +541,16 @@ const schemaVersion = 1
 const untitledName = 'Untitled protocol'
 const untitledFileStem = 'untitled-protocol'
 const protocolsDirectory = '~/Personomic/Protocols'
+
+function removeTooltipFor(file: ProtocolFile, isAskingToRemove: boolean) {
+    if (isAskingToRemove) {
+        return 'Remove (confirm or cancel below)'
+    }
+
+    return hasUnsavedChanges(file)
+        ? 'Remove (save or cancel changes)'
+        : 'Remove'
+}
 
 function selectedIndexAfterRemoving(removed: number, selected?: number) {
     if (selected === undefined || selected === removed) {
