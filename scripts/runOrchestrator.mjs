@@ -105,6 +105,18 @@ function absolutePathFor(typedPath) {
     return path.resolve(typedPath.replace(/^~(?=$|\/)/, os.homedir()))
 }
 
+function shownPathFor(absolutePath) {
+    const home = os.homedir()
+
+    if (absolutePath === home) {
+        return '~'
+    }
+
+    return absolutePath.startsWith(`${home}${path.sep}`)
+        ? `~${absolutePath.slice(home.length)}`
+        : absolutePath
+}
+
 async function chooseDirectory() {
     if (process.platform !== 'darwin') {
         throw new Error(
@@ -220,7 +232,7 @@ async function saveProtocol({ fileName, protocol }) {
     await writeFile(filePath, `${JSON.stringify(protocol, null, 4)}\n`)
     console.log(`Saved protocol ${filePath}`)
 
-    return { fileName: savedAs, filePath }
+    return { fileName: savedAs, filePath: shownPathFor(filePath) }
 }
 
 function isProtocolFileName(fileName) {
@@ -406,7 +418,10 @@ async function start(request) {
         `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
     )
 
-    return { devices, xdfRecordPath }
+    return {
+        devices,
+        xdfRecordPath: xdfRecordPath && shownPathFor(xdfRecordPath),
+    }
 }
 
 async function cleanUpFailedStart() {
@@ -430,7 +445,17 @@ async function stop() {
 
 async function statusOnceIdle() {
     await commandInFlight?.catch(() => {})
-    return sessionRequest ?? {}
+
+    if (!sessionRequest) {
+        return {}
+    }
+
+    const { devices, xdfRecordPath } = sessionRequest
+
+    return {
+        devices,
+        xdfRecordPath: xdfRecordPath && shownPathFor(xdfRecordPath),
+    }
 }
 
 async function handle(message) {
@@ -441,7 +466,8 @@ async function handle(message) {
     }
 
     if (command === 'chooseDirectory') {
-        return { directory: await chooseDirectory() }
+        const directory = await chooseDirectory()
+        return { directory: directory && shownPathFor(directory) }
     }
 
     if (command === 'scan') {
