@@ -4638,6 +4638,49 @@ export default class SessionViewTest extends AbstractPackageTest {
         return JSON.parse(FakeWebSocket.callsToSend.at(-1)?.data as string)
     }
 
+    @test()
+    protected static async remembersReportedIdentifiersAfterStopping() {
+        this.renderWithMuse()
+        this.connect()
+        act(() =>
+            lastStreamMonitorProps?.onIdentifierReported?.(
+                'Muse S Gen 2',
+                'muse-uuid'
+            )
+        )
+
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.reportedIdentifiers,
+            { 'Muse S Gen 2': 'muse-uuid' },
+            'Did not remember the reported identifiers after stopping!'
+        )
+    }
+
+    @test()
+    protected static async forgetsReportedIdentifiersOnNextConnect() {
+        this.renderWithMuse()
+        this.connect()
+        act(() =>
+            lastStreamMonitorProps?.onIdentifierReported?.(
+                'Muse S Gen 2',
+                'muse-uuid'
+            )
+        )
+        this.clickStop()
+        act(() => this.orchestratorSocket.receive({}))
+
+        this.clickConnect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.reportedIdentifiers,
+            {},
+            'Did not forget the reported identifiers on the next connect!'
+        )
+    }
+
     private static clickConnect() {
         fireEvent.click(this.sessionButton)
     }

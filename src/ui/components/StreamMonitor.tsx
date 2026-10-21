@@ -47,6 +47,8 @@ export interface StreamMonitorProps {
     isConnecting?: boolean
     isRecording?: boolean
     identifiers?: Record<string, DeviceIdentifier>
+    reportedIdentifiers?: Record<string, string>
+    onIdentifierReported?: (key: string, identifier: string) => void
     rememberedIdentifiers?: Record<string, readonly string[]>
     scannedIdentifiers?: Record<string, readonly ScannedIdentifier[]>
     scanningDeviceNames?: readonly string[]
@@ -81,6 +83,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         isConnecting = false,
         isRecording = false,
         identifiers = {},
+        reportedIdentifiers = {},
+        onIdentifierReported,
         rememberedIdentifiers = {},
         scannedIdentifiers = {},
         scanningDeviceNames = [],
@@ -533,6 +537,16 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
+    const liveIdentifiers = isGatewayConnected
+        ? identifiersReportedBy(devices, gatewayDevices)
+        : {}
+
+    useEffect(() => {
+        for (const [key, identifier] of Object.entries(liveIdentifiers)) {
+            onIdentifierReported?.(key, identifier)
+        }
+    }, [gatewayDevices, isGatewayConnected])
+
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
             {devices.map((device) => {
@@ -554,10 +568,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         onRemove={onRemoveDevice}
                         identifier={identifierShownFor(
                             identifiers[device.key],
-                            isReportingDevices
-                                ? gatewayDeviceFor(device, reportedDevices)
-                                      ?.identifier
-                                : undefined
+                            liveIdentifiers[device.key] ??
+                                reportedIdentifiers[device.key]
                         )}
                         rememberedIdentifiers={
                             rememberedIdentifiers[device.name]
@@ -813,13 +825,26 @@ function statusWhile(
     return isConnecting && reported === 'disconnected' ? 'connecting' : reported
 }
 
+function identifiersReportedBy(
+    devices: ShownDevice[],
+    gatewayDevices: GatewayDevice[]
+) {
+    return Object.fromEntries(
+        devices.flatMap((device) => {
+            const reported = gatewayDeviceFor(
+                device,
+                gatewayDevices
+            )?.identifier
+            return reported ? [[device.key, reported]] : []
+        })
+    )
+}
+
 function identifierShownFor(
     given: DeviceIdentifier | undefined,
     reported: string | undefined
 ) {
-    return given && given.value.trim() === '' && reported
-        ? { ...given, value: reported }
-        : given
+    return given && reported ? { ...given, reported } : given
 }
 
 function gatewayDeviceFor(shown: ShownDevice, gatewayDevices: GatewayDevice[]) {

@@ -23,12 +23,20 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
         setIsOpen(false)
     }
 
+    const isBlank = identifier.value.trim() === ''
+    const shownValue =
+        isLocked && isBlank ? (identifier.reported ?? '') : identifier.value
+    const placeholder =
+        !isLocked && isBlank && identifier.reported
+            ? identifier.reported
+            : shownLabel
+
     const copy = async () => {
-        await copyText(identifier.value)
-        setCopiedValue(identifier.value)
+        await copyText(shownValue)
+        setCopiedValue(shownValue)
     }
 
-    const isCopied = copiedValue === identifier.value
+    const isCopied = copiedValue === shownValue
 
     return (
         <span className="stream-monitor__device-identifier-field">
@@ -36,15 +44,16 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                 type="text"
                 className="stream-monitor__device-identifier"
                 aria-label={`${deviceLabel} ${shownLabel}`}
-                placeholder={shownLabel}
-                value={identifier.value}
+                placeholder={placeholder}
+                title={tooltipFor(identifier)}
+                value={shownValue}
                 readOnly={isLocked}
                 onChange={(event) => onChange?.(event.target.value)}
                 onFocus={() => setIsOpen(true)}
                 onClick={() => setIsOpen(true)}
                 onBlur={() => setIsOpen(false)}
             />
-            {identifier.value.trim() !== '' && (
+            {shownValue.trim() !== '' && (
                 <button
                     type="button"
                     className="stream-monitor__device-identifier-copy"
@@ -139,6 +148,17 @@ function offeredFrom(
     return offered
 }
 
+function tooltipFor(identifier: DeviceIdentifier) {
+    switch (identifier.label) {
+        case 'UUID':
+            return 'Device Bluetooth UUID'
+        case 'Serial number':
+            return 'Device USB serial number'
+        default:
+            throw new Error(`Unknown identifier label: ${identifier.label}`)
+    }
+}
+
 function keepInputFocused(event: React.MouseEvent) {
     event.preventDefault()
 }
@@ -178,5 +198,6 @@ type TextCopier = (text: string) => Promise<void>
 export interface DeviceIdentifier {
     label: string
     value: string
+    reported?: string
     isRequired?: boolean
 }

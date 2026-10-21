@@ -39,7 +39,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
     const isIdentifierShown =
         identifier !== undefined &&
-        (isLocked ? identifier.value.trim() !== '' : status === 'disconnected')
+        (isLocked
+            ? (identifier.value || identifier.reported || '').trim() !== ''
+            : status === 'disconnected')
 
     const isNicknameShown =
         onNicknameChange === undefined
@@ -329,6 +331,7 @@ const NicknameInput: React.FC<NicknameInputProps> = ({
         type="text"
         className="stream-monitor__device-nickname"
         aria-label={`${deviceLabel} nickname`}
+        title="Device nickname"
         placeholder={
             isRecommended ? 'Nickname (recommended)' : 'Nickname (optional)'
         }

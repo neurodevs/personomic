@@ -112,6 +112,16 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
+    const [reportedIdentifiers, setReportedIdentifiers] = useState<
+        Record<string, string>
+    >({})
+
+    const rememberReportedIdentifier = (key: string, identifier: string) =>
+        setReportedIdentifiers((previous) =>
+            previous[key] === identifier
+                ? previous
+                : { ...previous, [key]: identifier }
+        )
     const [playing, setPlaying] = useState<PlayingRecording>()
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
     const [isLooping, setIsLooping] = useState(false)
@@ -324,6 +334,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         const startedAt = now()
 
         rememberIdentifiersOf(deviceRequests)
+        setReportedIdentifiers({})
         setSession('connecting')
         setSessionError(undefined)
         setRecordStartedAt(startedAt)
@@ -666,6 +677,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             isConnecting={session === 'connecting'}
                             isRecording={isRecordEnabled}
                             identifiers={identifiers}
+                            reportedIdentifiers={reportedIdentifiers}
+                            onIdentifierReported={rememberReportedIdentifier}
                             rememberedIdentifiers={rememberedIdentifiers}
                             scannedIdentifiers={scannedIdentifiers}
                             scanningDeviceNames={scanningDeviceNames}

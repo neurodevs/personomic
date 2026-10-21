@@ -234,6 +234,29 @@ export default class DevicePanelTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsTooltipForNicknameOnHover() {
+        this.renderWithIdentifier(false)
+
+        assert.isEqual(
+            this.nicknameInput.title,
+            'Device nickname',
+            'Did not show tooltip for nickname on hover!'
+        )
+    }
+
+    @test()
+    protected static async showsLockedIdentifierThatWasOnlyReported() {
+        this.renderPanel({
+            identifier: { label: 'UUID', value: '', reported: 'muse-uuid' },
+        })
+
+        assert.isTrue(
+            screen.queryByDisplayValue('muse-uuid') !== null,
+            'Did not show a locked identifier that was only reported!'
+        )
+    }
+
     private static renderWithIdentifier(isRequired: boolean) {
         this.renderPanel({
             identifier: { label: 'UUID', value: '', isRequired },

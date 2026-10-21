@@ -1033,6 +1033,47 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async passesOnEachIdentifierReportedByDevice() {
+        const reported: [string, string][] = []
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onIdentifierReported: (key, identifier) =>
+                reported.push([key, identifier]),
+        })
+
+        this.receiveGatewayDevices([
+            {
+                ...this.gatewayDeviceFor(this.devicesFor(this.streams)[0]),
+                identifier: 'reported-uuid',
+            },
+        ])
+
+        assert.isEqualDeep(
+            reported,
+            [[this.deviceName, 'reported-uuid']],
+            'Did not pass on each identifier reported by the device!'
+        )
+    }
+
+    @test()
+    protected static async showsRememberedIdentifierOfDeviceLeftBlank() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            onIdentifierChange: undefined,
+            identifiers: {
+                [this.deviceName]: { label: 'UUID', value: '' },
+            },
+            reportedIdentifiers: { [this.deviceName]: 'remembered-uuid' },
+        })
+
+        assert.isEqual(
+            (this.identifierInput as HTMLInputElement)?.value,
+            'remembered-uuid',
+            'Did not show the remembered identifier of a device left blank!'
+        )
+    }
+
     private static async mountLockedWithIdentifier(value: string) {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {
