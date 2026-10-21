@@ -11,6 +11,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
     onForget,
 }) => {
     const [isOpen, setIsOpen] = useState(false)
+    const [copiedValue, setCopiedValue] = useState<string>()
 
     const isLocked = onChange === undefined
     const shownLabel = `${identifier.label} ${identifier.isRequired ? '(required)' : '(optional)'}`
@@ -21,6 +22,13 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
         onChange?.(value)
         setIsOpen(false)
     }
+
+    const copy = async () => {
+        await copyText(identifier.value)
+        setCopiedValue(identifier.value)
+    }
+
+    const isCopied = copiedValue === identifier.value
 
     return (
         <span className="stream-monitor__device-identifier-field">
@@ -36,6 +44,18 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                 onClick={() => setIsOpen(true)}
                 onBlur={() => setIsOpen(false)}
             />
+            {identifier.value.trim() !== '' && (
+                <button
+                    type="button"
+                    className="stream-monitor__device-identifier-copy"
+                    aria-label={`Copy ${deviceLabel} ${identifier.label}`}
+                    title={isCopied ? 'Copied' : 'Copy'}
+                    onClick={() => void copy()}
+                    onMouseLeave={() => setCopiedValue(undefined)}
+                >
+                    {isCopied ? '✓' : '⧉'}
+                </button>
+            )}
             {isOpen && !isLocked && (offered.length > 0 || isScanning) && (
                 <ul
                     className="stream-monitor__device-identifier-menu"
@@ -144,6 +164,16 @@ export interface ScannedIdentifier {
     value: string
     source: string
 }
+
+// Test doubles
+
+export let copyText: TextCopier = (text) => navigator.clipboard.writeText(text)
+
+export function setCopyText(nextCopyText: TextCopier) {
+    copyText = nextCopyText
+}
+
+type TextCopier = (text: string) => Promise<void>
 
 export interface DeviceIdentifier {
     label: string
