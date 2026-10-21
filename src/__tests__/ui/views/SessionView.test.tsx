@@ -3886,6 +3886,122 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async fillsRecordControlsFromChosenProtocol() {
+        this.renderWithProtocols([this.recordingFile])
+
+        this.chooseProtocol('Recorded study')
+
+        assert.isEqualDeep(
+            this.recordControls,
+            {
+                isOn: true,
+                directory: '/data/study',
+                name: 'participant',
+            },
+            'Did not fill the record controls from the chosen protocol!'
+        )
+    }
+
+    @test()
+    protected static async turnsRecordingOffForProtocolThatDoesNotRecord() {
+        this.renderWithProtocols([this.tiltFile])
+        this.turnRecordOn()
+
+        this.chooseProtocol('Tilt series')
+
+        assert.isFalse(
+            this.recordToggle.checked,
+            'Did not turn recording off for a protocol that does not record!'
+        )
+    }
+
+    @test()
+    protected static async keepsRememberedFolderForProtocolWithoutOne() {
+        localStorage.setItem('personomic.recordDirectory', '/remembered')
+        this.renderWithProtocols([
+            this.savedFile('quick.json', {
+                name: 'Quick',
+                devices: [],
+                recordXdf: true,
+            }),
+        ])
+
+        this.chooseProtocol('Quick')
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '/remembered',
+            'Did not keep the remembered folder for a protocol without one!'
+        )
+    }
+
+    @test()
+    protected static async savesRecordControlsWithEditedProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.turnRecordOn()
+        this.typeRecordDirectory('/data/tilt')
+        this.typeRecordName('tilt')
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.open())
+
+        const { recordXdf, recordDirectory, recordFileStub } =
+            this.lastSentMessage.protocol
+
+        assert.isEqualDeep(
+            { recordXdf, recordDirectory, recordFileStub },
+            {
+                recordXdf: true,
+                recordDirectory: '/data/tilt',
+                recordFileStub: 'tilt',
+            },
+            'Did not save the record controls with the edited protocol!'
+        )
+    }
+
+    @test()
+    protected static async cancelingEditsRestoresRecordControls() {
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+        this.clickEditProtocol()
+        this.typeRecordName('changed')
+        this.turnRecordOn()
+
+        this.clickProtocolButton('Cancel')
+
+        assert.isEqualDeep(
+            this.recordControls,
+            {
+                isOn: true,
+                directory: '/data/study',
+                name: 'participant',
+            },
+            'Did not restore the record controls on cancel!'
+        )
+    }
+
+    private static get recordControls() {
+        return {
+            isOn: this.recordToggle.checked,
+            directory: this.recordDirectoryInput.value,
+            name: this.recordNameInput.value,
+        }
+    }
+
+    private static readonly recordingFile = this.savedFile(
+        'recorded-study.json',
+        {
+            name: 'Recorded study',
+            devices: [],
+            recordXdf: true,
+            recordDirectory: '/data/study',
+            recordFileStub: 'participant',
+        }
+    )
+
     private static protocolFiles: ProtocolFile[]
     private static changeProtocolFiles: (
         change: (files: ProtocolFile[]) => ProtocolFile[]

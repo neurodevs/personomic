@@ -6,6 +6,7 @@ import sendToOrchestrator, {
 import AddBiosensorButton from '../components/AddBiosensorButton'
 import BiosensorsSection from '../components/BiosensorsSection'
 import DevicePanel from '../components/DevicePanel'
+import RecordXdfControls from '../components/RecordXdfControls'
 import { deviceLabelFor } from '../components/StreamMonitor'
 import useBiosensorChoices, {
     DeviceRequest,
@@ -13,6 +14,7 @@ import useBiosensorChoices, {
     requestedFrom,
     SelectedDevice,
 } from '../hooks/useBiosensorChoices'
+import useDirectoryBrowser from '../hooks/useDirectoryBrowser'
 
 export interface ProtocolsViewProps {
     files?: ProtocolFile[]
@@ -30,6 +32,21 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
     const [actionError, setActionError] = useState<string>()
     const [confirmingRemoveAt, setConfirmingRemoveAt] = useState<number>()
     const [shouldDeleteFile, setShouldDeleteFile] = useState(false)
+
+    const { isBrowsing, browse: browseForRecordDirectory } =
+        useDirectoryBrowser((recordDirectory) => {
+            onFilesChange((previous) =>
+                previous.map((file, index) =>
+                    index === selectedIndex
+                        ? {
+                              ...file,
+                              protocol: { ...file.protocol, recordDirectory },
+                          }
+                        : file
+                )
+            )
+            setSavedTo(undefined)
+        }, setActionError)
 
     if (files === undefined) {
         return <p className="protocols__empty">Loading protocols…</p>
@@ -270,6 +287,27 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 }
                             />
                         </label>
+                        <div className="protocols__record">
+                            <RecordXdfControls
+                                isOn={selected.protocol.recordXdf ?? false}
+                                onIsOnChange={(recordXdf) =>
+                                    changeSelectedProtocol({ recordXdf })
+                                }
+                                directory={
+                                    selected.protocol.recordDirectory ?? ''
+                                }
+                                name={selected.protocol.recordFileStub ?? ''}
+                                isLocked={false}
+                                isBrowsing={isBrowsing}
+                                onDirectoryChange={(recordDirectory) =>
+                                    changeSelectedProtocol({ recordDirectory })
+                                }
+                                onNameChange={(recordFileStub) =>
+                                    changeSelectedProtocol({ recordFileStub })
+                                }
+                                onBrowse={browseForRecordDirectory}
+                            />
+                        </div>
                         <ProtocolBiosensors
                             key={selectedIndex}
                             devices={selected.protocol.devices}
@@ -325,6 +363,9 @@ export interface ProtocolFile {
 export interface Protocol {
     name: string
     devices: SelectedDevice[]
+    recordXdf?: boolean
+    recordDirectory?: string
+    recordFileStub?: string
 }
 
 const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
@@ -436,7 +477,26 @@ function fileNameFrom(name: string) {
 export function fileContentsOf(protocol: Protocol) {
     const { name, devices } = protocol
 
-    return { schemaVersion, name, devices: devices.map(requestOf) }
+    return {
+        schemaVersion,
+        name,
+        devices: devices.map(requestOf),
+        ...recordDefaultsOf(protocol),
+    }
+}
+
+function recordDefaultsOf(protocol: Protocol) {
+    const { recordXdf, recordDirectory, recordFileStub } = protocol
+
+    if (!recordXdf) {
+        return {}
+    }
+
+    return {
+        recordXdf,
+        recordDirectory: recordDirectory?.trim() || undefined,
+        recordFileStub: recordFileStub?.trim() || undefined,
+    }
 }
 
 function requestOf(device: SelectedDevice): DeviceRequest {

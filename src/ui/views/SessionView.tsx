@@ -9,12 +9,13 @@ import AddBiosensorButton from '../components/AddBiosensorButton'
 import BiosensorsSection from '../components/BiosensorsSection'
 import PlaybackControls from '../components/PlaybackControls'
 import PlayRecordingButton from '../components/PlayRecordingButton'
-import RecordPathFields, {
+import {
     defaultRecordDirectory,
     defaultRecordName,
     now,
     recordFileSuffixFor,
 } from '../components/RecordPathFields'
+import RecordXdfControls from '../components/RecordXdfControls'
 import StreamMonitor, {
     PlaybackProgress,
     PlaybackSeek,
@@ -29,6 +30,7 @@ import useBiosensorChoices, {
     SelectedDevice,
     selectedFrom,
 } from '../hooks/useBiosensorChoices'
+import useDirectoryBrowser from '../hooks/useDirectoryBrowser'
 import useWarningBeforeLeaving from '../hooks/useWarningBeforeLeaving'
 import {
     displayNameOf,
@@ -102,7 +104,6 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [recordName, setRecordName] = useState(defaultRecordName)
     const [recordStartedAt, setRecordStartedAt] = useState<Date>()
     const [recordingPath, setRecordingPath] = useState<string>()
-    const [isBrowsing, setIsBrowsing] = useState(false)
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
@@ -188,7 +189,22 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setProtocolSavedTo(undefined)
 
         if (file) {
-            setDevices(file.protocol.devices)
+            fillFrom(file.protocol)
+        }
+    }
+
+    const fillFrom = (protocol: Protocol) => {
+        const { devices, recordXdf, recordDirectory, recordFileStub } = protocol
+
+        setDevices(devices)
+        setIsRecordEnabled(recordXdf ?? false)
+
+        if (recordDirectory) {
+            setRecordDirectory(recordDirectory)
+        }
+
+        if (recordFileStub) {
+            setRecordName(recordFileStub)
         }
     }
 
@@ -199,12 +215,18 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     }
 
     const cancelEditingProtocol = () => {
-        setDevices(chosenProtocolFile!.protocol.devices)
+        fillFrom(chosenProtocolFile!.protocol)
         setIsEditingProtocol(false)
     }
 
     const saveProtocol = () => {
-        const protocol: Protocol = { name: protocolName.trim(), devices }
+        const protocol: Protocol = {
+            name: protocolName.trim(),
+            devices,
+            recordXdf: isRecordEnabled,
+            recordDirectory,
+            recordFileStub: recordName,
+        }
 
         setSessionError(undefined)
 
@@ -244,28 +266,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         localStorage.setItem(recordDirectoryStorageKey, directory)
     }
 
-    const chooseRecordDirectory = () => {
-        setIsBrowsing(true)
-        setSessionError(undefined)
-
-        sendToOrchestrator<OrchestratorReply>(
-            { command: 'chooseDirectory' },
-            {
-                onReply: ({ error, directory }) => {
-                    setIsBrowsing(false)
-                    setSessionError(error)
-
-                    if (directory) {
-                        rememberRecordDirectory(directory)
-                    }
-                },
-                onUnreachable: () => {
-                    setIsBrowsing(false)
-                    setSessionError(orchestratorUnreachableMessage)
-                },
-            }
-        )
-    }
+    const { isBrowsing, browse: browseForRecordDirectory } =
+        useDirectoryBrowser(rememberRecordDirectory, setSessionError)
 
     const revealRecording = () => {
         setSessionError(undefined)
@@ -619,56 +621,31 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         onSpeedChange={setPlaybackSpeed}
                     />
                 )}
-                {(isLive || recordingPath) && (
+                {isLive && (
                     <ControlGroup
                         kind="record"
                         isOnOwnLine={
-                            (isLive && isRecordEnabled) ||
-                            recordingPath !== undefined
+                            isRecordEnabled || recordingPath !== undefined
                         }
                     >
-                        {isLive && (
-                            <label className="connect-devices__record-toggle">
-                                <input
-                                    type="checkbox"
-                                    checked={isRecordEnabled}
-                                    disabled={isLocked}
-                                    onChange={(event) =>
-                                        setIsRecordEnabled(event.target.checked)
-                                    }
-                                />
-                                Record XDF
-                            </label>
-                        )}
-                        {isLive && isRecordEnabled && !recordingPath && (
-                            <RecordPathFields
-                                directory={recordDirectory}
-                                name={recordName}
-                                isLocked={isLocked}
-                                isBrowsing={isBrowsing}
-                                startedAt={
-                                    session === 'connecting'
-                                        ? recordStartedAt
-                                        : undefined
-                                }
-                                onDirectoryChange={rememberRecordDirectory}
-                                onNameChange={setRecordName}
-                                onBrowse={chooseRecordDirectory}
-                            />
-                        )}
-                        {recordingPath && (
-                            <span className="connect-devices__recording">
-                                Recording to{' '}
-                                <button
-                                    type="button"
-                                    className="connect-devices__recording-path"
-                                    title="Show in Finder"
-                                    onClick={revealRecording}
-                                >
-                                    {recordingPath}
-                                </button>
-                            </span>
-                        )}
+                        <RecordXdfControls
+                            isOn={isRecordEnabled}
+                            onIsOnChange={setIsRecordEnabled}
+                            recordingPath={recordingPath}
+                            onRevealRecording={revealRecording}
+                            directory={recordDirectory}
+                            name={recordName}
+                            isLocked={isLocked}
+                            isBrowsing={isBrowsing}
+                            startedAt={
+                                session === 'connecting'
+                                    ? recordStartedAt
+                                    : undefined
+                            }
+                            onDirectoryChange={rememberRecordDirectory}
+                            onNameChange={setRecordName}
+                            onBrowse={browseForRecordDirectory}
+                        />
                     </ControlGroup>
                 )}
                 {sessionError && (

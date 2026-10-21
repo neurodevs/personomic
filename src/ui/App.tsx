@@ -127,14 +127,26 @@ type View = 'session' | 'protocols' | 'demo'
 
 interface ListedProtocolFile {
     fileName: string
-    protocol: { name?: unknown; devices?: unknown }
+    protocol: {
+        name?: unknown
+        devices?: unknown
+        recordXdf?: unknown
+        recordDirectory?: unknown
+        recordFileStub?: unknown
+    }
 }
 
 function protocolFileFrom(listed: ListedProtocolFile): ProtocolFile {
     const { fileName, protocol } = listed
     const name = typeof protocol.name === 'string' ? protocol.name : ''
 
-    const read = { name, devices: devicesFrom(protocol) }
+    const read = {
+        name,
+        devices: devicesFrom(protocol),
+        recordXdf: protocol.recordXdf === true,
+        recordDirectory: textOr(protocol.recordDirectory),
+        recordFileStub: textOr(protocol.recordFileStub),
+    }
 
     return { fileName, protocol: read, savedProtocol: read }
 }

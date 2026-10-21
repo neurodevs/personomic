@@ -339,6 +339,51 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsRecordDefaultsOfListedProtocol() {
+        render(<App />)
+        act(() =>
+            this.orchestratorSocket.receive({
+                protocols: [
+                    {
+                        fileName: 'recorded.json',
+                        protocol: {
+                            schemaVersion: 1,
+                            name: 'Recorded',
+                            recordXdf: true,
+                            recordDirectory: '/data/study',
+                            recordFileStub: 'participant',
+                        },
+                    },
+                ],
+            })
+        )
+
+        fireEvent.change(screen.getByRole('combobox', { name: 'Protocol' }), {
+            target: { value: 'recorded.json' },
+        })
+
+        assert.isEqualDeep(
+            {
+                isOn: (
+                    screen.getByRole('checkbox', {
+                        name: 'Record XDF',
+                    }) as HTMLInputElement
+                ).checked,
+                directory: (
+                    screen.getByLabelText(
+                        'Recordings folder'
+                    ) as HTMLInputElement
+                ).value,
+                name: (
+                    screen.getByLabelText('Recording name') as HTMLInputElement
+                ).value,
+            },
+            { isOn: true, directory: '/data/study', name: 'participant' },
+            'Did not read the record defaults of a listed protocol!'
+        )
+    }
+
+    @test()
     protected static async readsListedProtocolWithoutBiosensorsAsHavingNone() {
         render(<App />)
         this.visitProtocolsListing([this.protocolFile('beeps.json', 'Beeps')])
@@ -445,7 +490,7 @@ export default class AppTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             screen
-                .getAllByRole('checkbox')
+                .getAllByRole('checkbox', { name: /^Muse S Gen 2 / })
                 .filter((toggle) => !(toggle as HTMLInputElement).checked)
                 .map((toggle) => toggle.getAttribute('aria-label')),
             ['Muse S Gen 2 PPG', 'Muse S Gen 2 Gyroscope'],

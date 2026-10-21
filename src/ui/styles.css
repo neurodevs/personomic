@@ -310,6 +310,18 @@ body {
   font-size: 12px;
 }
 
+.protocols__record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.protocols__field input {
+  font-size: 13px;
+}
+
 .protocols__field input {
   max-width: 420px;
   padding: 8px 10px;

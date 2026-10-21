@@ -403,6 +403,97 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async asksForRecordFolderAndNameOnlyOnceRecordingIsOn() {
+        this.answerListing()
+        this.clickNewProtocol()
+        const beforeTurningOn = this.areRecordFieldsShown
+
+        this.turnRecordOn()
+
+        assert.isEqualDeep(
+            { beforeTurningOn, afterTurningOn: this.areRecordFieldsShown },
+            { beforeTurningOn: false, afterTurningOn: true },
+            'Did not ask for the record folder and name only once recording was on!'
+        )
+    }
+
+    @test()
+    protected static async savesRecordDefaultsWithProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.turnRecordOn()
+        this.typeInto('Recordings folder', '/data/study')
+        this.typeInto('Recording name', 'participant')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        const { recordXdf, recordDirectory, recordFileStub } =
+            this.lastSentMessage.protocol
+
+        assert.isEqualDeep(
+            { recordXdf, recordDirectory, recordFileStub },
+            {
+                recordXdf: true,
+                recordDirectory: '/data/study',
+                recordFileStub: 'participant',
+            },
+            'Did not save the record defaults with the protocol!'
+        )
+    }
+
+    @test()
+    protected static async showsTimestampAddedToRecordingName() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.turnRecordOn()
+
+        assert.isTrue(
+            screen.queryByText(/^_\d{4}-.*\.xdf$/) !== null,
+            'Did not show the timestamp added to the recording name!'
+        )
+    }
+
+    @test()
+    protected static async browsesForRecordFolder() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.turnRecordOn()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+        this.answer({ directory: '/chosen' })
+
+        assert.isEqualDeep(
+            {
+                asked: this.lastSentMessage,
+                folder: (
+                    screen.getByLabelText(
+                        'Recordings folder'
+                    ) as HTMLInputElement
+                ).value,
+            },
+            { asked: { command: 'chooseDirectory' }, folder: '/chosen' },
+            'Did not browse for the record folder!'
+        )
+    }
+
+    @test()
+    protected static async savesNoRecordDefaultsForProtocolThatDoesNotRecord() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol,
+            { schemaVersion: 1, name: '', devices: [] },
+            'Saved record defaults for a protocol that does not record!'
+        )
+    }
+
+    @test()
     protected static async stopsSayingSavedOnceBiosensorsChange() {
         this.answerListing()
         this.clickNewProtocol()
@@ -1002,6 +1093,17 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
                     item.querySelector('.stream-monitor__device-name')!
                         .textContent
             )
+    }
+
+    private static turnRecordOn() {
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Record XDF' }))
+    }
+
+    private static get areRecordFieldsShown() {
+        return (
+            screen.queryByLabelText('Recordings folder') !== null &&
+            screen.queryByLabelText('Recording name') !== null
+        )
     }
 
     private static typeInto(label: string, value: string) {
