@@ -540,46 +540,58 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         onSpeedChange={setPlaybackSpeed}
                     />
                 )}
-                {isLive && (
-                    <label className="connect-devices__record-toggle">
-                        <input
-                            type="checkbox"
-                            checked={isRecordEnabled}
-                            disabled={isLocked}
-                            onChange={(event) =>
-                                setIsRecordEnabled(event.target.checked)
-                            }
-                        />
-                        Record XDF
-                    </label>
-                )}
-                {isLive && isRecordEnabled && !recordingPath && (
-                    <RecordPathFields
-                        directory={recordDirectory}
-                        name={recordName}
-                        isLocked={isLocked}
-                        isBrowsing={isBrowsing}
-                        startedAt={
-                            session === 'connecting'
-                                ? recordStartedAt
-                                : undefined
-                        }
-                        onDirectoryChange={rememberRecordDirectory}
-                        onNameChange={setRecordName}
-                        onBrowse={chooseRecordDirectory}
-                    />
-                )}
-                {recordingPath && (
-                    <span className="connect-devices__recording">
-                        Recording to{' '}
-                        <button
-                            type="button"
-                            className="connect-devices__recording-path"
-                            title="Show in Finder"
-                            onClick={revealRecording}
-                        >
-                            {recordingPath}
-                        </button>
+                {(isLive || recordingPath) && (
+                    <span
+                        className={[
+                            'connect-devices__record',
+                            ((isLive && isRecordEnabled) || recordingPath) &&
+                                'connect-devices__record--own-line',
+                        ]
+                            .filter(Boolean)
+                            .join(' ')}
+                    >
+                        {isLive && (
+                            <label className="connect-devices__record-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={isRecordEnabled}
+                                    disabled={isLocked}
+                                    onChange={(event) =>
+                                        setIsRecordEnabled(event.target.checked)
+                                    }
+                                />
+                                Record XDF
+                            </label>
+                        )}
+                        {isLive && isRecordEnabled && !recordingPath && (
+                            <RecordPathFields
+                                directory={recordDirectory}
+                                name={recordName}
+                                isLocked={isLocked}
+                                isBrowsing={isBrowsing}
+                                startedAt={
+                                    session === 'connecting'
+                                        ? recordStartedAt
+                                        : undefined
+                                }
+                                onDirectoryChange={rememberRecordDirectory}
+                                onNameChange={setRecordName}
+                                onBrowse={chooseRecordDirectory}
+                            />
+                        )}
+                        {recordingPath && (
+                            <span className="connect-devices__recording">
+                                Recording to{' '}
+                                <button
+                                    type="button"
+                                    className="connect-devices__recording-path"
+                                    title="Show in Finder"
+                                    onClick={revealRecording}
+                                >
+                                    {recordingPath}
+                                </button>
+                            </span>
+                        )}
                     </span>
                 )}
                 {isLive && protocolSavedTo && (

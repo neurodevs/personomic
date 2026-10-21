@@ -534,6 +534,17 @@ body {
   cursor: default;
 }
 
+.connect-devices__record {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.connect-devices__record--own-line {
+  flex: 0 0 100%;
+}
+
 .connect-devices__record-toggle {
   display: flex;
   align-items: center;
