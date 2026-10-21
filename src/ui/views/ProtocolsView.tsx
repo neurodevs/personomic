@@ -148,6 +148,19 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
         )
     }
 
+    const discardSelectedChanges = () => {
+        const { savedProtocol } = selected!
+
+        if (savedProtocol) {
+            changeFileAt(selectedIndex!, { protocol: savedProtocol })
+        } else {
+            removeAt(selectedIndex!)
+        }
+
+        setSavedTo(undefined)
+        setActionError(undefined)
+    }
+
     const removeAt = (index: number) => {
         onFilesChange((previous) =>
             previous.filter((_, other) => other !== index)
@@ -369,6 +382,14 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 onClick={saveSelected}
                             >
                                 Save
+                            </button>
+                            <button
+                                type="button"
+                                className="protocols__save protocols__cancel"
+                                disabled={!hasUnsavedChanges(selected)}
+                                onClick={discardSelectedChanges}
+                            >
+                                Cancel
                             </button>
                             {savedTo && (
                                 <span

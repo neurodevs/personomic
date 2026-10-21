@@ -415,6 +415,71 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async disablesCancelUntilChangesAreMade() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+        const beforeChanging = this.cancelButton.disabled
+
+        this.typeName('Changed')
+
+        assert.isEqualDeep(
+            { beforeChanging, afterChanging: this.cancelButton.disabled },
+            { beforeChanging: true, afterChanging: false },
+            'Did not disable Cancel until changes were made!'
+        )
+    }
+
+    @test()
+    protected static async cancelDiscardsChanges() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+        this.typeName('Changed')
+        this.addBiosensor('OpenBCI Cyton')
+
+        fireEvent.click(this.cancelButton)
+
+        assert.isEqualDeep(
+            {
+                listed: this.listedNames,
+                unsaved: this.unsavedNames,
+                name: this.nameInput.value,
+                hasNoBiosensors: this.isNoneAddedSaidOnProtocols,
+            },
+            {
+                listed: ['Beeps'],
+                unsaved: [],
+                name: 'Beeps',
+                hasNoBiosensors: true,
+            },
+            'Did not discard the changes on Cancel!'
+        )
+    }
+
+    @test()
+    protected static async cancelRemovesProtocolThatWasNeverSaved() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.clickNewProtocol()
+
+        fireEvent.click(this.cancelButton)
+
+        assert.isEqualDeep(
+            { listed: this.listedNames, isEditing: this.isEditing },
+            { listed: ['Beeps'], isEditing: false },
+            'Did not remove the never-saved protocol on Cancel!'
+        )
+    }
+
+    private static get cancelButton() {
+        return screen.getByRole('button', {
+            name: 'Cancel',
+        }) as HTMLButtonElement
+    }
+
+    private static get isEditing() {
+        return screen.queryByLabelText('Name') !== null
+    }
+
+    @test()
     protected static async doesNotAskForNewNameOfUntitledProtocols() {
         this.answerListing()
         this.clickNewProtocol()

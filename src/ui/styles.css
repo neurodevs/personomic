@@ -293,6 +293,11 @@ body {
   cursor: pointer;
 }
 
+.protocols__cancel {
+  background: none;
+  color: var(--text-secondary);
+}
+
 .protocols__save:disabled {
   background: none;
   color: var(--text-muted);
