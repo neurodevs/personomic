@@ -46,7 +46,7 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
     const addDevice = (name: string) =>
         changeDevices((previous) => [
             ...previous,
-            { name, identifier: '', nickname: '' },
+            { name, identifier: '', nickname: '', disabledStreams: [] },
         ])
 
     const removeDevice = (key: string) =>
@@ -71,6 +71,22 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
                     : device
             )
         )
+
+    const setDisabledStreams = (key: string, disabledStreams: string[]) =>
+        changeDevices((previous) =>
+            previous.map((device, index) =>
+                index === deviceKeys.indexOf(key)
+                    ? { ...device, disabledStreams }
+                    : device
+            )
+        )
+
+    const disabledStreams = Object.fromEntries(
+        devices.map(({ disabledStreams }, index) => [
+            deviceKeys[index],
+            disabledStreams,
+        ])
+    )
 
     const nicknames = Object.fromEntries(
         devices.map(({ nickname }, index) => [deviceKeys[index], nickname])
@@ -115,11 +131,15 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
             .filter(([, ofName]) => ofName !== undefined)
     )
 
-    const deviceRequests = devices.map(({ name, nickname }, index) => ({
-        deviceName: name,
-        identifier: identifiers[deviceKeys[index]]?.value.trim() || undefined,
-        nickname: nickname.trim() || undefined,
-    }))
+    const deviceRequests = devices.map(
+        ({ name, nickname, disabledStreams }, index) => ({
+            deviceName: name,
+            identifier:
+                identifiers[deviceKeys[index]]?.value.trim() || undefined,
+            nickname: nickname.trim() || undefined,
+            disableStreams: disableStreamsOf(disabledStreams),
+        })
+    )
 
     const saveRememberedIdentifiers = (remembered: RememberedIdentifiers) => {
         setRememberedIdentifiers(remembered)
@@ -148,6 +168,8 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         setIdentifierValue,
         setNickname,
         nicknames,
+        setDisabledStreams,
+        disabledStreams,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -156,6 +178,10 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         rememberIdentifiersOf,
         forgetIdentifier,
     }
+}
+
+export function disableStreamsOf(disabledStreams: readonly string[]) {
+    return disabledStreams.length > 0 ? [...disabledStreams] : undefined
 }
 
 export function requestedFrom(request: DeviceRequest): DeviceRequest {
@@ -177,11 +203,19 @@ export function selectedNameOf(deviceName: string) {
 }
 
 export function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
-    return requests.map(({ deviceName, identifier = '', nickname = '' }) => ({
-        name: deviceName,
-        identifier,
-        nickname,
-    }))
+    return requests.map(
+        ({
+            deviceName,
+            identifier = '',
+            nickname = '',
+            disableStreams = [],
+        }) => ({
+            name: deviceName,
+            identifier,
+            nickname,
+            disabledStreams: disableStreams,
+        })
+    )
 }
 
 function readRememberedIdentifiers(): RememberedIdentifiers {
@@ -279,12 +313,14 @@ export interface SelectedDevice {
     name: string
     identifier: string
     nickname: string
+    disabledStreams: string[]
 }
 
 export interface DeviceRequest {
     deviceName: string
     identifier?: string
     nickname?: string
+    disableStreams?: string[]
 }
 
 type RememberedIdentifiers = Record<string, string[]>

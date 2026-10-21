@@ -493,6 +493,29 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async savesStreamsTurnedOffForBiosensor() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Muse S Gen 2')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Muse S Gen 2 settings' })
+        )
+        fireEvent.click(
+            screen.getByRole('checkbox', { name: 'Muse S Gen 2 PPG' })
+        )
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices,
+            [{ deviceName: 'Muse S Gen 2', disableStreams: ['PPG'] }],
+            'Did not save the streams turned off for the biosensor!'
+        )
+    }
+
+    @test()
     protected static async savesAutoDetectedMuseAsMuse() {
         this.answerListing()
         this.clickNewProtocol()

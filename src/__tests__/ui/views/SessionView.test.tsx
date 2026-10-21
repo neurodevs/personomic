@@ -1025,6 +1025,73 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesStreamsTurnedOffBackToMonitor() {
+        this.renderWithTwoMuses()
+
+        this.turnOffStreams('Muse S Gen 2 #2', ['PPG'])
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.disabledStreams,
+            { 'Muse S Gen 2': [], 'Muse S Gen 2 #2': ['PPG'] },
+            'Did not pass streams turned off back to monitor!'
+        )
+    }
+
+    @test()
+    protected static async startsOrchestratorWithStreamsTurnedOff() {
+        this.renderWithMuse()
+        this.addBiosensor('Zephyr BioHarness 3')
+
+        this.turnOffStreams('Muse S Gen 2', ['PPG', 'Gyroscope'])
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [
+                {
+                    deviceName: 'Muse S Gen 2',
+                    disableStreams: ['PPG', 'Gyroscope'],
+                },
+                { deviceName: 'Zephyr BioHarness 3' },
+            ],
+            'Did not start orchestrator with streams turned off!'
+        )
+    }
+
+    @test()
+    protected static async doesNotLetStreamsChangeWhileLocked() {
+        this.renderWithMuse()
+
+        this.connect()
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.onDisabledStreamsChange,
+            'Let streams change while locked!'
+        )
+    }
+
+    @test()
+    protected static async restoresStreamsTurnedOffOfSessionRunningOnLoad() {
+        render(<SessionView />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [
+                    { deviceName: 'Muse S Athena', disableStreams: ['PPG'] },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.disabledStreams,
+            { 'Muse S Athena': ['PPG'] },
+            'Did not restore streams turned off of session running on load!'
+        )
+    }
+
+    @test()
     protected static async tellsMonitorItIsRecordingOnlyWhileRecordIsOn() {
         this.renderWithMuse()
 
@@ -3237,6 +3304,12 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static typeNickname(name: string, value: string) {
         act(() => lastStreamMonitorProps?.onNicknameChange?.(name, value))
+    }
+
+    private static turnOffStreams(name: string, streams: string[]) {
+        act(() =>
+            lastStreamMonitorProps?.onDisabledStreamsChange?.(name, streams)
+        )
     }
 
     private static turnRecordOn() {

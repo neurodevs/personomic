@@ -1063,6 +1063,31 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async reportsStreamsTurnedOffWithDeviceKey() {
+        const changes: [string, string[]][] = []
+
+        this.setFakeStreamPlot()
+        await this.mount(['Muse S Gen 2', 'Muse S Gen 2'], {
+            disabledStreams: { 'Muse S Gen 2 #2': ['Gyroscope'] },
+            onDisabledStreamsChange: (key, streams) =>
+                changes.push([key, streams]),
+        })
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Muse S Gen 2 #2 settings' })
+        )
+        fireEvent.click(
+            screen.getByRole('checkbox', { name: 'Muse S Gen 2 #2 PPG' })
+        )
+
+        assert.isEqualDeep(
+            changes,
+            [['Muse S Gen 2 #2', ['PPG', 'Gyroscope']]],
+            'Did not report streams turned off with device key!'
+        )
+    }
+
+    @test()
     protected static async offersEditableNicknameEvenWithoutIdentifierEntry() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {

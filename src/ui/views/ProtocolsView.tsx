@@ -8,6 +8,7 @@ import DevicePanel from '../components/DevicePanel'
 import { deviceLabelFor } from '../components/StreamMonitor'
 import useBiosensorChoices, {
     DeviceRequest,
+    disableStreamsOf,
     requestedFrom,
     SelectedDevice,
 } from '../hooks/useBiosensorChoices'
@@ -306,6 +307,8 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
         setIdentifierValue,
         setNickname,
         nicknames,
+        setDisabledStreams,
+        disabledStreams,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -360,6 +363,8 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
                                     onIdentifierChange={setIdentifierValue}
                                     nickname={nicknames[key]}
                                     onNicknameChange={setNickname}
+                                    disabledStreams={disabledStreams[key]}
+                                    onDisabledStreamsChange={setDisabledStreams}
                                 />
                             </li>
                         )
@@ -408,12 +413,13 @@ function fileContentsOf(protocol: Protocol) {
 }
 
 function requestOf(device: SelectedDevice): DeviceRequest {
-    const { name, identifier, nickname } = device
+    const { name, identifier, nickname, disabledStreams } = device
 
     return requestedFrom({
         deviceName: name,
         identifier: identifier.trim() || undefined,
         nickname: nickname.trim() || undefined,
+        disableStreams: disableStreamsOf(disabledStreams),
     })
 }
 

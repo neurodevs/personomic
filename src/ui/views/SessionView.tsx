@@ -101,6 +101,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setIdentifierValue,
         setNickname,
         nicknames,
+        setDisabledStreams,
+        disabledStreams,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -268,6 +270,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     name: deviceName,
                     identifier: '',
                     nickname,
+                    disabledStreams: [],
                 }))
             )
             setSession('playing')
@@ -431,6 +434,10 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 onIdentifierChange={isLocked ? undefined : setIdentifierValue}
                 nicknames={nicknames}
                 onNicknameChange={isLocked ? undefined : setNickname}
+                disabledStreams={disabledStreams}
+                onDisabledStreamsChange={
+                    isLocked ? undefined : setDisabledStreams
+                }
                 onRemoveDevice={isLocked ? undefined : removeDevice}
             />
             {!isLocked && addableNames.length > 0 && (

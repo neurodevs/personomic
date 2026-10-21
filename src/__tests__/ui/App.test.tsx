@@ -348,6 +348,40 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsTextStreamsTurnedOffOfListedBiosensor() {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'muse.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Muse',
+                    devices: [
+                        {
+                            deviceName: 'Muse S Gen 2',
+                            disableStreams: ['PPG', 7, 'Gyroscope'],
+                        },
+                    ],
+                },
+            },
+        ])
+        this.chooseListedProtocol('Muse')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Muse S Gen 2 settings' })
+        )
+
+        assert.isEqualDeep(
+            screen
+                .getAllByRole('checkbox')
+                .filter((toggle) => !(toggle as HTMLInputElement).checked)
+                .map((toggle) => toggle.getAttribute('aria-label')),
+            ['Muse S Gen 2 PPG', 'Muse S Gen 2 Gyroscope'],
+            'Did not read the text streams turned off of a listed biosensor!'
+        )
+    }
+
+    @test()
     protected static async readsListedMuseAsAutoDetectedMuse() {
         render(<App />)
         this.visitProtocolsListing([

@@ -64,13 +64,19 @@ let sessionRequest
 let commandInFlight
 let directoryChoiceInFlight
 
-function specificationFor({ deviceName, identifier, nickname }) {
+function specificationFor({
+    deviceName,
+    identifier,
+    nickname,
+    disableStreams,
+}) {
     const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
 
     return {
         deviceName,
         ...(identifier && option && { [option]: identifier }),
         ...(nickname && { nickname }),
+        ...(disableStreams?.length > 0 && { disableStreams }),
     }
 }
 

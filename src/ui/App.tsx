@@ -126,15 +126,22 @@ function devicesFrom(protocol: { devices?: unknown }): SelectedDevice[] {
 
     return protocol.devices
         .filter((device) => typeof device?.deviceName === 'string')
-        .map(({ deviceName, identifier, nickname }) => ({
+        .map(({ deviceName, identifier, nickname, disableStreams }) => ({
             name: selectedNameOf(deviceName),
             identifier: textOr(identifier),
             nickname: textOr(nickname),
+            disabledStreams: textsIn(disableStreams),
         }))
 }
 
 function textOr(value: unknown) {
     return typeof value === 'string' ? value : ''
+}
+
+function textsIn(value: unknown) {
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string')
+        : []
 }
 
 function tabIdOf(view: View) {
