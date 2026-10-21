@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
 import DemoWebSocket from '../../demo/DemoWebSocket'
 import TourPlayer from '../../demo/TourPlayer'
@@ -38,9 +38,10 @@ export default class ToursTest extends AbstractPackageTest {
                 'How to run a session with Muse',
                 'How to replay an XDF recording',
                 'How to define a new protocol',
+                'How to share/upload a protocol',
                 'How real-time analytics work',
             ],
-            'Did not offer a Muse session, an XDF replay, a protocol, and live analysis!'
+            'Did not offer a Muse session, an XDF replay, a protocol, live analysis, and sharing!'
         )
     }
 
@@ -182,6 +183,62 @@ export default class ToursTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async sharesAProtocolToTheEnd() {
+        await this.playToTheEnd('How to share/upload a protocol')
+
+        assert.isEqual(
+            this.caption,
+            this.lastCaptionOf(this.playedTitle!),
+            `Got stuck in the sharing tour at ${this.stuckStep}!`
+        )
+    }
+
+    @test()
+    protected static async startsSharingFromASavedProtocol() {
+        await this.choose('How to share/upload a protocol')
+
+        assert.isTrue(
+            screen.queryByText(
+                '~/Personomic/Protocols/eyes-closed-baseline.json'
+            ) !== null,
+            'Did not start sharing from a saved protocol!'
+        )
+    }
+
+    @test()
+    protected static async savesTheUploadedProtocolBeforeTheLastStep() {
+        await this.choose('How to share/upload a protocol')
+
+        await this.goToLastStep()
+        await screen.findByText('~/Personomic/Protocols/tilt-series.json')
+
+        assert.isEqualDeep(
+            {
+                listed: within(
+                    screen.getByRole('navigation', { name: 'Protocols' })
+                )
+                    .getAllByRole('listitem')
+                    .map(
+                        (item) =>
+                            within(item).getAllByRole('button')[0].textContent
+                    ),
+                numUnsaved: screen.queryAllByRole('img', {
+                    name: 'Unsaved changes',
+                }).length,
+            },
+            {
+                listed: [
+                    'Muse meditation',
+                    'Eyes-closed baseline',
+                    'Tilt series',
+                ],
+                numUnsaved: 0,
+            },
+            'Did not save the uploaded protocol before the last step!'
+        )
+    }
+
     private static async playToTheEnd(title: string) {
         this.playedTitle = title
         await this.choose(title)
@@ -217,7 +274,9 @@ export default class ToursTest extends AbstractPackageTest {
     }
 
     private static get caption() {
-        return screen.getByRole('status').textContent
+        return within(
+            screen.getByRole('region', { name: 'Guided tours' })
+        ).getByRole('status').textContent
     }
 
     private static tourTitled(title: string) {

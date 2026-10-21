@@ -1,5 +1,6 @@
 import { fireEvent, within } from '@testing-library/dom'
 
+import sampleProtocol from './sampleProtocol'
 import sampleRecording from './sampleRecording'
 import { simulatedMuse, simulatedMuseModel } from './simulatedMuse'
 import { Tour, TourView } from './TourPlayer'
@@ -185,6 +186,70 @@ const tours: Tour[] = [
         ],
     },
     {
+        title: 'How to share/upload a protocol',
+        setup: [
+            {
+                target: (view) => view.getByRole('tab', { name: 'Protocols' }),
+            },
+            {
+                target: (view) =>
+                    view.getByRole('button', { name: 'New protocol' }),
+            },
+            {
+                target: (view) => view.getByRole('textbox', { name: 'Name' }),
+                act: (field) =>
+                    fireEvent.change(field, {
+                        target: { value: 'Eyes-closed baseline' },
+                    }),
+            },
+            {
+                target: (view) => view.getByRole('button', { name: 'Save' }),
+            },
+        ],
+        steps: [
+            {
+                caption:
+                    'Each protocol is saved as a JSON file in ~/Personomic/Protocols. Click its path to find it in Finder, then send it to collaborators however you like.',
+                target: (view) =>
+                    view.getByRole('button', {
+                        name: '~/Personomic/Protocols/eyes-closed-baseline.json',
+                    }),
+                act: leaveAsIs,
+            },
+            {
+                caption: 'Or click ↓ to download a copy from your browser.',
+                target: (view) =>
+                    view.getByRole('button', {
+                        name: 'Download Eyes-closed baseline',
+                    }),
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'To use a protocol a collaborator sent you, click Upload protocol and choose their file. For this tour, we will use a sample.',
+                target: (view) =>
+                    view.getByRole('button', { name: 'Upload protocol' }),
+                act: (_, view) =>
+                    fireEvent.change(
+                        view.getByLabelText('Protocol to upload'),
+                        {
+                            target: { files: [sampleProtocol()] },
+                        }
+                    ),
+            },
+            {
+                caption:
+                    'It opens unsaved, so you can look it over first. Click Save to add it to your protocols.',
+                target: (view) => saveButtonOnceEditing('Tilt series', view),
+            },
+            {
+                caption:
+                    'Now it is ready to choose in the Session tab, set up exactly as your collaborator made it.',
+                target: (view) => view.getByRole('tab', { name: 'Session' }),
+            },
+        ],
+    },
+    {
         title: 'How real-time analytics work',
         setup: [
             {
@@ -247,6 +312,12 @@ const tours: Tour[] = [
 export default tours
 
 function leaveAsIs() {}
+
+function saveButtonOnceEditing(protocolName: string, view: TourView) {
+    view.getByDisplayValue(protocolName)
+
+    return view.getByRole('button', { name: 'Save' })
+}
 
 function plotOf(streamType: string, view: TourView) {
     const name = view
