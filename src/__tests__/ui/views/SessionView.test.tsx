@@ -1,7 +1,7 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import React from 'react'
+import React, { useState } from 'react'
 
 import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
 import FakeStreamPlot from '../../../testDoubles/StreamPlot/FakeStreamPlot'
@@ -29,6 +29,7 @@ import SessionView, {
     setNow,
     setStreamMonitorComponent,
 } from '../../../ui/views/SessionView'
+import { ProtocolFile } from '../../../ui/views/ProtocolsView'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class SessionViewTest extends AbstractPackageTest {
@@ -2319,10 +2320,13 @@ export default class SessionViewTest extends AbstractPackageTest {
     @test()
     protected static async namesRecordAndPlayAfterXdf() {
         this.renderWithMuse()
+        const record = this.recordToggle.closest('label')?.textContent
+
+        this.chooseMode('Playback')
 
         assert.isEqualDeep(
             {
-                record: this.recordToggle.closest('label')?.textContent,
+                record,
                 play: screen.queryByRole('button', {
                     name: 'Play XDF recording…',
                 })?.textContent,
@@ -2333,12 +2337,139 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersToPlayRecordingBeforeConnecting() {
+    protected static async startsInLiveMode() {
         render(<SessionView />)
+
+        assert.isEqualDeep(
+            {
+                live: this.modeRadio('Live').getAttribute('aria-checked'),
+                playback:
+                    this.modeRadio('Playback').getAttribute('aria-checked'),
+            },
+            { live: 'true', playback: 'false' },
+            'Did not start in live mode!'
+        )
+    }
+
+    @test()
+    protected static async offersToPlayRecordingOnlyInPlayback() {
+        render(<SessionView />)
+        const inLive = this.isPlayRecordingOffered
+
+        this.chooseMode('Playback')
+
+        assert.isEqualDeep(
+            { inLive, inPlayback: this.isPlayRecordingOffered },
+            { inLive: false, inPlayback: true },
+            'Did not offer to play a recording only in playback!'
+        )
+    }
+
+    @test()
+    protected static async offersLiveControlsOnlyInLive() {
+        this.renderWithMuse()
+
+        this.chooseMode('Playback')
+
+        assert.isEqualDeep(
+            {
+                protocol: screen.queryByRole('combobox', { name: 'Protocol' }),
+                connect: screen.queryByRole('button', { name: 'Connect' }),
+                record: screen.queryByRole('checkbox', { name: /record/i }),
+            },
+            { protocol: null, connect: null, record: null },
+            'Offered live controls in playback!'
+        )
+    }
+
+    @test()
+    protected static async monitorsNoBiosensorsWhileChoosingRecording() {
+        this.renderWithMuse()
+
+        this.chooseMode('Playback')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                isAddBiosensorButtonShown: this.isAddBiosensorButtonShown,
+                scan: this.activeScan,
+            },
+            {
+                deviceNames: [],
+                isAddBiosensorButtonShown: false,
+                scan: undefined,
+            },
+            'Did not set the biosensors aside while choosing a recording!'
+        )
+    }
+
+    @test()
+    protected static async returnsToBiosensorsWhenBackInLive() {
+        this.renderWithMuse()
+        this.chooseMode('Playback')
+
+        this.chooseMode('Live')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                isAddBiosensorButtonShown: this.isAddBiosensorButtonShown,
+            },
+            {
+                deviceNames: ['Muse S Gen 2'],
+                isAddBiosensorButtonShown: true,
+            },
+            'Did not return to the biosensors when back in live!'
+        )
+    }
+
+    @test()
+    protected static async stopsSwitchingModesWhileConnected() {
+        this.renderWithMuse()
+
+        this.connect()
+
+        assert.isTrue(
+            this.areModesDisabled,
+            'Did not stop switching modes while connected!'
+        )
+    }
+
+    @test()
+    protected static async stopsSwitchingModesWhilePlaying() {
+        render(<SessionView />)
+
+        await this.chooseRecording()
+
+        assert.isTrue(
+            this.areModesDisabled,
+            'Did not stop switching modes while playing!'
+        )
+    }
+
+    @test()
+    protected static async stopsSwitchingModesWhileEditingProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickEditProtocol()
+
+        assert.isTrue(
+            this.areModesDisabled,
+            'Did not stop switching modes while editing a protocol!'
+        )
+    }
+
+    @test()
+    protected static async staysInPlaybackOncePlayingIsStopped() {
+        render(<SessionView />)
+        await this.chooseRecording()
+
+        this.clickStop()
 
         assert.isTrue(
             this.isPlayRecordingOffered,
-            'Did not offer to play recording before connecting!'
+            'Did not stay in playback once playing was stopped!'
         )
     }
 
@@ -2356,6 +2487,7 @@ export default class SessionViewTest extends AbstractPackageTest {
     @test()
     protected static async asksForFileWhenPlayRecordingIsClicked() {
         render(<SessionView />)
+        this.chooseMode('Playback')
 
         let numTimesAsked = 0
         this.recordingToPlayInput.click = () => numTimesAsked++
@@ -2374,6 +2506,7 @@ export default class SessionViewTest extends AbstractPackageTest {
     @test()
     protected static async asksOnlyForXdfFiles() {
         render(<SessionView />)
+        this.chooseMode('Playback')
 
         assert.isEqual(
             this.recordingToPlayInput.accept,
@@ -2498,6 +2631,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         await this.chooseRecording()
         this.clickStop()
+        this.chooseMode('Live')
 
         assert.isEqualDeep(
             {
@@ -2555,13 +2689,13 @@ export default class SessionViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             {
                 error: screen.getByRole('alert').textContent,
-                ...this.lockState,
+                isPlayOffered: this.isPlayRecordingOffered,
+                recording: lastStreamMonitorProps?.recording,
             },
             {
                 error: 'Could not play notes.txt. It is not an XDF file.',
-                isLocked: false,
-                isAddBiosensorButtonShown: true,
-                button: { text: 'Connect', isDisabled: true },
+                isPlayOffered: true,
+                recording: undefined,
             },
             'Did not show error when chosen file was not XDF!'
         )
@@ -3066,6 +3200,576 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async offersSavedProtocolsToChoose() {
+        this.renderWithProtocols([
+            this.beepsFile,
+            this.tiltFile,
+            { protocol: { name: 'Unsaved', devices: [] } },
+        ])
+
+        assert.isEqualDeep(
+            this.offeredProtocols,
+            ['No protocol', 'Beeps', 'Tilt series'],
+            'Did not offer the saved protocols to choose!'
+        )
+    }
+
+    @test()
+    protected static async startsWithNoProtocolChosen() {
+        this.renderWithProtocols([this.beepsFile])
+
+        assert.isEqual(
+            this.protocolSelect.value,
+            '',
+            'Did not start with no protocol chosen!'
+        )
+    }
+
+    @test()
+    protected static async fillsBiosensorsFromChosenProtocol() {
+        this.renderWithProtocols([this.beepsFile, this.tiltFile])
+
+        this.chooseProtocol('Tilt series')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                identifiers: lastStreamMonitorProps?.identifiers,
+                nicknames: lastStreamMonitorProps?.nicknames,
+                disabledStreams: lastStreamMonitorProps?.disabledStreams,
+            },
+            {
+                deviceNames: ['Muse S Gen 2', 'Zephyr BioHarness 3'],
+                identifiers: {
+                    'Muse S Gen 2': { label: 'UUID', value: 'muse-uuid' },
+                },
+                nicknames: {
+                    'Muse S Gen 2': 'Head',
+                    'Zephyr BioHarness 3': '',
+                },
+                disabledStreams: {
+                    'Muse S Gen 2': ['PPG'],
+                    'Zephyr BioHarness 3': [],
+                },
+            },
+            'Did not fill the biosensors from the chosen protocol!'
+        )
+    }
+
+    @test()
+    protected static async locksBiosensorsWhileProtocolIsChosen() {
+        this.renderWithProtocols([this.tiltFile])
+
+        this.chooseProtocol('Tilt series')
+
+        assert.isEqualDeep(
+            this.protocolLockState,
+            {
+                isAddBiosensorButtonShown: false,
+                canRemove: false,
+                canChangeNickname: true,
+                canChangeStreams: false,
+                canChangeIdentifier: true,
+            },
+            'Did not lock the biosensors while a protocol is chosen!'
+        )
+    }
+
+    @test()
+    protected static async unlocksBiosensorsWhenNoProtocolIsChosen() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.chooseProtocol('No protocol')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                lockState: this.protocolLockState,
+            },
+            {
+                deviceNames: ['Muse S Gen 2', 'Zephyr BioHarness 3'],
+                lockState: this.unlockedProtocolState,
+            },
+            'Did not unlock the biosensors, keeping them, when no protocol is chosen!'
+        )
+    }
+
+    @test()
+    protected static async unlocksBiosensorsWhenChosenProtocolIsRemoved() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        act(() => this.changeProtocolFiles(() => []))
+
+        assert.isEqualDeep(
+            this.protocolLockState,
+            this.unlockedProtocolState,
+            'Did not unlock the biosensors when the chosen protocol was removed!'
+        )
+    }
+
+    @test()
+    protected static async offersToEditOnlyWhileProtocolIsChosen() {
+        this.renderWithProtocols([this.tiltFile])
+        const withNone = this.isEditProtocolOffered
+
+        this.chooseProtocol('Tilt series')
+
+        assert.isEqualDeep(
+            { withNone, withChosen: this.isEditProtocolOffered },
+            { withNone: false, withChosen: true },
+            'Did not offer to edit only while a protocol is chosen!'
+        )
+    }
+
+    @test()
+    protected static async unlocksBiosensorsWhileEditingProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickEditProtocol()
+
+        assert.isEqualDeep(
+            this.protocolLockState,
+            this.unlockedProtocolState,
+            'Did not unlock the biosensors while editing the protocol!'
+        )
+    }
+
+    @test()
+    protected static async stopsChoosingProtocolsWhileEditing() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickEditProtocol()
+
+        assert.isTrue(
+            this.protocolSelect.disabled,
+            'Did not stop choosing protocols while editing!'
+        )
+    }
+
+    @test()
+    protected static async stopsChoosingProtocolsWhileConnected() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.connect()
+
+        assert.isEqualDeep(
+            {
+                isSelectDisabled: this.protocolSelect.disabled,
+                isEditOffered: this.isEditProtocolOffered,
+            },
+            { isSelectDisabled: true, isEditOffered: false },
+            'Did not stop choosing or editing protocols while connected!'
+        )
+    }
+
+    @test()
+    protected static async namesProtocolBeingEdited() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickEditProtocol()
+
+        assert.isEqual(
+            this.protocolNameInput.value,
+            'Tilt series',
+            'Did not name the protocol being edited!'
+        )
+    }
+
+    @test()
+    protected static async cancelingEditsRestoresProtocolAndRelocks() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.addBiosensor('Muse 2')
+
+        this.clickProtocolButton('Cancel')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                canRemove: this.protocolLockState.canRemove,
+                isEditOffered: this.isEditProtocolOffered,
+            },
+            {
+                deviceNames: ['Muse S Gen 2', 'Zephyr BioHarness 3'],
+                canRemove: false,
+                isEditOffered: true,
+            },
+            'Did not restore the protocol and relock on cancel!'
+        )
+    }
+
+    @test()
+    protected static async savesEditedProtocolToItsFile() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.removeDevice('Zephyr BioHarness 3')
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            {
+                command: 'saveProtocol',
+                fileName: 'tilt-series.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt series',
+                    devices: [
+                        {
+                            deviceName: 'Muse S Gen 2',
+                            identifier: 'muse-uuid',
+                            nickname: 'Head',
+                            disableStreams: ['PPG'],
+                        },
+                    ],
+                },
+            },
+            'Did not save the edited protocol to its file!'
+        )
+    }
+
+    @test()
+    protected static async updatesProtocolOnceSaved() {
+        this.renderWithProtocols([this.beepsFile, this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.removeDevice('Zephyr BioHarness 3')
+
+        this.saveProtocolThroughOrchestrator('Save', 'tilt-series.json')
+
+        assert.isEqualDeep(
+            {
+                saved: this.protocolFiles[1].protocol.devices.map(
+                    ({ name }) => name
+                ),
+                offered: this.offeredProtocols,
+                chosen: this.chosenProtocolName,
+                canRemove: this.protocolLockState.canRemove,
+            },
+            {
+                saved: ['Muse S Gen 2'],
+                offered: ['No protocol', 'Beeps', 'Tilt series'],
+                chosen: 'Tilt series',
+                canRemove: false,
+            },
+            'Did not update and relock the protocol once saved!'
+        )
+    }
+
+    @test()
+    protected static async saysWhereProtocolWasSaved() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.saveProtocolThroughOrchestrator('Save', 'tilt-series.json')
+
+        assert.isEqual(
+            screen.getByRole('status').textContent,
+            'Saved to /protocols/tilt-series.json',
+            'Did not say where the protocol was saved!'
+        )
+    }
+
+    @test()
+    protected static async offersToSaveAsNewOnceRenamed() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        const beforeRenaming = this.saveProtocolButton.textContent
+
+        this.typeProtocolName('Tilt only')
+
+        assert.isEqualDeep(
+            {
+                beforeRenaming,
+                afterRenaming: this.saveProtocolButton.textContent,
+            },
+            { beforeRenaming: 'Save', afterRenaming: 'Save as new' },
+            'Did not offer to save as new once renamed!'
+        )
+    }
+
+    @test()
+    protected static async savesInPlaceWhenOnlyCaseOfNameChanges() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.typeProtocolName(' tilt SERIES ')
+
+        fireEvent.click(this.saveProtocolButton)
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.fileName,
+            'tilt-series.json',
+            'Did not save in place when only the case of the name changed!'
+        )
+    }
+
+    @test()
+    protected static async refusesNameOfAnotherProtocol() {
+        this.renderWithProtocols([this.beepsFile, this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.typeProtocolName(' beeps')
+
+        assert.isEqualDeep(
+            {
+                isSaveDisabled: this.saveProtocolButton.disabled,
+                reason: screen.queryByText('Beeps is already a protocol.')
+                    ?.textContent,
+            },
+            {
+                isSaveDisabled: true,
+                reason: 'Beeps is already a protocol.',
+            },
+            'Did not refuse the name of another protocol!'
+        )
+    }
+
+    @test()
+    protected static async savesRenamedProtocolAsNewFile() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.typeProtocolName('Tilt only')
+
+        this.clickProtocolButton('Save as new')
+        act(() => this.orchestratorSocket.open())
+
+        const { fileName, protocol } = this.lastSentMessage
+
+        assert.isEqualDeep(
+            { fileName, name: protocol.name },
+            { fileName: undefined, name: 'Tilt only' },
+            'Did not save the edited protocol as a new file!'
+        )
+    }
+
+    @test()
+    protected static async choosesNewProtocolOnceSavedAsNew() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.typeProtocolName('Tilt only')
+
+        this.saveProtocolThroughOrchestrator('Save as new', 'tilt-only.json')
+
+        assert.isEqualDeep(
+            {
+                offered: this.offeredProtocols,
+                chosen: this.chosenProtocolName,
+                files: this.protocolFiles.map(({ fileName }) => fileName),
+            },
+            {
+                offered: ['No protocol', 'Tilt series', 'Tilt only'],
+                chosen: 'Tilt only',
+                files: ['tilt-series.json', 'tilt-only.json'],
+            },
+            'Did not choose the new protocol once saved as new!'
+        )
+    }
+
+    @test()
+    protected static async keepsEditingWhenSavingProtocolFails() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.receive({ error: 'Disk full' }))
+
+        assert.isEqualDeep(
+            {
+                error: screen.getByRole('alert').textContent,
+                canRemove: this.protocolLockState.canRemove,
+            },
+            { error: 'Disk full', canRemove: true },
+            'Did not keep editing when saving the protocol failed!'
+        )
+    }
+
+    @test()
+    protected static async saysOrchestratorIsUnreachableWhenSavingProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            'Did not say the orchestrator is unreachable when saving the protocol!'
+        )
+    }
+
+    private static protocolFiles: ProtocolFile[]
+    private static changeProtocolFiles: (
+        change: (files: ProtocolFile[]) => ProtocolFile[]
+    ) => void
+
+    private static readonly beepsFile: ProtocolFile = {
+        fileName: 'beeps.json',
+        protocol: { name: 'Beeps', devices: [] },
+    }
+
+    private static readonly tiltFile: ProtocolFile = {
+        fileName: 'tilt-series.json',
+        protocol: {
+            name: 'Tilt series',
+            devices: [
+                {
+                    name: 'Muse S Gen 2',
+                    identifier: 'muse-uuid',
+                    nickname: 'Head',
+                    disabledStreams: ['PPG'],
+                },
+                {
+                    name: 'Zephyr BioHarness 3',
+                    identifier: '',
+                    nickname: '',
+                    disabledStreams: [],
+                },
+            ],
+        },
+    }
+
+    private static readonly unlockedProtocolState = {
+        isAddBiosensorButtonShown: true,
+        canRemove: true,
+        canChangeNickname: true,
+        canChangeStreams: true,
+        canChangeIdentifier: true,
+    }
+
+    private static renderWithProtocols(files: ProtocolFile[]) {
+        const WithProtocols = () => {
+            const [protocolFiles, setProtocolFiles] = useState(files)
+
+            this.protocolFiles = protocolFiles
+            this.changeProtocolFiles = (change) => setProtocolFiles(change)
+
+            return (
+                <SessionView
+                    protocolFiles={protocolFiles}
+                    onProtocolFilesChange={this.changeProtocolFiles}
+                />
+            )
+        }
+
+        render(<WithProtocols />)
+    }
+
+    private static get protocolSelect() {
+        return screen.getByRole('combobox', {
+            name: 'Protocol',
+        }) as HTMLSelectElement
+    }
+
+    private static get offeredProtocols() {
+        return Array.from(this.protocolSelect.options).map(
+            (option) => option.textContent
+        )
+    }
+
+    private static get chosenProtocolName() {
+        const { options, selectedIndex } = this.protocolSelect
+        return options[selectedIndex].textContent
+    }
+
+    private static chooseProtocol(name: string) {
+        const option = Array.from(this.protocolSelect.options).find(
+            (other) => other.textContent === name
+        )!
+
+        fireEvent.change(this.protocolSelect, {
+            target: { value: option.value },
+        })
+    }
+
+    private static get isEditProtocolOffered() {
+        return screen.queryByRole('button', { name: 'Edit protocol' }) !== null
+    }
+
+    private static clickEditProtocol() {
+        fireEvent.click(screen.getByRole('button', { name: 'Edit protocol' }))
+    }
+
+    private static get protocolNameInput() {
+        return screen.getByRole('textbox', {
+            name: 'Protocol name',
+        }) as HTMLInputElement
+    }
+
+    private static typeProtocolName(value: string) {
+        fireEvent.change(this.protocolNameInput, { target: { value } })
+    }
+
+    private static clickProtocolButton(name: string) {
+        fireEvent.click(screen.getByRole('button', { name }))
+    }
+
+    private static saveProtocolThroughOrchestrator(
+        buttonName: string,
+        fileName: string
+    ) {
+        this.clickProtocolButton(buttonName)
+        act(() =>
+            this.orchestratorSocket.receive({
+                fileName,
+                filePath: `/protocols/${fileName}`,
+            })
+        )
+    }
+
+    private static modeRadio(name: string) {
+        return screen.getByRole('radio', { name }) as HTMLButtonElement
+    }
+
+    private static chooseMode(name: string) {
+        fireEvent.click(this.modeRadio(name))
+    }
+
+    private static get areModesDisabled() {
+        return (
+            this.modeRadio('Live').disabled &&
+            this.modeRadio('Playback').disabled
+        )
+    }
+
+    private static get saveProtocolButton() {
+        return screen.getByRole('button', {
+            name: /^Save( as new)?$/,
+        }) as HTMLButtonElement
+    }
+
+    private static get protocolLockState() {
+        return {
+            isAddBiosensorButtonShown: this.isAddBiosensorButtonShown,
+            canRemove: lastStreamMonitorProps?.onRemoveDevice !== undefined,
+            canChangeNickname:
+                lastStreamMonitorProps?.onNicknameChange !== undefined,
+            canChangeStreams:
+                lastStreamMonitorProps?.onDisabledStreamsChange !== undefined,
+            canChangeIdentifier:
+                lastStreamMonitorProps?.onIdentifierChange !== undefined,
+        }
+    }
+
     private static get numShownPlots() {
         return document.querySelectorAll('[data-testid^="stream-plot-"]').length
     }
@@ -3232,6 +3936,12 @@ export default class SessionViewTest extends AbstractPackageTest {
         name = 'session.xdf'
     ) {
         const file = { name, arrayBuffer: async () => contents }
+
+        if (
+            this.modeRadio('Playback').getAttribute('aria-checked') !== 'true'
+        ) {
+            this.chooseMode('Playback')
+        }
 
         await act(async () => {
             fireEvent.change(this.recordingToPlayInput, {

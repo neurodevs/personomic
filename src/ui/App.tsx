@@ -73,7 +73,11 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                 aria-labelledby={tabIdOf('session')}
                 hidden={view !== 'session'}
             >
-                <SessionView downsampling={downsampling} />
+                <SessionView
+                    downsampling={downsampling}
+                    protocolFiles={protocolFiles}
+                    onProtocolFilesChange={changeProtocolFiles}
+                />
             </div>
             {view === 'protocols' && (
                 <div

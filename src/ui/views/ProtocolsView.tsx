@@ -406,7 +406,7 @@ function fileNameFrom(name: string) {
     return `${stem || untitledFileStem}.json`
 }
 
-function fileContentsOf(protocol: Protocol) {
+export function fileContentsOf(protocol: Protocol) {
     const { name, devices } = protocol
 
     return { schemaVersion, name, devices: devices.map(requestOf) }
@@ -440,7 +440,7 @@ function downloadThroughBrowser(fileName: string, text: string) {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function displayNameOf(protocol: Protocol) {
+export function displayNameOf(protocol: Protocol) {
     return protocol.name.trim() || untitledName
 }
 

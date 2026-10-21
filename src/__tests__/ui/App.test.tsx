@@ -419,6 +419,59 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async offersListedProtocolsInSession() {
+        render(<App />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                protocols: [this.protocolFile('beeps.json', 'Beeps')],
+            })
+        )
+
+        const protocolSelect = screen.getByRole('combobox', {
+            name: 'Protocol',
+        }) as HTMLSelectElement
+
+        assert.isEqualDeep(
+            Array.from(protocolSelect.options).map(
+                (option) => option.textContent
+            ),
+            ['No protocol', 'Beeps'],
+            'Did not offer the listed protocols in the session!'
+        )
+    }
+
+    @test()
+    protected static async showsProtocolSavedInSessionOnProtocols() {
+        render(<App />)
+        act(() =>
+            this.orchestratorSocket.receive({
+                protocols: [this.protocolFile('beeps.json', 'Beeps')],
+            })
+        )
+        fireEvent.change(screen.getByRole('combobox', { name: 'Protocol' }), {
+            target: { value: 'beeps.json' },
+        })
+        fireEvent.click(screen.getByRole('button', { name: 'Edit protocol' }))
+        fireEvent.change(
+            screen.getByRole('textbox', { name: 'Protocol name' }),
+            { target: { value: 'Loud beeps' } }
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Save as new' }))
+        act(() =>
+            this.orchestratorSocket.receive({ fileName: 'loud-beeps.json' })
+        )
+
+        this.chooseTab('Protocols')
+
+        assert.isEqualDeep(
+            this.listedProtocolNames,
+            ['Beeps', 'Loud beeps'],
+            'Did not show the protocol saved in the session on Protocols!'
+        )
+    }
+
     private static visitProtocolsListing(files: object[]) {
         this.chooseTab('Protocols')
         act(() => this.orchestratorSocket.receive({ protocols: files }))
