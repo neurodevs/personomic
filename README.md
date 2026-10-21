@@ -69,6 +69,23 @@ it is not at Homebrew's path.
 The app starts with no biosensors, so add "Muse S Gen 2" with "+ Add biosensor"
 to see these streams.
 
+## Demo with guided tours
+
+The Demo tab, beside Session and Protocols, shows `demo.html` in a frame while
+the tab is chosen, and nothing of it otherwise. That page runs the real app
+with no orchestrator, gateway, or biosensors. `DemoWebSocket` stands in for all
+three behind the same WebSocket ports and streams a simulated Muse S Gen 2.
+Only Muse headbands can connect. Tours at the top, such as "How to run a
+session with Muse", click through the real UI one step at a time. Back and the
+step dots replay the earlier steps in a fresh app. The demo keeps what the app
+remembers in memory, so it never touches the real app's saved record folder or
+biosensor identifiers. It runs in its own frame because the app's WebSocket
+stand-in is shared by everything on a page, and the Session tab keeps its real
+connections open while hidden.
+
+Each tour step finds its target the way a test does, by role and name, so
+`tours.test.tsx` fails when a UI change breaks a tour.
+
 ## Playing a recording
 
 Click "Play XDF recording…" and choose an XDF file, such as one recorded here. The

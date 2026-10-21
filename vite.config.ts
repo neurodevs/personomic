@@ -8,10 +8,20 @@ export default defineConfig({
         alias: [
             {
                 find: /^module$/,
-                replacement: fileURLToPath(
-                    new URL('./shims/createRequire.js', import.meta.url)
-                ),
+                replacement: pathTo('./shims/createRequire.js'),
             },
         ],
     },
+    build: {
+        rollupOptions: {
+            input: {
+                main: pathTo('./index.html'),
+                demo: pathTo('./demo.html'),
+            },
+        },
+    },
 })
+
+function pathTo(relativePath: string) {
+    return fileURLToPath(new URL(relativePath, import.meta.url))
+}

@@ -15,16 +15,20 @@ import SessionView from './views/SessionView'
 const viewLabels: Record<View, string> = {
     session: 'Session',
     protocols: 'Protocols',
+    demo: 'Demo',
 }
 
-const views = Object.keys(viewLabels) as View[]
+const allViews = Object.keys(viewLabels) as View[]
 
 export interface AppProps {
     downsampling?: Downsampling
+    isDemo?: boolean
 }
 
 const App: React.FC<AppProps> = (props: AppProps) => {
-    const { downsampling } = props
+    const { downsampling, isDemo = false } = props
+
+    const views = isDemo ? allViews.filter((id) => id !== 'demo') : allViews
 
     const [view, setView] = useState<View>('session')
     const [protocolFiles, setProtocolFiles] = useState<ProtocolFile[]>()
@@ -100,13 +104,26 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                     />
                 </div>
             )}
+            {view === 'demo' && (
+                <div
+                    role="tabpanel"
+                    id={panelIdOf('demo')}
+                    aria-labelledby={tabIdOf('demo')}
+                >
+                    <iframe
+                        className="app__demo"
+                        title="Personomic demo"
+                        src="/demo.html"
+                    />
+                </div>
+            )}
         </main>
     )
 }
 
 export default App
 
-type View = 'session' | 'protocols'
+type View = 'session' | 'protocols' | 'demo'
 
 interface ListedProtocolFile {
     fileName: string

@@ -1,5 +1,3 @@
-import { TextEncoder } from 'node:util'
-
 export default function buildXdfFile(streams: XdfTestStream[]): ArrayBuffer {
     const bytes: number[] = [...utf8BytesOf('XDF:')]
 

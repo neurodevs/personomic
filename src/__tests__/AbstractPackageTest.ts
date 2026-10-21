@@ -1,4 +1,7 @@
-import { TextDecoder as NodeTextDecoder } from 'node:util'
+import {
+    TextDecoder as NodeTextDecoder,
+    TextEncoder as NodeTextEncoder,
+} from 'node:util'
 
 import PpgPeakDetector from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
 import AbstractModuleTest from '@neurodevs/node-tdd'
@@ -8,6 +11,11 @@ import FakeResizeObserver from '../testDoubles/ResizeObserver/FakeResizeObserver
 import { setResizeObserverComponent } from '../ui/components/StreamPlot'
 
 export default class AbstractPackageTest extends AbstractModuleTest {
+    static {
+        this.giveJsdomTheTextCodingBrowsersHave()
+        this.giveJsdomTheBlobReadingBrowsersHave()
+    }
+
     protected static async beforeEach() {
         await super.beforeEach()
 
@@ -16,11 +24,20 @@ export default class AbstractPackageTest extends AbstractModuleTest {
 
         PpgPeakDetector.Class = FakePpgDetector
         FakePpgDetector.resetTestDouble()
-
-        this.giveJsdomTheTextDecoderBrowsersHave()
     }
 
-    private static giveJsdomTheTextDecoderBrowsersHave() {
+    private static giveJsdomTheTextCodingBrowsersHave() {
         globalThis.TextDecoder ??= NodeTextDecoder as typeof TextDecoder
+        globalThis.TextEncoder ??= NodeTextEncoder as typeof TextEncoder
+    }
+
+    private static giveJsdomTheBlobReadingBrowsersHave() {
+        Blob.prototype.arrayBuffer ??= function (this: Blob) {
+            return new Promise<ArrayBuffer>((resolve) => {
+                const reader = new FileReader()
+                reader.onload = () => resolve(reader.result as ArrayBuffer)
+                reader.readAsArrayBuffer(this)
+            })
+        }
     }
 }

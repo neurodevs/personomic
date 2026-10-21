@@ -1438,3 +1438,138 @@ body {
 .xdf-description__scope {
   opacity: 0.6;
 }
+
+.app__demo {
+  display: block;
+  width: 100%;
+  height: max(600px, calc(100vh - 140px));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--page);
+}
+
+.tour {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  width: min(1152px, calc(100% - 32px));
+  margin: 16px auto 0;
+  padding: 14px 18px;
+  border: 1px solid rgba(57, 135, 229, 0.35);
+  border-radius: 16px;
+  background: rgba(16, 20, 27, 0.92);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.tour__choices,
+.tour__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.tour__intro {
+  flex-basis: 100%;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.tour__choice,
+.tour__button {
+  padding: 7px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tour__choice:hover,
+.tour__button:hover:not(:disabled) {
+  border-color: #3987e5;
+}
+
+.tour__button:disabled {
+  background: none;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.tour__button--primary:not(:disabled) {
+  border-color: #3987e5;
+  background: #3987e5;
+  color: #fff;
+}
+
+.tour__button[aria-busy='true'] {
+  cursor: progress;
+}
+
+.tour__heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.tour__title {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.tour__caption {
+  margin: 6px 0 12px;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.tour__steps {
+  display: flex;
+  gap: 6px;
+}
+
+.tour__step {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--border-strong);
+  cursor: pointer;
+}
+
+.tour__step[data-done='true'] {
+  background: rgba(57, 135, 229, 0.5);
+}
+
+.tour__step[aria-current='step'] {
+  background: #3987e5;
+  box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.25);
+}
+
+.tour__exit {
+  margin-left: auto;
+}
+
+[data-tour-target] {
+  outline: 2px solid #3987e5;
+  outline-offset: 3px;
+  animation: tour-target-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tour-target-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(57, 135, 229, 0.45);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(57, 135, 229, 0);
+  }
+}

@@ -71,6 +71,79 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersADemoTabAfterSessionAndProtocols() {
+        render(<App />)
+
+        assert.isEqualDeep(
+            this.tabNames,
+            ['Session', 'Protocols', 'Demo'],
+            'Did not offer a Demo tab after Session and Protocols!'
+        )
+    }
+
+    @test()
+    protected static async showsTheDemoPageInAFrameOnTheDemoTab() {
+        render(<App />)
+
+        this.chooseTab('Demo')
+
+        assert.isEqual(
+            within(screen.getByRole('tabpanel', { name: 'Demo' }))
+                .getByTitle('Personomic demo')
+                .getAttribute('src'),
+            '/demo.html',
+            'Did not show the demo page in a frame on the Demo tab!'
+        )
+    }
+
+    @test()
+    protected static async showsNothingOfTheDemoUntilItsTabIsChosen() {
+        render(<App />)
+
+        assert.isTrue(
+            screen.queryByTitle('Personomic demo') === null &&
+                screen.queryByRole('tabpanel', { name: 'Demo' }) === null,
+            'Showed some of the demo before its tab was chosen!'
+        )
+    }
+
+    @test()
+    protected static async showsNothingOfTheDemoAfterLeavingItsTab() {
+        render(<App />)
+
+        this.chooseTab('Demo')
+        this.chooseTab('Session')
+
+        assert.isTrue(
+            screen.queryByTitle('Personomic demo') === null,
+            'Showed some of the demo after leaving its tab!'
+        )
+    }
+
+    @test()
+    protected static async hidesSessionViewWhileOnDemo() {
+        this.renderWithMuse()
+
+        this.chooseTab('Demo')
+
+        assert.isFalse(
+            screen.queryByRole('tabpanel', { name: 'Session' }) !== null,
+            'Did not hide the Session view while on Demo!'
+        )
+    }
+
+    @test()
+    protected static async offersNoDemoTabInsideTheDemo() {
+        render(<App isDemo />)
+
+        assert.isEqualDeep(
+            this.tabNames,
+            ['Session', 'Protocols'],
+            'Offered a Demo tab inside the demo!'
+        )
+    }
+
+    @test()
     protected static async hidesSessionViewWhileOnProtocols() {
         this.renderWithMuse()
 
@@ -554,6 +627,10 @@ export default class AppTest extends AbstractPackageTest {
 
     private static chooseTab(name: string) {
         fireEvent.click(screen.getByRole('tab', { name }))
+    }
+
+    private static get tabNames() {
+        return screen.getAllByRole('tab').map((tab) => tab.textContent)
     }
 
     private static get selectedTabName() {
