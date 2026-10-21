@@ -37,6 +37,7 @@ import {
     fileContentsOf,
     hasUnsavedChanges,
     isSameProtocolName,
+    recordDirectoryFor,
     revealProtocol,
     Protocol,
     ProtocolFile,
@@ -200,9 +201,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setDevices(devices)
         setIsRecordEnabled(recordXdf ?? false)
 
-        if (recordDirectory) {
-            setRecordDirectory(recordDirectory)
-        }
+        setRecordDirectory(recordDirectory || recordDirectoryFor(protocol))
 
         if (recordFileStub) {
             setRecordName(recordFileStub)

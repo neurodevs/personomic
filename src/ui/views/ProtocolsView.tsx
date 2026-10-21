@@ -356,6 +356,9 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                     selected.protocol.recordDirectory ?? ''
                                 }
                                 name={selected.protocol.recordFileStub ?? ''}
+                                directoryPlaceholder={recordDirectoryFor(
+                                    selected.protocol
+                                )}
                                 isLocked={false}
                                 isBrowsing={isBrowsing}
                                 onDirectoryChange={(recordDirectory) =>
@@ -579,6 +582,7 @@ const schemaVersion = 1
 
 const untitledName = 'Untitled protocol'
 const untitledFileStem = 'untitled-protocol'
+const protocolsDirectory = '~/Personomic/Protocols'
 
 function selectedIndexAfterRemoving(removed: number, selected?: number) {
     if (selected === undefined || selected === removed) {
@@ -589,13 +593,21 @@ function selectedIndexAfterRemoving(removed: number, selected?: number) {
 }
 
 function fileNameFrom(name: string) {
+    return `${fileStemFrom(name)}.json`
+}
+
+function fileStemFrom(name: string) {
     const stem = name
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
 
-    return `${stem || untitledFileStem}.json`
+    return stem || untitledFileStem
+}
+
+export function recordDirectoryFor(protocol: Protocol) {
+    return `${protocolsDirectory}/${fileStemFrom(protocol.name)}`
 }
 
 export function fileContentsOf(protocol: Protocol) {

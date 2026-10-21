@@ -3917,22 +3917,22 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async keepsRememberedFolderForProtocolWithoutOne() {
+    protected static async recordsIntoFolderNamedAfterProtocolWithoutOne() {
         localStorage.setItem('personomic.recordDirectory', '/remembered')
         this.renderWithProtocols([
-            this.savedFile('quick.json', {
-                name: 'Quick',
+            this.savedFile('quick-study.json', {
+                name: 'Quick Study',
                 devices: [],
                 recordXdf: true,
             }),
         ])
 
-        this.chooseProtocol('Quick')
+        this.chooseProtocol('Quick Study')
 
         assert.isEqual(
             this.recordDirectoryInput.value,
-            '/remembered',
-            'Did not keep the remembered folder for a protocol without one!'
+            '~/Personomic/Protocols/quick-study',
+            'Did not record into a folder named after a protocol without one!'
         )
     }
 

@@ -692,6 +692,22 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async suggestsRecordFolderNamedAfterProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.typeName('Eyes Closed Baseline')
+
+        this.turnRecordOn()
+
+        assert.isEqual(
+            (screen.getByLabelText('Recordings folder') as HTMLInputElement)
+                .placeholder,
+            '~/Personomic/Protocols/eyes-closed-baseline',
+            'Did not suggest a record folder named after the protocol!'
+        )
+    }
+
+    @test()
     protected static async browsesForRecordFolder() {
         this.answerListing()
         this.clickNewProtocol()

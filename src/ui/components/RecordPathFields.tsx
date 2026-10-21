@@ -8,6 +8,7 @@ const recordNameLabel = 'Recording name'
 
 export interface RecordPathFieldsProps {
     directory: string
+    directoryPlaceholder?: string
     name: string
     isLocked: boolean
     isBrowsing: boolean
@@ -22,6 +23,7 @@ const RecordPathFields: React.FC<RecordPathFieldsProps> = (
 ) => {
     const {
         directory,
+        directoryPlaceholder = defaultRecordDirectory,
         name,
         isLocked,
         isBrowsing,
@@ -37,7 +39,7 @@ const RecordPathFields: React.FC<RecordPathFieldsProps> = (
                 type="text"
                 className="connect-devices__record-directory"
                 aria-label={recordDirectoryLabel}
-                placeholder={defaultRecordDirectory}
+                placeholder={directoryPlaceholder}
                 value={directory}
                 readOnly={isLocked}
                 onChange={(event) => onDirectoryChange(event.target.value)}
