@@ -572,10 +572,9 @@ export default class AppTest extends AbstractPackageTest {
             target: { value: 'beeps.json' },
         })
         fireEvent.click(screen.getByRole('button', { name: 'Edit protocol' }))
-        fireEvent.change(
-            screen.getByRole('textbox', { name: 'Protocol name' }),
-            { target: { value: 'Loud beeps' } }
-        )
+        fireEvent.change(screen.getByRole('textbox', { name: 'Name' }), {
+            target: { value: 'Loud beeps' },
+        })
         fireEvent.click(screen.getByRole('button', { name: 'Save as new' }))
         act(() =>
             this.orchestratorSocket.receive({ fileName: 'loud-beeps.json' })

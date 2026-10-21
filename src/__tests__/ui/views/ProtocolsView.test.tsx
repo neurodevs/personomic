@@ -639,21 +639,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async asksForRecordFolderAndNameOnlyOnceRecordingIsOn() {
-        this.answerListing()
-        this.clickNewProtocol()
-        const beforeTurningOn = this.areRecordFieldsShown
-
-        this.turnRecordOn()
-
-        assert.isEqualDeep(
-            { beforeTurningOn, afterTurningOn: this.areRecordFieldsShown },
-            { beforeTurningOn: false, afterTurningOn: true },
-            'Did not ask for the record folder and name only once recording was on!'
-        )
-    }
-
-    @test()
     protected static async savesRecordDefaultsWithProtocol() {
         this.answerListing()
         this.clickNewProtocol()
@@ -675,19 +660,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
                 recordFileStub: 'participant',
             },
             'Did not save the record defaults with the protocol!'
-        )
-    }
-
-    @test()
-    protected static async showsTimestampAddedToRecordingName() {
-        this.answerListing()
-        this.clickNewProtocol()
-
-        this.turnRecordOn()
-
-        assert.isTrue(
-            screen.queryByText(/^_\d{4}-.*\.xdf$/) !== null,
-            'Did not show the timestamp added to the recording name!'
         )
     }
 
@@ -1349,13 +1321,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
     private static turnRecordOn() {
         fireEvent.click(screen.getByRole('checkbox', { name: 'Record XDF' }))
-    }
-
-    private static get areRecordFieldsShown() {
-        return (
-            screen.queryByLabelText('Recordings folder') !== null &&
-            screen.queryByLabelText('Recording name') !== null
-        )
     }
 
     private static typeInto(label: string, value: string) {

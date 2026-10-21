@@ -15,7 +15,10 @@ import {
     now,
     recordFileSuffixFor,
 } from '../components/RecordPathFields'
-import RecordXdfControls from '../components/RecordXdfControls'
+import ProtocolForm from '../components/ProtocolForm'
+import RecordXdfControls, {
+    RecordXdfControlsProps,
+} from '../components/RecordXdfControls'
 import StreamMonitor, {
     PlaybackProgress,
     PlaybackSeek,
@@ -138,6 +141,14 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         chosenProtocolFile !== undefined && !isEditingProtocol
     const canChangeDevices = isLive && !isLocked && !isProtocolLocked
 
+    const editedProtocol = protocolEditedFrom({
+        name: protocolName,
+        devices,
+        recordXdf: isRecordEnabled,
+        recordDirectory,
+        recordFileStub: recordName,
+    })
+
     const isProtocolRenamed =
         chosenProtocolFile !== undefined &&
         !isSameProtocolName(protocolName, chosenProtocolFile.protocol.name)
@@ -145,7 +156,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         chosenProtocolFile !== undefined &&
         isEditingProtocol &&
         hasUnsavedChanges({
-            protocol: { name: protocolName.trim(), devices },
+            protocol: editedProtocol,
             savedProtocol: chosenProtocolFile.savedProtocol,
         })
 
@@ -220,13 +231,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     }
 
     const saveProtocol = () => {
-        const protocol: Protocol = {
-            name: protocolName.trim(),
-            devices,
-            recordXdf: isRecordEnabled,
-            recordDirectory,
-            recordFileStub: recordName,
-        }
+        const protocol = editedProtocol
 
         setSessionError(undefined)
 
@@ -455,6 +460,26 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         )
     }
 
+    const recordControls: RecordXdfControlsProps = {
+        isOn: isRecordEnabled,
+        onIsOnChange: setIsRecordEnabled,
+        recordingPath,
+        onRevealRecording: revealRecording,
+        directory: recordDirectory,
+        directoryPlaceholder: isEditingProtocol
+            ? recordDirectoryFor({ name: protocolName, devices: [] })
+            : undefined,
+        name: recordName,
+        isLocked,
+        isBrowsing,
+        startedAt: session === 'connecting' ? recordStartedAt : undefined,
+        onDirectoryChange: isEditingProtocol
+            ? setRecordDirectory
+            : rememberRecordDirectory,
+        onNameChange: setRecordName,
+        onBrowse: browseForRecordDirectory,
+    }
+
     return (
         <>
             <div className="connect-devices">
@@ -497,39 +522,35 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     ))}
                 </div>
                 {isLive && (
-                    <ControlGroup
-                        kind="protocol"
-                        isOnOwnLine={chosenProtocolFile !== undefined}
+                    <select
+                        className="session-protocol__select"
+                        aria-label="Protocol"
+                        value={chosenProtocolFile?.fileName ?? ''}
+                        disabled={isLocked || isEditingProtocol}
+                        onChange={(event) => chooseProtocol(event.target.value)}
                     >
-                        <select
-                            className="session-protocol__select"
-                            aria-label="Protocol"
-                            value={chosenProtocolFile?.fileName ?? ''}
-                            disabled={isLocked || isEditingProtocol}
-                            onChange={(event) =>
-                                chooseProtocol(event.target.value)
-                            }
+                        <option value="">No protocol</option>
+                        {savedProtocolFiles.map(({ fileName, protocol }) => (
+                            <option key={fileName} value={fileName}>
+                                {displayNameOf(protocol)}
+                            </option>
+                        ))}
+                    </select>
+                )}
+                {isLive &&
+                    chosenProtocolFile &&
+                    !isEditingProtocol &&
+                    !isLocked && (
+                        <button
+                            type="button"
+                            className="session-protocol__button"
+                            onClick={editProtocol}
                         >
-                            <option value="">No protocol</option>
-                            {savedProtocolFiles.map(
-                                ({ fileName, protocol }) => (
-                                    <option key={fileName} value={fileName}>
-                                        {displayNameOf(protocol)}
-                                    </option>
-                                )
-                            )}
-                        </select>
-                        {chosenProtocolFile &&
-                            !isEditingProtocol &&
-                            !isLocked && (
-                                <button
-                                    type="button"
-                                    className="session-protocol__button"
-                                    onClick={editProtocol}
-                                >
-                                    Edit protocol
-                                </button>
-                            )}
+                            Edit protocol
+                        </button>
+                    )}
+                {isLive && (
+                    <>
                         {chosenProtocolFile && isEditingProtocol && (
                             <>
                                 <span className="session-protocol__heading">
@@ -543,41 +564,6 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                                         />
                                     )}
                                 </span>
-                                <input
-                                    type="text"
-                                    className="session-protocol__name"
-                                    aria-label="Protocol name"
-                                    placeholder="Protocol name"
-                                    value={protocolName}
-                                    onChange={(event) =>
-                                        setProtocolName(event.target.value)
-                                    }
-                                />
-                                <button
-                                    type="button"
-                                    className="session-protocol__button session-protocol__button--primary"
-                                    disabled={
-                                        protocolWithSameName !== undefined
-                                    }
-                                    onClick={saveProtocol}
-                                >
-                                    {isProtocolRenamed ? 'Save as new' : 'Save'}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="session-protocol__button"
-                                    onClick={cancelEditingProtocol}
-                                >
-                                    Cancel
-                                </button>
-                                {protocolWithSameName && (
-                                    <span className="session-protocol__hint">
-                                        {displayNameOf(
-                                            protocolWithSameName.protocol
-                                        )}{' '}
-                                        is already a protocol.
-                                    </span>
-                                )}
                             </>
                         )}
                         {protocolSavedTo && (
@@ -601,7 +587,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                                 </button>
                             </span>
                         )}
-                    </ControlGroup>
+                    </>
                 )}
                 {playing && (
                     <PlaybackControls
@@ -621,31 +607,13 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         onSpeedChange={setPlaybackSpeed}
                     />
                 )}
-                {isLive && (
+                {isLive && !isEditingProtocol && (
                     <ControlGroup
-                        kind="record"
                         isOnOwnLine={
                             isRecordEnabled || recordingPath !== undefined
                         }
                     >
-                        <RecordXdfControls
-                            isOn={isRecordEnabled}
-                            onIsOnChange={setIsRecordEnabled}
-                            recordingPath={recordingPath}
-                            onRevealRecording={revealRecording}
-                            directory={recordDirectory}
-                            name={recordName}
-                            isLocked={isLocked}
-                            isBrowsing={isBrowsing}
-                            startedAt={
-                                session === 'connecting'
-                                    ? recordStartedAt
-                                    : undefined
-                            }
-                            onDirectoryChange={rememberRecordDirectory}
-                            onNameChange={setRecordName}
-                            onBrowse={browseForRecordDirectory}
-                        />
+                        <RecordXdfControls {...recordControls} />
                     </ControlGroup>
                 )}
                 {sessionError && (
@@ -655,56 +623,80 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 )}
             </div>
             <div className="card">
-                <BiosensorsSection
-                    isEmpty={monitoredNames.length === 0}
-                    emptyMessage={
-                        isChoosingRecording ? chooseRecordingMessage : undefined
+                <ProtocolForm
+                    isOpen={
+                        isEditingProtocol && chosenProtocolFile !== undefined
                     }
+                    name={protocolName}
+                    namePlaceholder="Protocol name"
+                    onNameChange={setProtocolName}
+                    takenName={
+                        protocolWithSameName &&
+                        displayNameOf(protocolWithSameName.protocol)
+                    }
+                    record={recordControls}
+                    saveLabel={isProtocolRenamed ? 'Save as new' : 'Save'}
+                    isSaveDisabled={protocolWithSameName !== undefined}
+                    onSave={saveProtocol}
+                    onCancel={cancelEditingProtocol}
                 >
-                    <StreamMonitorComponent
-                        key={numMonitorResets}
-                        downsampling={downsampling}
-                        deviceStatusPort={8764}
-                        deviceNames={monitoredNames}
-                        recording={playing?.recording}
-                        playbackSpeed={playbackSpeed}
-                        playbackSeek={playing?.seek}
-                        isPlaybackPaused={isPositionHeld || isPaused}
-                        isPlaybackLooping={isLooping}
-                        onPlaybackEnd={markPlaybackEnded}
-                        onPlaybackProgress={showPlaybackProgress}
-                        onPlaybackSeek={seek}
-                        streamOptions={streamOptions}
-                        windowSecondsByDevice={windowSecondsByDevice}
-                        isConnecting={session === 'connecting'}
-                        isRecording={isRecordEnabled}
-                        identifiers={identifiers}
-                        rememberedIdentifiers={rememberedIdentifiers}
-                        scannedIdentifiers={scannedIdentifiers}
-                        scanningDeviceNames={scanningDeviceNames}
-                        onForgetIdentifier={
-                            isLocked ? undefined : forgetIdentifier
+                    <BiosensorsSection
+                        isEmpty={monitoredNames.length === 0}
+                        emptyMessage={
+                            isChoosingRecording
+                                ? chooseRecordingMessage
+                                : undefined
                         }
-                        onIdentifierChange={
-                            isLocked ? undefined : setIdentifierValue
-                        }
-                        nicknames={nicknames}
-                        onNicknameChange={isLocked ? undefined : setNickname}
-                        disabledStreams={disabledStreams}
-                        onDisabledStreamsChange={
-                            canChangeDevices ? setDisabledStreams : undefined
-                        }
-                        onRemoveDevice={
-                            canChangeDevices ? removeDevice : undefined
-                        }
-                    />
-                    {canChangeDevices && addableNames.length > 0 && (
-                        <AddBiosensorButton
-                            names={addableNames}
-                            onAdd={addDevice}
+                    >
+                        <StreamMonitorComponent
+                            key={numMonitorResets}
+                            downsampling={downsampling}
+                            deviceStatusPort={8764}
+                            deviceNames={monitoredNames}
+                            recording={playing?.recording}
+                            playbackSpeed={playbackSpeed}
+                            playbackSeek={playing?.seek}
+                            isPlaybackPaused={isPositionHeld || isPaused}
+                            isPlaybackLooping={isLooping}
+                            onPlaybackEnd={markPlaybackEnded}
+                            onPlaybackProgress={showPlaybackProgress}
+                            onPlaybackSeek={seek}
+                            streamOptions={streamOptions}
+                            windowSecondsByDevice={windowSecondsByDevice}
+                            isConnecting={session === 'connecting'}
+                            isRecording={isRecordEnabled}
+                            identifiers={identifiers}
+                            rememberedIdentifiers={rememberedIdentifiers}
+                            scannedIdentifiers={scannedIdentifiers}
+                            scanningDeviceNames={scanningDeviceNames}
+                            onForgetIdentifier={
+                                isLocked ? undefined : forgetIdentifier
+                            }
+                            onIdentifierChange={
+                                isLocked ? undefined : setIdentifierValue
+                            }
+                            nicknames={nicknames}
+                            onNicknameChange={
+                                isLocked ? undefined : setNickname
+                            }
+                            disabledStreams={disabledStreams}
+                            onDisabledStreamsChange={
+                                canChangeDevices
+                                    ? setDisabledStreams
+                                    : undefined
+                            }
+                            onRemoveDevice={
+                                canChangeDevices ? removeDevice : undefined
+                            }
                         />
-                    )}
-                </BiosensorsSection>
+                        {canChangeDevices && addableNames.length > 0 && (
+                            <AddBiosensorButton
+                                names={addableNames}
+                                onAdd={addDevice}
+                            />
+                        )}
+                    </BiosensorsSection>
+                </ProtocolForm>
             </div>
         </>
     )
@@ -713,20 +705,17 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 export default SessionView
 
 interface ControlGroupProps {
-    kind: 'protocol' | 'record'
     isOnOwnLine: boolean
     children: React.ReactNode
 }
 
 const ControlGroup: React.FC<ControlGroupProps> = ({
-    kind,
     isOnOwnLine,
     children,
 }) => (
     <span
         className={[
             'connect-devices__group',
-            `connect-devices__group--${kind}`,
             isOnOwnLine && 'connect-devices__group--own-line',
         ]
             .filter(Boolean)
@@ -748,6 +737,27 @@ interface PlayingRecording {
     hasEnded: boolean
     seek?: PlaybackSeek
     progress?: PlaybackProgress
+}
+
+function protocolEditedFrom(edited: Required<Protocol>): Protocol {
+    const name = edited.name.trim()
+
+    return {
+        ...edited,
+        name,
+        recordDirectory: withoutDefault(
+            edited.recordDirectory,
+            recordDirectoryFor({ name, devices: [] })
+        ),
+        recordFileStub: withoutDefault(
+            edited.recordFileStub,
+            defaultRecordName
+        ),
+    }
+}
+
+function withoutDefault(value: string, defaultValue: string) {
+    return value === defaultValue ? '' : value
 }
 
 function withSavedProtocol(files: ProtocolFile[], saved: ProtocolFile) {

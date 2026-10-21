@@ -6,7 +6,7 @@ import sendToOrchestrator, {
 import AddBiosensorButton from '../components/AddBiosensorButton'
 import BiosensorsSection from '../components/BiosensorsSection'
 import DevicePanel from '../components/DevicePanel'
-import RecordXdfControls from '../components/RecordXdfControls'
+import ProtocolForm from '../components/ProtocolForm'
 import { deviceLabelFor } from '../components/StreamMonitor'
 import useBiosensorChoices, {
     DeviceRequest,
@@ -320,105 +320,58 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                 )}
                 {selected && (
                     <section className="protocols__editor card">
-                        <div className="protocols__name">
-                            <label className="protocols__field">
-                                Name
-                                <input
-                                    key={selectedIndex}
-                                    type="text"
-                                    value={selected.protocol.name}
-                                    placeholder={untitledName}
-                                    autoFocus
-                                    onChange={(event) =>
-                                        changeSelectedProtocol({
-                                            name: event.target.value,
-                                        })
-                                    }
-                                />
-                            </label>
-                            {protocolWithSameName && (
-                                <span className="protocols__name-taken">
-                                    {displayNameOf(
-                                        protocolWithSameName.protocol
-                                    )}{' '}
-                                    is already a protocol. Please choose a new
-                                    name.
-                                </span>
-                            )}
-                        </div>
-                        <div className="protocols__record">
-                            <RecordXdfControls
-                                isOn={selected.protocol.recordXdf ?? false}
-                                onIsOnChange={(recordXdf) =>
-                                    changeSelectedProtocol({ recordXdf })
-                                }
-                                directory={
-                                    selected.protocol.recordDirectory ?? ''
-                                }
-                                name={selected.protocol.recordFileStub ?? ''}
-                                directoryPlaceholder={recordDirectoryFor(
-                                    selected.protocol
-                                )}
-                                isLocked={false}
-                                isBrowsing={isBrowsing}
-                                onDirectoryChange={(recordDirectory) =>
-                                    changeSelectedProtocol({ recordDirectory })
-                                }
-                                onNameChange={(recordFileStub) =>
-                                    changeSelectedProtocol({ recordFileStub })
-                                }
-                                onBrowse={browseForRecordDirectory}
-                            />
-                        </div>
-                        <ProtocolBiosensors
+                        <ProtocolForm
                             key={selectedIndex}
-                            devices={selected.protocol.devices}
-                            onDevicesChange={(devices) =>
-                                changeSelectedProtocol({ devices })
+                            isOpen
+                            name={selected.protocol.name}
+                            namePlaceholder={untitledName}
+                            onNameChange={(name) =>
+                                changeSelectedProtocol({ name })
                             }
-                        />
-                        <div className="protocols__actions">
-                            <button
-                                type="button"
-                                className="protocols__save"
-                                disabled={
-                                    !hasUnsavedChanges(selected) ||
-                                    protocolWithSameName !== undefined
+                            takenName={
+                                protocolWithSameName &&
+                                displayNameOf(protocolWithSameName.protocol)
+                            }
+                            record={{
+                                isOn: selected.protocol.recordXdf ?? false,
+                                onIsOnChange: (recordXdf) =>
+                                    changeSelectedProtocol({ recordXdf }),
+                                directory:
+                                    selected.protocol.recordDirectory ?? '',
+                                name: selected.protocol.recordFileStub ?? '',
+                                directoryPlaceholder: recordDirectoryFor(
+                                    selected.protocol
+                                ),
+                                isLocked: false,
+                                isBrowsing,
+                                onDirectoryChange: (recordDirectory) =>
+                                    changeSelectedProtocol({ recordDirectory }),
+                                onNameChange: (recordFileStub) =>
+                                    changeSelectedProtocol({ recordFileStub }),
+                                onBrowse: browseForRecordDirectory,
+                            }}
+                            isSaveDisabled={
+                                !hasUnsavedChanges(selected) ||
+                                protocolWithSameName !== undefined
+                            }
+                            onSave={saveSelected}
+                            isCancelDisabled={!hasUnsavedChanges(selected)}
+                            onCancel={discardSelectedChanges}
+                            savedTo={savedTo}
+                            onRevealSaved={() =>
+                                revealProtocol(
+                                    selected.fileName!,
+                                    setActionError
+                                )
+                            }
+                        >
+                            <ProtocolBiosensors
+                                devices={selected.protocol.devices}
+                                onDevicesChange={(devices) =>
+                                    changeSelectedProtocol({ devices })
                                 }
-                                onClick={saveSelected}
-                            >
-                                Save
-                            </button>
-                            <button
-                                type="button"
-                                className="protocols__save protocols__cancel"
-                                disabled={!hasUnsavedChanges(selected)}
-                                onClick={discardSelectedChanges}
-                            >
-                                Cancel
-                            </button>
-                            {savedTo && (
-                                <span
-                                    className="protocols__saved"
-                                    role="status"
-                                >
-                                    Saved to{' '}
-                                    <button
-                                        type="button"
-                                        className="saved-path"
-                                        title="Show in Finder"
-                                        onClick={() =>
-                                            revealProtocol(
-                                                selected.fileName!,
-                                                setActionError
-                                            )
-                                        }
-                                    >
-                                        {savedTo}
-                                    </button>
-                                </span>
-                            )}
-                        </div>
+                            />
+                        </ProtocolForm>
                     </section>
                 )}
             </div>

@@ -249,8 +249,8 @@ body {
   font-size: 14px;
 }
 
-.protocols__editor .biosensors {
-  margin-top: 24px;
+.protocols__record + .biosensors {
+  margin-top: 20px;
 }
 
 .protocols__device-list {
@@ -475,21 +475,6 @@ body {
   gap: 10px;
 }
 
-.session-protocol__name {
-  width: 220px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: none;
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 12px;
-}
-
-.session-protocol__name::placeholder {
-  color: var(--text-muted);
-}
-
 .session-protocol__button {
   padding: 6px 12px;
   border: 1px solid var(--border-strong);
@@ -499,11 +484,6 @@ body {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-}
-
-.session-protocol__button--primary {
-  background: var(--surface-raised);
-  color: var(--text-primary);
 }
 
 .session-protocol__button:hover:not(:disabled) {
@@ -516,15 +496,9 @@ body {
 }
 
 .session-protocol__select:focus-visible,
-.session-protocol__name:focus-visible,
 .session-protocol__button:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
   outline: none;
-}
-
-.session-protocol__hint {
-  color: #e0a458;
-  font-size: 12px;
 }
 
 .session-protocol__saved {
@@ -575,14 +549,7 @@ body {
 
 .connect-devices__group--own-line {
   flex: 0 0 100%;
-}
-
-.connect-devices__group--protocol.connect-devices__group--own-line {
   order: 1;
-}
-
-.connect-devices__group--record.connect-devices__group--own-line {
-  order: 2;
 }
 
 .connect-devices__record-toggle {

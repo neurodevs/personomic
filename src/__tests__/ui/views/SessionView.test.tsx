@@ -1,6 +1,6 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import React, { useState } from 'react'
 
 import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
@@ -3560,12 +3560,13 @@ export default class SessionViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             {
                 isSaveDisabled: this.saveProtocolButton.disabled,
-                reason: screen.queryByText('Beeps is already a protocol.')
-                    ?.textContent,
+                reason: screen.queryByText(
+                    'Beeps is already a protocol. Please choose a new name.'
+                )?.textContent,
             },
             {
                 isSaveDisabled: true,
-                reason: 'Beeps is already a protocol.',
+                reason: 'Beeps is already a protocol. Please choose a new name.',
             },
             'Did not refuse the name of another protocol!'
         )
@@ -3983,6 +3984,89 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async opensProtocolFormInCardWhileEditing() {
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+        const beforeEditing = this.protocolFormState
+
+        this.clickEditProtocol()
+
+        assert.isEqualDeep(
+            { beforeEditing, whileEditing: this.protocolFormState },
+            {
+                beforeEditing: { isNameInCard: false, isRecordInCard: false },
+                whileEditing: { isNameInCard: true, isRecordInCard: true },
+            },
+            'Did not open the protocol form in the card while editing!'
+        )
+    }
+
+    @test()
+    protected static async keepsMonitorMountedWhenEditingStarts() {
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+        const numMountsBefore = numStreamMonitorMounts
+
+        this.clickEditProtocol()
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore,
+            'Remounted the monitor when editing started!'
+        )
+    }
+
+    @test()
+    protected static async marksUnsavedOnceRecordControlsChange() {
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+        this.clickEditProtocol()
+        const beforeChanging = this.isEditUnsavedShown
+
+        this.typeRecordName('changed')
+
+        assert.isEqualDeep(
+            { beforeChanging, afterChanging: this.isEditUnsavedShown },
+            { beforeChanging: false, afterChanging: true },
+            'Did not mark unsaved once the record controls changed!'
+        )
+    }
+
+    @test()
+    protected static async showsNoUnsavedMarkForProtocolUsingDefaultFolder() {
+        this.renderWithProtocols([
+            this.savedFile('quick-study.json', {
+                name: 'Quick Study',
+                devices: [],
+                recordXdf: true,
+            }),
+        ])
+        this.chooseProtocol('Quick Study')
+
+        this.clickEditProtocol()
+
+        assert.isFalse(
+            this.isEditUnsavedShown,
+            'Marked a protocol using the default folder unsaved!'
+        )
+    }
+
+    private static get protocolFormState() {
+        const card = document.querySelector('.card')!
+
+        return {
+            isNameInCard:
+                within(card as HTMLElement).queryByRole('textbox', {
+                    name: 'Name',
+                }) !== null,
+            isRecordInCard:
+                within(card as HTMLElement).queryByRole('checkbox', {
+                    name: 'Record XDF',
+                }) !== null,
+        }
+    }
+
     private static get recordControls() {
         return {
             isOn: this.recordToggle.checked,
@@ -4122,7 +4206,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static get protocolNameInput() {
         return screen.getByRole('textbox', {
-            name: 'Protocol name',
+            name: 'Name',
         }) as HTMLInputElement
     }
 
