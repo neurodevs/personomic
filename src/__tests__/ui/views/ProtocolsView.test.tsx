@@ -194,12 +194,12 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         this.answer({
             fileName: 'untitled-protocol.json',
             filePath:
-                '/Users/me/Documents/Personomic/Protocols/untitled-protocol.json',
+                '/Users/me/Personomic/Protocols/untitled-protocol.json',
         })
 
         assert.isEqual(
             this.statusText,
-            'Saved to /Users/me/Documents/Personomic/Protocols/untitled-protocol.json',
+            'Saved to /Users/me/Personomic/Protocols/untitled-protocol.json',
             'Did not say the full path where the protocol was saved!'
         )
     }
@@ -910,6 +910,63 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             ['Tilt series'],
             'Did not keep the unsaved mark for edits made while saving!'
         )
+    }
+
+    @test()
+    protected static async showsSavedProtocolInFinderWhenItsPathIsClicked() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.typeName('Tilt series')
+        this.clickSave()
+        this.answer({
+            fileName: 'tilt-series.json',
+            filePath: '/protocols/tilt-series.json',
+        })
+
+        this.clickSavedPath('/protocols/tilt-series.json')
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            { command: 'revealProtocol', fileName: 'tilt-series.json' },
+            'Did not show the saved protocol in Finder when its path was clicked!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorFromShowingSavedProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.save('untitled-protocol.json')
+
+        this.clickSavedPath('untitled-protocol.json')
+        this.answer({ error: 'Showing the protocol only works on macOS.' })
+
+        assert.isEqual(
+            this.alertText,
+            'Showing the protocol only works on macOS.',
+            'Did not show the error from showing the saved protocol!'
+        )
+    }
+
+    @test()
+    protected static async saysOrchestratorIsUnreachableWhenShowingSavedProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.save('untitled-protocol.json')
+
+        this.clickSavedPath('untitled-protocol.json')
+        act(() => this.orchestratorSocket.dropConnection())
+
+        assert.isEqual(
+            this.alertText,
+            'Could not reach the orchestrator. Start it with `yarn run.orchestrator`.',
+            'Did not say the orchestrator is unreachable when showing the saved protocol!'
+        )
+    }
+
+    private static clickSavedPath(path: string) {
+        fireEvent.click(screen.getByRole('button', { name: path }))
     }
 
     private static openBiosensorMenu() {

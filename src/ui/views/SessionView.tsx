@@ -33,6 +33,7 @@ import {
     displayNameOf,
     fileContentsOf,
     hasUnsavedChanges,
+    revealProtocol,
     Protocol,
     ProtocolFile,
 } from './ProtocolsView'
@@ -574,7 +575,20 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 )}
                 {isLive && protocolSavedTo && (
                     <span className="session-protocol__saved" role="status">
-                        Saved to {protocolSavedTo}
+                        Saved to{' '}
+                        <button
+                            type="button"
+                            className="saved-path"
+                            title="Show in Finder"
+                            onClick={() =>
+                                revealProtocol(
+                                    chosenProtocolFile!.fileName!,
+                                    setSessionError
+                                )
+                            }
+                        >
+                            {protocolSavedTo}
+                        </button>
                     </span>
                 )}
                 {sessionError && (

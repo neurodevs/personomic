@@ -49,7 +49,7 @@ const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
 
 const BLE_SCAN_MS = 5000
 
-const PROTOCOLS_DIRECTORY = '~/Documents/Personomic/Protocols'
+const PROTOCOLS_DIRECTORY = '~/Personomic/Protocols'
 const UNTITLED_PROTOCOL_FILE_STEM = 'untitled-protocol'
 const REMOVED_PROTOCOLS_FOLDER = 'Removed'
 
@@ -229,6 +229,23 @@ function isProtocolFileName(fileName) {
         fileName.endsWith('.json') &&
         path.basename(fileName) === fileName
     )
+}
+
+async function revealProtocol({ fileName }) {
+    if (!isProtocolFileName(fileName)) {
+        throw new Error(`Cannot show a protocol saved as ${fileName}.`)
+    }
+
+    if (process.platform !== 'darwin') {
+        throw new Error('Showing the protocol only works on macOS.')
+    }
+
+    const directory = absolutePathFor(PROTOCOLS_DIRECTORY)
+    const filePath = path.join(directory, fileName)
+    const args = existsSync(filePath) ? ['-R', filePath] : [directory]
+
+    await promisify(execFile)('open', args)
+    return {}
 }
 
 async function removeProtocol({ fileName, shouldDeleteFile }) {
@@ -437,6 +454,10 @@ async function handle(message) {
 
     if (command === 'saveProtocol') {
         return await saveProtocol(request)
+    }
+
+    if (command === 'revealProtocol') {
+        return await revealProtocol(request)
     }
 
     if (command === 'removeProtocol') {

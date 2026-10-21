@@ -1558,7 +1558,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.recordDirectoryInput.value,
-            '~/Documents/Personomic',
+            '~/Personomic',
             'Did not offer default recordings folder!'
         )
     }
@@ -1590,7 +1590,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+            '~/Personomic/session_2026-10-07_14-32-05.xdf',
             'Did not record to default folder when folder was blank!'
         )
     }
@@ -1640,7 +1640,7 @@ export default class SessionViewTest extends AbstractPackageTest {
                 shown: this.shownRecordTimestamp,
             },
             {
-                sent: '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+                sent: '~/Personomic/session_2026-10-07_14-32-05.xdf',
                 shown: '_2026-10-07_14-32-05.xdf',
             },
             'Did not freeze shown timestamp at sent one while connecting!'
@@ -1689,7 +1689,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Documents/Personomic/resting baseline_2026-10-07_14-32-05.xdf',
+            '~/Personomic/resting baseline_2026-10-07_14-32-05.xdf',
             'Did not put typed recording name before timestamp!'
         )
     }
@@ -1705,7 +1705,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Documents/Personomic/sub-01-run-2_2026-10-07_14-32-05.xdf',
+            '~/Personomic/sub-01-run-2_2026-10-07_14-32-05.xdf',
             'Did not replace illegal file name characters in recording name!'
         )
     }
@@ -1721,7 +1721,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Documents/Personomic/session_2026-10-07_14-32-05.xdf',
+            '~/Personomic/session_2026-10-07_14-32-05.xdf',
             'Did not use default recording name when name was blank!'
         )
     }
@@ -3661,6 +3661,45 @@ export default class SessionViewTest extends AbstractPackageTest {
         assert.isFalse(
             this.isLeavingWarned,
             'Kept warning before leaving once the edits were canceled!'
+        )
+    }
+
+    @test()
+    protected static async showsProtocolSavedInSessionInFinderWhenItsPathIsClicked() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.typeProtocolName('Tilt only')
+        this.saveProtocolThroughOrchestrator('Save as new', 'tilt-only.json')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: '/protocols/tilt-only.json' })
+        )
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage,
+            { command: 'revealProtocol', fileName: 'tilt-only.json' },
+            'Did not show the protocol saved in the session in Finder when its path was clicked!'
+        )
+    }
+
+    @test()
+    protected static async showsErrorFromShowingProtocolSavedInSession() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.saveProtocolThroughOrchestrator('Save', 'tilt-series.json')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: '/protocols/tilt-series.json' })
+        )
+        act(() => this.orchestratorSocket.receive({ error: 'Not on macOS' }))
+
+        assert.isEqual(
+            screen.getByRole('alert').textContent,
+            'Not on macOS',
+            'Did not show the error from showing the protocol saved in the session!'
         )
     }
 

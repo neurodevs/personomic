@@ -701,6 +701,24 @@ body {
   outline: none;
 }
 
+.saved-path {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.saved-path:hover,
+.saved-path:focus-visible {
+  color: var(--text-primary);
+  text-decoration-style: solid;
+  outline: none;
+}
+
 .connect-devices__error {
   color: #e5484d;
   font-size: 12px;

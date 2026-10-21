@@ -289,7 +289,20 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                     className="protocols__saved"
                                     role="status"
                                 >
-                                    Saved to {savedTo}
+                                    Saved to{' '}
+                                    <button
+                                        type="button"
+                                        className="saved-path"
+                                        title="Show in Finder"
+                                        onClick={() =>
+                                            revealProtocol(
+                                                selected.fileName!,
+                                                setActionError
+                                            )
+                                        }
+                                    >
+                                        {savedTo}
+                                    </button>
                                 </span>
                             )}
                         </div>
@@ -457,6 +470,21 @@ function downloadThroughBrowser(fileName: string, text: string) {
     link.click()
 
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function revealProtocol(
+    fileName: string,
+    onError: (error?: string) => void
+) {
+    onError(undefined)
+
+    sendToOrchestrator(
+        { command: 'revealProtocol', fileName },
+        {
+            onReply: ({ error }) => onError(error),
+            onUnreachable: () => onError(orchestratorUnreachableMessage),
+        }
+    )
 }
 
 export function hasUnsavedChanges(file: ProtocolFile) {
