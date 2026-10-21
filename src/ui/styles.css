@@ -130,11 +130,12 @@ body {
 }
 
 .protocols__download:hover:not(:disabled),
-.protocols__remove:hover {
+.protocols__remove:hover:not(:disabled) {
   color: var(--text-primary);
 }
 
-.protocols__download:disabled {
+.protocols__download:disabled,
+.protocols__remove:disabled {
   opacity: 0.35;
   cursor: default;
 }

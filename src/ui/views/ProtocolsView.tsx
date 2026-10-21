@@ -245,7 +245,17 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                     >
                                         ↓
                                     </button>
-                                    {confirmingRemoveAt === index ? (
+                                    <button
+                                        type="button"
+                                        className="protocols__remove"
+                                        aria-label={`Remove ${displayNameOf(protocol)}`}
+                                        title="Remove"
+                                        disabled={confirmingRemoveAt === index}
+                                        onClick={() => askToRemove(index)}
+                                    >
+                                        ×
+                                    </button>
+                                    {confirmingRemoveAt === index && (
                                         <div className="protocols__confirm-remove">
                                             <p>
                                                 Remove {displayNameOf(protocol)}
@@ -282,16 +292,6 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                                 </button>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="protocols__remove"
-                                            aria-label={`Remove ${displayNameOf(protocol)}`}
-                                            title="Remove"
-                                            onClick={() => askToRemove(index)}
-                                        >
-                                            ×
-                                        </button>
                                     )}
                                 </li>
                             )
