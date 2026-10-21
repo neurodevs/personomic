@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
@@ -13,6 +13,7 @@ import useBiosensorChoices, {
     disableStreamsOf,
     requestedFrom,
     SelectedDevice,
+    selectedNameOf,
 } from '../hooks/useBiosensorChoices'
 import useDirectoryBrowser from '../hooks/useDirectoryBrowser'
 
@@ -67,6 +68,25 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
         onFilesChange((previous) => [
             ...previous,
             { protocol: { name: '', devices: [] } },
+        ])
+        select(files.length)
+    }
+
+    const uploadProtocolIn = async (file: UploadedFile) => {
+        setActionError(undefined)
+
+        const contents = parsedJsonOf(await file.text())
+
+        if (!isPlainObject(contents)) {
+            setActionError(
+                `Could not upload ${file.name}. It does not hold a protocol.`
+            )
+            return
+        }
+
+        onFilesChange((previous) => [
+            ...previous,
+            { protocol: protocolFrom(contents) },
         ])
         select(files.length)
     }
@@ -260,6 +280,9 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                 >
                     New protocol
                 </button>
+                <UploadProtocolButton
+                    onChoose={(file) => void uploadProtocolIn(file)}
+                />
             </nav>
             <div className="protocols__main">
                 {error && (
@@ -451,6 +474,59 @@ interface ProtocolBiosensorsProps {
     onDevicesChange: (devices: SelectedDevice[]) => void
 }
 
+interface UploadProtocolButtonProps {
+    onChoose: (file: UploadedFile) => void
+}
+
+const UploadProtocolButton: React.FC<UploadProtocolButtonProps> = ({
+    onChoose,
+}) => {
+    const protocolToUploadInput = useRef<HTMLInputElement>(null)
+
+    const chooseProtocol = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const [file] = event.target.files ?? []
+        event.target.value = ''
+
+        if (file) {
+            onChoose(file)
+        }
+    }
+
+    return (
+        <>
+            <button
+                type="button"
+                className="protocols__new"
+                onClick={() => protocolToUploadInput.current?.click()}
+            >
+                Upload protocol
+            </button>
+            <input
+                ref={protocolToUploadInput}
+                type="file"
+                accept=".json,application/json"
+                hidden
+                aria-label="Protocol to upload"
+                onChange={chooseProtocol}
+            />
+        </>
+    )
+}
+
+type UploadedFile = Pick<File, 'name' | 'text'>
+
+function parsedJsonOf(text: string): unknown {
+    try {
+        return JSON.parse(text)
+    } catch {
+        return undefined
+    }
+}
+
+function isPlainObject(value: unknown): value is ProtocolContents {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 const schemaVersion = 1
 
 const untitledName = 'Untitled protocol'
@@ -549,6 +625,49 @@ export function hasUnsavedChanges(file: ProtocolFile) {
         savedProtocol === undefined ||
         fileTextOf(protocol) !== fileTextOf(savedProtocol)
     )
+}
+
+export function protocolFrom(contents: ProtocolContents): Protocol {
+    return {
+        name: textOr(contents.name),
+        devices: devicesFrom(contents),
+        recordXdf: contents.recordXdf === true,
+        recordDirectory: textOr(contents.recordDirectory),
+        recordFileStub: textOr(contents.recordFileStub),
+    }
+}
+
+export interface ProtocolContents {
+    name?: unknown
+    devices?: unknown
+    recordXdf?: unknown
+    recordDirectory?: unknown
+    recordFileStub?: unknown
+}
+
+function devicesFrom(contents: ProtocolContents): SelectedDevice[] {
+    if (!Array.isArray(contents.devices)) {
+        return []
+    }
+
+    return contents.devices
+        .filter((device) => typeof device?.deviceName === 'string')
+        .map(({ deviceName, identifier, nickname, disableStreams }) => ({
+            name: selectedNameOf(deviceName),
+            identifier: textOr(identifier),
+            nickname: textOr(nickname),
+            disabledStreams: textsIn(disableStreams),
+        }))
+}
+
+function textOr(value: unknown) {
+    return typeof value === 'string' ? value : ''
+}
+
+function textsIn(value: unknown) {
+    return Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string')
+        : []
 }
 
 export function displayNameOf(protocol: Protocol) {

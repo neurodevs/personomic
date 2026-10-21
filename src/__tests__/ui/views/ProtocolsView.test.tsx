@@ -294,6 +294,95 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async opensFilePickerWhenUploadProtocolIsClicked() {
+        this.answerListing()
+        let numPickerOpenings = 0
+        screen.getByLabelText('Protocol to upload').click = () =>
+            numPickerOpenings++
+
+        fireEvent.click(screen.getByRole('button', { name: 'Upload protocol' }))
+
+        assert.isEqual(
+            numPickerOpenings,
+            1,
+            'Did not open the file picker when Upload protocol was clicked!'
+        )
+    }
+
+    @test()
+    protected static async uploadsProtocolAsNewUnsavedProtocol() {
+        this.answerListing()
+
+        await this.upload('i-insula.json', this.insulaContents)
+
+        assert.isEqualDeep(
+            {
+                listed: this.listedNames,
+                selected: this.selectedName,
+                unsaved: this.unsavedNames,
+                biosensors: this.biosensorNames,
+            },
+            {
+                listed: ['I-INSULA'],
+                selected: 'I-INSULA',
+                unsaved: ['I-INSULA'],
+                biosensors: ['OpenBCI Cyton'],
+            },
+            'Did not upload the protocol as a new unsaved protocol!'
+        )
+    }
+
+    @test()
+    protected static async savesUploadedProtocolAsNewFile() {
+        this.answerListing()
+        await this.upload('i-insula.json', this.insulaContents)
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            {
+                fileName: this.lastSentMessage.fileName,
+                name: this.lastSentMessage.protocol.name,
+            },
+            { fileName: undefined, name: 'I-INSULA' },
+            'Did not save the uploaded protocol as a new file!'
+        )
+    }
+
+    @test()
+    protected static async saysWhenUploadedFileIsNotAProtocol() {
+        this.answerListing()
+
+        await this.upload('notes.json', 'just some notes')
+
+        assert.isEqualDeep(
+            { alert: this.alertText, listed: this.listedNames },
+            {
+                alert: 'Could not upload notes.json. It does not hold a protocol.',
+                listed: [],
+            },
+            'Did not say the uploaded file was not a protocol!'
+        )
+    }
+
+    private static readonly insulaContents = JSON.stringify({
+        schemaVersion: 1,
+        name: 'I-INSULA',
+        devices: [{ deviceName: 'OpenBCI Cyton' }],
+    })
+
+    private static async upload(fileName: string, contents: string) {
+        const file = { name: fileName, text: async () => contents }
+
+        await act(async () => {
+            fireEvent.change(screen.getByLabelText('Protocol to upload'), {
+                target: { files: [file] },
+            })
+        })
+    }
+
+    @test()
     protected static async saysNewProtocolHasNoBiosensorsYet() {
         this.answerListing()
 

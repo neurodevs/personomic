@@ -214,6 +214,10 @@ body {
   cursor: pointer;
 }
 
+.protocols__new + .protocols__new {
+  margin-top: 8px;
+}
+
 .protocols__new:hover {
   border-color: rgba(255, 255, 255, 0.24);
   color: var(--text-secondary);
