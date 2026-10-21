@@ -6,6 +6,7 @@ import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../../functions/sendToOrchestrator'
 import AddBiosensorButton from '../components/AddBiosensorButton'
+import BiosensorsSection from '../components/BiosensorsSection'
 import PlaybackControls from '../components/PlaybackControls'
 import PlayRecordingButton from '../components/PlayRecordingButton'
 import RecordPathFields, {
@@ -56,6 +57,8 @@ const streamOptions: Record<string, StreamOptions> = {
     Humidity: { yLimits: { min: 0, max: 100 }, units: '%' },
     Battery: { yLimits: { min: 0, max: 100 }, units: '%' },
 }
+
+const chooseRecordingMessage = 'Choose a recording to see its biosensors.'
 
 const intermittentWindowSeconds = 120
 
@@ -117,6 +120,9 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const isPlaying = session === 'playing'
     const isLive = mode === 'live'
     const isChoosingRecording = mode === 'playback' && !isPlaying
+    const monitoredNames = isChoosingRecording
+        ? []
+        : devices.map(({ name }) => name)
 
     const savedProtocolFiles = protocolFiles.filter(
         ({ fileName }) => fileName !== undefined
@@ -597,85 +603,103 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     </span>
                 )}
             </div>
-            {chosenProtocolFile && isEditingProtocol && (
-                <div className="session-protocol">
-                    <span className="session-protocol__heading">
-                        Editing protocol
-                        {hasUnsavedProtocolEdits && (
-                            <span
-                                className="session-protocol__unsaved"
-                                role="img"
-                                aria-label="Unsaved changes"
-                                title="Unsaved changes"
-                            />
+            <div className="card">
+                {chosenProtocolFile && isEditingProtocol && (
+                    <div className="session-protocol">
+                        <span className="session-protocol__heading">
+                            Editing protocol
+                            {hasUnsavedProtocolEdits && (
+                                <span
+                                    className="session-protocol__unsaved"
+                                    role="img"
+                                    aria-label="Unsaved changes"
+                                    title="Unsaved changes"
+                                />
+                            )}
+                        </span>
+                        <input
+                            type="text"
+                            className="session-protocol__name"
+                            aria-label="Protocol name"
+                            placeholder="Protocol name"
+                            value={protocolName}
+                            onChange={(event) =>
+                                setProtocolName(event.target.value)
+                            }
+                        />
+                        <button
+                            type="button"
+                            className="session-protocol__button session-protocol__button--primary"
+                            disabled={protocolWithSameName !== undefined}
+                            onClick={saveProtocol}
+                        >
+                            {isProtocolRenamed ? 'Save as new' : 'Save'}
+                        </button>
+                        <button
+                            type="button"
+                            className="session-protocol__button"
+                            onClick={cancelEditingProtocol}
+                        >
+                            Cancel
+                        </button>
+                        {protocolWithSameName && (
+                            <span className="session-protocol__hint">
+                                {displayNameOf(protocolWithSameName.protocol)}{' '}
+                                is already a protocol.
+                            </span>
                         )}
-                    </span>
-                    <input
-                        type="text"
-                        className="session-protocol__name"
-                        aria-label="Protocol name"
-                        placeholder="Protocol name"
-                        value={protocolName}
-                        onChange={(event) =>
-                            setProtocolName(event.target.value)
+                    </div>
+                )}
+                <BiosensorsSection
+                    isEmpty={monitoredNames.length === 0}
+                    emptyMessage={
+                        isChoosingRecording ? chooseRecordingMessage : undefined
+                    }
+                >
+                    <StreamMonitorComponent
+                        key={numMonitorResets}
+                        downsampling={downsampling}
+                        deviceStatusPort={8764}
+                        deviceNames={monitoredNames}
+                        recording={playing?.recording}
+                        playbackSpeed={playbackSpeed}
+                        playbackSeek={playing?.seek}
+                        isPlaybackPaused={isPositionHeld || isPaused}
+                        onPlaybackEnd={markPlaybackEnded}
+                        onPlaybackProgress={showPlaybackProgress}
+                        onPlaybackSeek={seek}
+                        streamOptions={streamOptions}
+                        windowSecondsByDevice={windowSecondsByDevice}
+                        isConnecting={session === 'connecting'}
+                        isRecording={isRecordEnabled}
+                        identifiers={identifiers}
+                        rememberedIdentifiers={rememberedIdentifiers}
+                        scannedIdentifiers={scannedIdentifiers}
+                        scanningDeviceNames={scanningDeviceNames}
+                        onForgetIdentifier={
+                            isLocked ? undefined : forgetIdentifier
+                        }
+                        onIdentifierChange={
+                            isLocked ? undefined : setIdentifierValue
+                        }
+                        nicknames={nicknames}
+                        onNicknameChange={isLocked ? undefined : setNickname}
+                        disabledStreams={disabledStreams}
+                        onDisabledStreamsChange={
+                            canChangeDevices ? setDisabledStreams : undefined
+                        }
+                        onRemoveDevice={
+                            canChangeDevices ? removeDevice : undefined
                         }
                     />
-                    <button
-                        type="button"
-                        className="session-protocol__button session-protocol__button--primary"
-                        disabled={protocolWithSameName !== undefined}
-                        onClick={saveProtocol}
-                    >
-                        {isProtocolRenamed ? 'Save as new' : 'Save'}
-                    </button>
-                    <button
-                        type="button"
-                        className="session-protocol__button"
-                        onClick={cancelEditingProtocol}
-                    >
-                        Cancel
-                    </button>
-                    {protocolWithSameName && (
-                        <span className="session-protocol__hint">
-                            {displayNameOf(protocolWithSameName.protocol)} is
-                            already a protocol.
-                        </span>
+                    {canChangeDevices && addableNames.length > 0 && (
+                        <AddBiosensorButton
+                            names={addableNames}
+                            onAdd={addDevice}
+                        />
                     )}
-                </div>
-            )}
-            <StreamMonitorComponent
-                key={numMonitorResets}
-                downsampling={downsampling}
-                deviceStatusPort={8764}
-                deviceNames={isChoosingRecording ? [] : deviceNames}
-                recording={playing?.recording}
-                playbackSpeed={playbackSpeed}
-                playbackSeek={playing?.seek}
-                isPlaybackPaused={isPositionHeld || isPaused}
-                onPlaybackEnd={markPlaybackEnded}
-                onPlaybackProgress={showPlaybackProgress}
-                onPlaybackSeek={seek}
-                streamOptions={streamOptions}
-                windowSecondsByDevice={windowSecondsByDevice}
-                isConnecting={session === 'connecting'}
-                isRecording={isRecordEnabled}
-                identifiers={identifiers}
-                rememberedIdentifiers={rememberedIdentifiers}
-                scannedIdentifiers={scannedIdentifiers}
-                scanningDeviceNames={scanningDeviceNames}
-                onForgetIdentifier={isLocked ? undefined : forgetIdentifier}
-                onIdentifierChange={isLocked ? undefined : setIdentifierValue}
-                nicknames={nicknames}
-                onNicknameChange={isLocked ? undefined : setNickname}
-                disabledStreams={disabledStreams}
-                onDisabledStreamsChange={
-                    canChangeDevices ? setDisabledStreams : undefined
-                }
-                onRemoveDevice={canChangeDevices ? removeDevice : undefined}
-            />
-            {canChangeDevices && addableNames.length > 0 && (
-                <AddBiosensorButton names={addableNames} onAdd={addDevice} />
-            )}
+                </BiosensorsSection>
+            </div>
         </>
     )
 }

@@ -3704,6 +3704,65 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async saysNoBiosensorsAreAddedYetBeforeAnyAre() {
+        render(<SessionView />)
+
+        assert.isEqualDeep(
+            {
+                isTitled:
+                    screen.queryByRole('region', { name: 'Biosensors' }) !==
+                    null,
+                isNoneSaid: this.isNoneAddedSaid,
+            },
+            { isTitled: true, isNoneSaid: true },
+            'Did not say no biosensors were added yet before any were!'
+        )
+    }
+
+    @test()
+    protected static async stopsSayingNoneAreAddedOnceOneIs() {
+        render(<SessionView />)
+
+        this.addBiosensor('Muse S Gen 2')
+
+        assert.isFalse(
+            this.isNoneAddedSaid,
+            'Kept saying no biosensors were added once one was!'
+        )
+    }
+
+    @test()
+    protected static async saysNoneAreAddedForProtocolWithoutBiosensors() {
+        this.renderWithProtocols([this.beepsFile])
+
+        this.chooseProtocol('Beeps')
+
+        assert.isTrue(
+            this.isNoneAddedSaid,
+            'Did not say no biosensors were added for a protocol without any!'
+        )
+    }
+
+    @test()
+    protected static async asksForRecordingInsteadWhileChoosingOne() {
+        render(<SessionView />)
+
+        this.chooseMode('Playback')
+
+        assert.isEqualDeep(
+            {
+                isNoneSaid: this.isNoneAddedSaid,
+                isRecordingAskedFor:
+                    screen.queryByText(
+                        'Choose a recording to see its biosensors.'
+                    ) !== null,
+            },
+            { isNoneSaid: false, isRecordingAskedFor: true },
+            'Did not ask for a recording while choosing one!'
+        )
+    }
+
+    @test()
     protected static async keepsEditingWhenSavingProtocolFails() {
         this.renderWithProtocols([this.tiltFile])
         this.chooseProtocol('Tilt series')
@@ -3783,6 +3842,10 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static get isEditUnsavedShown() {
         return screen.queryByRole('img', { name: 'Unsaved changes' }) !== null
+    }
+
+    private static get isNoneAddedSaid() {
+        return screen.queryByText('None added yet.') !== null
     }
 
     private static get isLeavingWarned() {

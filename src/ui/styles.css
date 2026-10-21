@@ -225,21 +225,28 @@ body {
   font-size: 13px;
 }
 
-.protocols__devices {
-  margin-top: 24px;
-}
-
-.protocols__devices h3 {
-  margin: 0 0 8px;
+.biosensors__heading {
+  margin: 0 0 10px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 400;
 }
 
-.protocols__no-devices {
+.biosensors__empty {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
   margin: 0;
+  padding: 14px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.015);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 14px;
+}
+
+.protocols__editor .biosensors {
+  margin-top: 24px;
 }
 
 .protocols__device-list {
@@ -251,7 +258,7 @@ body {
   list-style: none;
 }
 
-.protocols__devices .add-biosensor {
+.card .add-biosensor {
   margin-top: 10px;
 }
 
@@ -288,7 +295,7 @@ body {
   font-size: 11px;
 }
 
-.protocols__editor {
+.card {
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -418,11 +425,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin: -8px 0 20px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
+  margin-bottom: 24px;
 }
 
 .session-protocol__heading {
@@ -430,9 +433,11 @@ body {
   align-items: center;
   gap: 8px;
   color: var(--text-muted);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.card .stream-monitor {
+  gap: 10px;
 }
 
 .session-protocol__name {

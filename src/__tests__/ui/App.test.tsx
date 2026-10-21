@@ -273,7 +273,7 @@ export default class AppTest extends AbstractPackageTest {
         this.chooseListedProtocol('Beeps')
 
         assert.isTrue(
-            screen.queryByText('No biosensors yet.') !== null,
+            this.isNoneAddedSaidOnProtocols,
             'Did not read a listed protocol without biosensors as having none!'
         )
     }
@@ -542,6 +542,14 @@ export default class AppTest extends AbstractPackageTest {
         return within(screen.getByRole('navigation', { name: 'Protocols' }))
             .queryAllByRole('listitem')
             .map((item) => within(item).getAllByRole('button')[0].textContent)
+    }
+
+    private static get isNoneAddedSaidOnProtocols() {
+        return (
+            within(
+                screen.getByRole('tabpanel', { name: 'Protocols' })
+            ).queryByText('None added yet.') !== null
+        )
     }
 
     private static chooseTab(name: string) {

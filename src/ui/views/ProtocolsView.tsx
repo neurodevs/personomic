@@ -4,6 +4,7 @@ import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../../functions/sendToOrchestrator'
 import AddBiosensorButton from '../components/AddBiosensorButton'
+import BiosensorsSection from '../components/BiosensorsSection'
 import DevicePanel from '../components/DevicePanel'
 import { deviceLabelFor } from '../components/StreamMonitor'
 import useBiosensorChoices, {
@@ -253,7 +254,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                     <p className="protocols__empty">No protocols yet.</p>
                 )}
                 {selected && (
-                    <section className="protocols__editor">
+                    <section className="protocols__editor card">
                         <label className="protocols__field">
                             Name
                             <input
@@ -353,15 +354,9 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
     })
 
     return (
-        <section className="protocols__devices">
-            <h3 id="protocol-devices-heading">Biosensors</h3>
-            {devices.length === 0 ? (
-                <p className="protocols__no-devices">No biosensors yet.</p>
-            ) : (
-                <ul
-                    className="protocols__device-list"
-                    aria-labelledby="protocol-devices-heading"
-                >
+        <BiosensorsSection isEmpty={devices.length === 0}>
+            {devices.length > 0 && (
+                <ul className="protocols__device-list" aria-label="Biosensors">
                     {deviceKeys.map((key, index) => {
                         const name = deviceNames[index]
 
@@ -406,7 +401,7 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
             {addableNames.length > 0 && (
                 <AddBiosensorButton names={addableNames} onAdd={addDevice} />
             )}
-        </section>
+        </BiosensorsSection>
     )
 }
 

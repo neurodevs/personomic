@@ -193,8 +193,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.answer({
             fileName: 'untitled-protocol.json',
-            filePath:
-                '/Users/me/Personomic/Protocols/untitled-protocol.json',
+            filePath: '/Users/me/Personomic/Protocols/untitled-protocol.json',
         })
 
         assert.isEqual(
@@ -301,7 +300,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         this.clickNewProtocol()
 
         assert.isTrue(
-            screen.queryByText('No biosensors yet.') !== null,
+            this.isNoneAddedSaidOnProtocols,
             'Did not say the new protocol has no biosensors yet!'
         )
     }
@@ -345,7 +344,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         this.addBiosensor('OpenBCI Cyton')
 
         assert.isFalse(
-            screen.queryByText('No biosensors yet.') !== null,
+            this.isNoneAddedSaidOnProtocols,
             'Kept saying there are no biosensors once one was added!'
         )
     }
@@ -1064,6 +1063,14 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
     private static get statusText() {
         return screen.getByRole('status').textContent
+    }
+
+    private static get isNoneAddedSaidOnProtocols() {
+        return (
+            within(
+                screen.getByRole('tabpanel', { name: 'Protocols' })
+            ).queryByText('None added yet.') !== null
+        )
     }
 
     private static chooseTab(name: string) {
