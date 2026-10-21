@@ -80,13 +80,17 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
         >
             <header className="stream-monitor__device-header">
                 {isStatusShown && <DeviceStatusIndicator status={status} />}
-                <span className="stream-monitor__device-name">
+                <span
+                    className="stream-monitor__device-name"
+                    title={device.label}
+                >
                     {device.label}
                 </span>
                 {isNicknameShown && (
                     <NicknameInput
                         deviceLabel={device.label}
                         nickname={nickname}
+                        isRecommended={identifier?.isRequired ?? false}
                         onChange={
                             onNicknameChange &&
                             ((value) => onNicknameChange(device.key, value))
@@ -318,13 +322,16 @@ const HeaderIcon: React.FC<{ size: number; children: React.ReactNode }> = ({
 const NicknameInput: React.FC<NicknameInputProps> = ({
     deviceLabel,
     nickname,
+    isRecommended,
     onChange,
 }) => (
     <input
         type="text"
         className="stream-monitor__device-nickname"
         aria-label={`${deviceLabel} nickname`}
-        placeholder="Nickname (optional)"
+        placeholder={
+            isRecommended ? 'Nickname (recommended)' : 'Nickname (optional)'
+        }
         value={nickname}
         readOnly={onChange === undefined}
         onChange={(event) => onChange?.(event.target.value)}
@@ -334,6 +341,7 @@ const NicknameInput: React.FC<NicknameInputProps> = ({
 interface NicknameInputProps {
     deviceLabel: string
     nickname: string
+    isRecommended: boolean
     onChange?: (value: string) => void
 }
 

@@ -201,6 +201,53 @@ export default class DevicePanelTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async leavesNicknameOptionalWhileIdentifierIs() {
+        this.renderWithIdentifier(false)
+
+        assert.isEqual(
+            this.nicknameInput.placeholder,
+            'Nickname (optional)',
+            'Did not leave the nickname optional while the identifier is!'
+        )
+    }
+
+    @test()
+    protected static async recommendsNicknameOnceIdentifierIsRequired() {
+        this.renderWithIdentifier(true)
+
+        assert.isEqual(
+            this.nicknameInput.placeholder,
+            'Nickname (recommended)',
+            'Did not recommend a nickname once the identifier was required!'
+        )
+    }
+
+    @test()
+    protected static async offersFullNameOnHoverInCaseItIsCutOff() {
+        this.renderPanel()
+
+        assert.isEqual(
+            screen.getByText(this.deviceKey).getAttribute('title'),
+            this.deviceKey,
+            'Did not offer the full name on hover in case it is cut off!'
+        )
+    }
+
+    private static renderWithIdentifier(isRequired: boolean) {
+        this.renderPanel({
+            identifier: { label: 'UUID', value: '', isRequired },
+            onIdentifierChange: () => {},
+            onNicknameChange: () => {},
+        })
+    }
+
+    private static get nicknameInput() {
+        return screen.getByRole('textbox', {
+            name: `${this.deviceKey} nickname`,
+        }) as HTMLInputElement
+    }
+
     private static renderPanel(
         props: Partial<DevicePanelProps> = {},
         name = 'Muse S Gen 2'

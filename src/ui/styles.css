@@ -80,7 +80,7 @@ body {
 
 .protocols {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -803,9 +803,14 @@ body {
 }
 
 .stream-monitor__device-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   margin-right: auto;
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -958,8 +963,9 @@ body {
 
 .stream-monitor__device-identifier,
 .stream-monitor__device-nickname {
+  flex: none;
   align-self: center;
-  width: 280px;
+  width: 260px;
   padding: 5px 8px;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
@@ -970,12 +976,12 @@ body {
 }
 
 .stream-monitor__device-nickname {
-  width: 160px;
+  width: 184px;
 }
 
 .stream-monitor__device-identifier-spacer {
   flex: none;
-  width: 280px;
+  width: 260px;
 }
 
 .stream-monitor__device-identifier::placeholder,
@@ -997,6 +1003,7 @@ body {
 }
 
 .stream-monitor__device-identifier-field {
+  flex: none;
   position: relative;
   display: flex;
   align-self: center;

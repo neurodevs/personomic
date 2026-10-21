@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { DEVICE_NAMES } from '@neurodevs/node-biosensors/build/types.js'
 
+import familyOf from '../../functions/familyOf'
 import sendToOrchestrator from '../../functions/sendToOrchestrator'
 import { ScannedIdentifier } from '../components/IdentifierInput'
 import { deviceKeysFor } from '../components/StreamMonitor'
@@ -96,7 +97,11 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         devices
             .map(({ name, identifier }, index) => [
                 deviceKeys[index],
-                { label: identifierLabels[name], value: identifier },
+                {
+                    label: identifierLabels[name],
+                    value: identifier,
+                    isRequired: isFamilyRepeatedIn(deviceNames, name),
+                },
             ])
             .filter((_, index) => deviceNames[index] in identifierLabels)
     )
@@ -178,6 +183,12 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         rememberIdentifiersOf,
         forgetIdentifier,
     }
+}
+
+function isFamilyRepeatedIn(deviceNames: string[], name: string) {
+    const family = familyOf(name)
+
+    return deviceNames.filter((other) => familyOf(other) === family).length > 1
 }
 
 export function disableStreamsOf(disabledStreams: readonly string[]) {

@@ -13,6 +13,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
     const [isOpen, setIsOpen] = useState(false)
 
     const isLocked = onChange === undefined
+    const shownLabel = `${identifier.label} ${identifier.isRequired ? '(required)' : '(optional)'}`
 
     const offered = offeredFrom(scanned, remembered, deviceName)
 
@@ -26,8 +27,8 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
             <input
                 type="text"
                 className="stream-monitor__device-identifier"
-                aria-label={`${deviceLabel} ${identifier.label} (optional)`}
-                placeholder={`${identifier.label} (optional)`}
+                aria-label={`${deviceLabel} ${shownLabel}`}
+                placeholder={shownLabel}
                 value={identifier.value}
                 readOnly={isLocked}
                 onChange={(event) => onChange?.(event.target.value)}
@@ -147,4 +148,5 @@ export interface ScannedIdentifier {
 export interface DeviceIdentifier {
     label: string
     value: string
+    isRequired?: boolean
 }

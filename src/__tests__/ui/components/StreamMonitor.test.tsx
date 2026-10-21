@@ -1999,6 +1999,34 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async labelsRequiredIdentifierInputAsRequired() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            identifiers: {
+                [this.deviceName]: {
+                    label: 'UUID',
+                    value: '',
+                    isRequired: true,
+                },
+            },
+        })
+
+        const input = this.identifierInput as HTMLInputElement
+
+        assert.isEqualDeep(
+            {
+                name: input?.getAttribute('aria-label'),
+                placeholder: input?.placeholder,
+            },
+            {
+                name: `${this.deviceName} UUID (required)`,
+                placeholder: 'UUID (required)',
+            },
+            'Did not label a required identifier input as required!'
+        )
+    }
+
+    @test()
     protected static async showsNoConnectButtonOnDevice() {
         await this.renderBeforeDeviceStatus()
 
@@ -3893,7 +3921,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
     private static get identifierInput() {
         return screen.queryByRole('textbox', {
-            name: /\(optional\)$/,
+            name: /\((optional|required)\)$/,
         })
     }
 

@@ -676,8 +676,16 @@ export default class SessionViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             lastStreamMonitorProps?.identifiers,
             {
-                'Muse S Gen 2': { label: 'UUID', value: 'first-uuid' },
-                'Muse S Gen 2 #2': { label: 'UUID', value: 'second-uuid' },
+                'Muse S Gen 2': {
+                    label: 'UUID',
+                    value: 'first-uuid',
+                    isRequired: true,
+                },
+                'Muse S Gen 2 #2': {
+                    label: 'UUID',
+                    value: 'second-uuid',
+                    isRequired: true,
+                },
             },
             'Did not keep identifier of each repeat separate!'
         )
@@ -693,7 +701,13 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.identifiers,
-            { 'Muse S Gen 2': { label: 'UUID', value: 'second-uuid' } },
+            {
+                'Muse S Gen 2': {
+                    label: 'UUID',
+                    value: 'second-uuid',
+                    isRequired: false,
+                },
+            },
             'Did not remove only the repeat that was chosen!'
         )
     }
@@ -808,8 +822,16 @@ export default class SessionViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             lastStreamMonitorProps?.identifiers,
             {
-                'Muse S Gen 2': { label: 'UUID', value: 'first-uuid' },
-                'Muse S Gen 2 #2': { label: 'UUID', value: 'second-uuid' },
+                'Muse S Gen 2': {
+                    label: 'UUID',
+                    value: 'first-uuid',
+                    isRequired: true,
+                },
+                'Muse S Gen 2 #2': {
+                    label: 'UUID',
+                    value: 'second-uuid',
+                    isRequired: true,
+                },
             },
             'Did not restore repeats of session running on load!'
         )
@@ -880,7 +902,13 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.identifiers,
-            { 'Muse S Gen 2': { label: 'UUID', value: 'typed-uuid' } },
+            {
+                'Muse S Gen 2': {
+                    label: 'UUID',
+                    value: 'typed-uuid',
+                    isRequired: false,
+                },
+            },
             'Did not pass typed identifier back to monitor!'
         )
     }
@@ -3242,7 +3270,11 @@ export default class SessionViewTest extends AbstractPackageTest {
             {
                 deviceNames: ['Muse S Gen 2', 'Zephyr BioHarness 3'],
                 identifiers: {
-                    'Muse S Gen 2': { label: 'UUID', value: 'muse-uuid' },
+                    'Muse S Gen 2': {
+                        label: 'UUID',
+                        value: 'muse-uuid',
+                        isRequired: false,
+                    },
                 },
                 nicknames: {
                     'Muse S Gen 2': 'Head',
@@ -3763,6 +3795,63 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async leavesIdentifierOfOnlyDeviceInFamilyOptional() {
+        this.renderWithMuse()
+        this.addBiosensor('Govee Thermohygrometer H5074')
+
+        assert.isEqualDeep(
+            this.requiredIdentifiers,
+            {
+                'Muse S Gen 2': false,
+                'Govee Thermohygrometer H5074': false,
+            },
+            'Required the identifier of the only device in its family!'
+        )
+    }
+
+    @test()
+    protected static async requiresIdentifierOfEachRepeatOfAModel() {
+        this.renderWithTwoMuses()
+
+        assert.isEqualDeep(
+            this.requiredIdentifiers,
+            { 'Muse S Gen 2': true, 'Muse S Gen 2 #2': true },
+            'Did not require the identifier of each repeat of a model!'
+        )
+    }
+
+    @test()
+    protected static async requiresIdentifierOfEachMuseOfDifferentModels() {
+        this.renderWithMuse()
+        this.addBiosensor('Muse 2')
+        this.addBiosensor(this.anyMuse)
+
+        assert.isEqualDeep(
+            this.requiredIdentifiers,
+            {
+                'Muse S Gen 2': true,
+                'Muse 2': true,
+                [this.anyMuse]: true,
+            },
+            'Did not require the identifier of each Muse of different models!'
+        )
+    }
+
+    @test()
+    protected static async makesIdentifierOptionalAgainOnceRepeatIsRemoved() {
+        this.renderWithMuse()
+        this.addBiosensor('Muse 2')
+
+        this.removeDevice('Muse 2')
+
+        assert.isEqualDeep(
+            this.requiredIdentifiers,
+            { 'Muse S Gen 2': false },
+            'Did not make the identifier optional again once the repeat was removed!'
+        )
+    }
+
+    @test()
     protected static async keepsEditingWhenSavingProtocolFails() {
         this.renderWithProtocols([this.tiltFile])
         this.chooseProtocol('Tilt series')
@@ -3846,6 +3935,14 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static get isNoneAddedSaid() {
         return screen.queryByText('None added yet.') !== null
+    }
+
+    private static get requiredIdentifiers() {
+        return Object.fromEntries(
+            Object.entries(lastStreamMonitorProps?.identifiers ?? {}).map(
+                ([key, { isRequired }]) => [key, isRequired]
+            )
+        )
     }
 
     private static get isLeavingWarned() {

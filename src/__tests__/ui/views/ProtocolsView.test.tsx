@@ -964,6 +964,23 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async requiresIdentifierOfRepeatedBiosensors() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Govee Thermohygrometer H5074')
+
+        this.addBiosensor('Govee Thermohygrometer H5074')
+
+        assert.isEqualDeep(
+            screen
+                .getAllByRole('textbox', { name: /UUID/ })
+                .map((input) => input.getAttribute('placeholder')),
+            ['UUID (required)', 'UUID (required)'],
+            'Did not require the identifier of repeated biosensors!'
+        )
+    }
+
     private static clickSavedPath(path: string) {
         fireEvent.click(screen.getByRole('button', { name: path }))
     }
