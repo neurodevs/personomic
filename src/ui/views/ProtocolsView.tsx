@@ -58,6 +58,18 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
 
     const error = actionError ?? listingError
 
+    const protocolWithSameName =
+        selected && selected.protocol.name.trim()
+            ? files.find(
+                  (file, index) =>
+                      index !== selectedIndex &&
+                      isSameProtocolName(
+                          file.protocol.name,
+                          selected.protocol.name
+                      )
+              )
+            : undefined
+
     const select = (index: number) => {
         setSelectedIndex(index)
         setSavedTo(undefined)
@@ -295,21 +307,32 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                 )}
                 {selected && (
                     <section className="protocols__editor card">
-                        <label className="protocols__field">
-                            Name
-                            <input
-                                key={selectedIndex}
-                                type="text"
-                                value={selected.protocol.name}
-                                placeholder={untitledName}
-                                autoFocus
-                                onChange={(event) =>
-                                    changeSelectedProtocol({
-                                        name: event.target.value,
-                                    })
-                                }
-                            />
-                        </label>
+                        <div className="protocols__name">
+                            <label className="protocols__field">
+                                Name
+                                <input
+                                    key={selectedIndex}
+                                    type="text"
+                                    value={selected.protocol.name}
+                                    placeholder={untitledName}
+                                    autoFocus
+                                    onChange={(event) =>
+                                        changeSelectedProtocol({
+                                            name: event.target.value,
+                                        })
+                                    }
+                                />
+                            </label>
+                            {protocolWithSameName && (
+                                <span className="protocols__name-taken">
+                                    {displayNameOf(
+                                        protocolWithSameName.protocol
+                                    )}{' '}
+                                    is already a protocol. Please choose a new
+                                    name.
+                                </span>
+                            )}
+                        </div>
                         <div className="protocols__record">
                             <RecordXdfControls
                                 isOn={selected.protocol.recordXdf ?? false}
@@ -342,6 +365,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                             <button
                                 type="button"
                                 className="protocols__save"
+                                disabled={protocolWithSameName !== undefined}
                                 onClick={saveSelected}
                             >
                                 Save
@@ -668,6 +692,10 @@ function textsIn(value: unknown) {
     return Array.isArray(value)
         ? value.filter((item): item is string => typeof item === 'string')
         : []
+}
+
+export function isSameProtocolName(name: string, other: string) {
+    return name.trim().toLowerCase() === other.trim().toLowerCase()
 }
 
 export function displayNameOf(protocol: Protocol) {

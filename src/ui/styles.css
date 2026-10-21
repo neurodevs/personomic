@@ -293,6 +293,12 @@ body {
   cursor: pointer;
 }
 
+.protocols__save:disabled {
+  background: none;
+  color: var(--text-muted);
+  cursor: default;
+}
+
 .protocols__saved {
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -322,8 +328,21 @@ body {
   margin-top: 20px;
 }
 
-.protocols__field input {
-  font-size: 13px;
+.protocols__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 12px;
+}
+
+.protocols__name .protocols__field {
+  flex: 0 1 420px;
+}
+
+.protocols__name-taken {
+  padding-bottom: 10px;
+  color: #e5484d;
+  font-size: 12px;
 }
 
 .protocols__field input {

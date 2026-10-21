@@ -36,6 +36,7 @@ import {
     displayNameOf,
     fileContentsOf,
     hasUnsavedChanges,
+    isSameProtocolName,
     revealProtocol,
     Protocol,
     ProtocolFile,
@@ -748,10 +749,6 @@ interface PlayingRecording {
     hasEnded: boolean
     seek?: PlaybackSeek
     progress?: PlaybackProgress
-}
-
-function isSameProtocolName(name: string, other: string) {
-    return name.trim().toLowerCase() === other.trim().toLowerCase()
 }
 
 function withSavedProtocol(files: ProtocolFile[], saved: ProtocolFile) {

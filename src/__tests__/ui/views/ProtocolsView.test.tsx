@@ -366,6 +366,71 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysToChooseNewNameWhenUploadedNameExists() {
+        this.answerListing([this.file('i-insula.json', 'I-INSULA')])
+
+        await this.upload('i-insula.json', this.insulaContents)
+
+        assert.isTrue(
+            screen.queryByText(
+                'I-INSULA is already a protocol. Please choose a new name.'
+            ) !== null,
+            'Did not say to Please choose a new name for an uploaded name that exists!'
+        )
+    }
+
+    @test()
+    protected static async stopsAskingForNewNameOnceRenamed() {
+        this.answerListing([this.file('i-insula.json', 'I-INSULA')])
+        await this.upload('i-insula.json', this.insulaContents)
+
+        this.typeName('I-INSULA 2')
+
+        assert.isFalse(
+            this.isNewNameAskedFor,
+            'Kept asking for a new name once renamed!'
+        )
+    }
+
+    @test()
+    protected static async disablesSaveUntilTakenNameIsChanged() {
+        this.answerListing([this.file('i-insula.json', 'I-INSULA')])
+        await this.upload('i-insula.json', this.insulaContents)
+        const whileTaken = this.saveButton.disabled
+
+        this.typeName('I-INSULA 2')
+
+        assert.isEqualDeep(
+            { whileTaken, onceChanged: this.saveButton.disabled },
+            { whileTaken: true, onceChanged: false },
+            'Did not disable Save until the taken name was changed!'
+        )
+    }
+
+    private static get saveButton() {
+        return screen.getByRole('button', {
+            name: 'Save',
+        }) as HTMLButtonElement
+    }
+
+    @test()
+    protected static async doesNotAskForNewNameOfUntitledProtocols() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickNewProtocol()
+
+        assert.isFalse(
+            this.isNewNameAskedFor,
+            'Asked for a new name of untitled protocols!'
+        )
+    }
+
+    private static get isNewNameAskedFor() {
+        return screen.queryByText(/Please choose a new name\.$/) !== null
+    }
+
     private static readonly insulaContents = JSON.stringify({
         schemaVersion: 1,
         name: 'I-INSULA',
