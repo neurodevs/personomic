@@ -106,6 +106,16 @@ body {
   background: var(--surface-raised);
 }
 
+.protocols__unsaved,
+.session-protocol__unsaved {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #e0a458;
+}
+
 .protocols__download,
 .protocols__remove {
   padding: 4px 10px;
@@ -416,6 +426,9 @@ body {
 }
 
 .session-protocol__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 0.12em;

@@ -85,7 +85,10 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                     setActionError(error)
 
                     if (fileName) {
-                        changeFileAt(index, { fileName })
+                        changeFileAt(index, {
+                            fileName,
+                            savedProtocol: protocol,
+                        })
                         setSavedTo(filePath ?? fileName)
                     }
                 },
@@ -143,78 +146,93 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
             <nav className="protocols__list" aria-label="Protocols">
                 {files.length > 0 && (
                     <ul className="protocols__items">
-                        {files.map(({ fileName, protocol }, index) => (
-                            <li key={index} className="protocols__row">
-                                <button
-                                    type="button"
-                                    className="protocols__item"
-                                    aria-current={index === selectedIndex}
-                                    onClick={() => select(index)}
-                                >
-                                    {displayNameOf(protocol)}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="protocols__download"
-                                    aria-label={`Download ${displayNameOf(protocol)}`}
-                                    title="Download"
-                                    onClick={() =>
-                                        downloadFile(
-                                            fileName ??
-                                                fileNameFrom(protocol.name),
-                                            fileTextOf(protocol)
-                                        )
-                                    }
-                                >
-                                    ↓
-                                </button>
-                                {confirmingRemoveAt === index ? (
-                                    <div className="protocols__confirm-remove">
-                                        <p>Remove {displayNameOf(protocol)}?</p>
-                                        <label className="protocols__delete-file">
-                                            <input
-                                                type="checkbox"
-                                                checked={shouldDeleteFile}
-                                                onChange={(event) =>
-                                                    setShouldDeleteFile(
-                                                        event.target.checked
-                                                    )
-                                                }
-                                            />
-                                            Delete {fileName}
-                                        </label>
-                                        <div className="protocols__confirm-actions">
-                                            <button
-                                                type="button"
-                                                onClick={confirmRemove}
-                                            >
-                                                Remove
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setConfirmingRemoveAt(
-                                                        undefined
-                                                    )
-                                                }
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
+                        {files.map((file, index) => {
+                            const { fileName, protocol } = file
+
+                            return (
+                                <li key={index} className="protocols__row">
                                     <button
                                         type="button"
-                                        className="protocols__remove"
-                                        aria-label={`Remove ${displayNameOf(protocol)}`}
-                                        title="Remove"
-                                        onClick={() => askToRemove(index)}
+                                        className="protocols__item"
+                                        aria-current={index === selectedIndex}
+                                        onClick={() => select(index)}
                                     >
-                                        ×
+                                        {displayNameOf(protocol)}
                                     </button>
-                                )}
-                            </li>
-                        ))}
+                                    {hasUnsavedChanges(file) && (
+                                        <span
+                                            className="protocols__unsaved"
+                                            role="img"
+                                            aria-label="Unsaved changes"
+                                            title="Unsaved changes"
+                                        />
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="protocols__download"
+                                        aria-label={`Download ${displayNameOf(protocol)}`}
+                                        title="Download"
+                                        onClick={() =>
+                                            downloadFile(
+                                                fileName ??
+                                                    fileNameFrom(protocol.name),
+                                                fileTextOf(protocol)
+                                            )
+                                        }
+                                    >
+                                        ↓
+                                    </button>
+                                    {confirmingRemoveAt === index ? (
+                                        <div className="protocols__confirm-remove">
+                                            <p>
+                                                Remove {displayNameOf(protocol)}
+                                                ?
+                                            </p>
+                                            <label className="protocols__delete-file">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={shouldDeleteFile}
+                                                    onChange={(event) =>
+                                                        setShouldDeleteFile(
+                                                            event.target.checked
+                                                        )
+                                                    }
+                                                />
+                                                Delete {fileName}
+                                            </label>
+                                            <div className="protocols__confirm-actions">
+                                                <button
+                                                    type="button"
+                                                    onClick={confirmRemove}
+                                                >
+                                                    Remove
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setConfirmingRemoveAt(
+                                                            undefined
+                                                        )
+                                                    }
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="protocols__remove"
+                                            aria-label={`Remove ${displayNameOf(protocol)}`}
+                                            title="Remove"
+                                            onClick={() => askToRemove(index)}
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </li>
+                            )
+                        })}
                     </ul>
                 )}
                 <button
@@ -287,6 +305,7 @@ export default ProtocolsView
 export interface ProtocolFile {
     fileName?: string
     protocol: Protocol
+    savedProtocol?: Protocol
 }
 
 export interface Protocol {
@@ -438,6 +457,15 @@ function downloadThroughBrowser(fileName: string, text: string) {
     link.click()
 
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function hasUnsavedChanges(file: ProtocolFile) {
+    const { protocol, savedProtocol } = file
+
+    return (
+        savedProtocol === undefined ||
+        fileTextOf(protocol) !== fileTextOf(savedProtocol)
+    )
 }
 
 export function displayNameOf(protocol: Protocol) {

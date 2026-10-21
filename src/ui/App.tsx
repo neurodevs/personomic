@@ -5,7 +5,11 @@ import sendToOrchestrator, {
 } from '../functions/sendToOrchestrator'
 import { Downsampling } from './components/StreamPlot'
 import { SelectedDevice, selectedNameOf } from './hooks/useBiosensorChoices'
-import ProtocolsView, { ProtocolFile } from './views/ProtocolsView'
+import useWarningBeforeLeaving from './hooks/useWarningBeforeLeaving'
+import ProtocolsView, {
+    hasUnsavedChanges,
+    ProtocolFile,
+} from './views/ProtocolsView'
 import SessionView from './views/SessionView'
 
 const viewLabels: Record<View, string> = {
@@ -41,6 +45,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
             }
         )
     }, [])
+
+    const hasUnsavedProtocols = (protocolFiles ?? []).some(hasUnsavedChanges)
+
+    useWarningBeforeLeaving(hasUnsavedProtocols)
 
     const changeProtocolFiles = (
         change: (files: ProtocolFile[]) => ProtocolFile[]
@@ -109,7 +117,9 @@ function protocolFileFrom(listed: ListedProtocolFile): ProtocolFile {
     const { fileName, protocol } = listed
     const name = typeof protocol.name === 'string' ? protocol.name : ''
 
-    return { fileName, protocol: { name, devices: devicesFrom(protocol) } }
+    const read = { name, devices: devicesFrom(protocol) }
+
+    return { fileName, protocol: read, savedProtocol: read }
 }
 
 function devicesFrom(protocol: { devices?: unknown }): SelectedDevice[] {

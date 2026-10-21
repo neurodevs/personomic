@@ -472,6 +472,49 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async doesNotMarkListedProtocolsUnsaved() {
+        render(<App />)
+
+        this.visitProtocolsListing([this.protocolFile('beeps.json', 'Beeps')])
+
+        assert.isNull(
+            screen.queryByRole('img', { name: 'Unsaved changes' }),
+            'Marked a listed protocol unsaved!'
+        )
+    }
+
+    @test()
+    protected static async warnsBeforeLeavingWithUnsavedProtocol() {
+        render(<App />)
+        this.visitProtocolsListing([])
+
+        fireEvent.click(screen.getByRole('button', { name: 'New protocol' }))
+
+        assert.isTrue(
+            this.isLeavingWarned,
+            'Did not warn before leaving with an unsaved protocol!'
+        )
+    }
+
+    @test()
+    protected static async doesNotWarnBeforeLeavingWhenProtocolsAreSaved() {
+        render(<App />)
+
+        this.visitProtocolsListing([this.protocolFile('beeps.json', 'Beeps')])
+
+        assert.isFalse(
+            this.isLeavingWarned,
+            'Warned before leaving when the protocols were saved!'
+        )
+    }
+
+    private static get isLeavingWarned() {
+        const leaving = new Event('beforeunload', { cancelable: true })
+        window.dispatchEvent(leaving)
+        return leaving.defaultPrevented
+    }
+
     private static visitProtocolsListing(files: object[]) {
         this.chooseTab('Protocols')
         act(() => this.orchestratorSocket.receive({ protocols: files }))

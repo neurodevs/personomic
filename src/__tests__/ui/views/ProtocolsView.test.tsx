@@ -811,6 +811,107 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async marksNewProtocolUnsaved() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Untitled protocol'],
+            'Did not mark a new protocol unsaved!'
+        )
+    }
+
+    @test()
+    protected static async clearsUnsavedMarkOnceSaved() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.save('untitled-protocol.json')
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            [],
+            'Did not clear the unsaved mark once saved!'
+        )
+    }
+
+    @test()
+    protected static async marksSavedProtocolUnsavedOnceRenamed() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+
+        this.typeName('Loud beeps')
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Loud beeps'],
+            'Did not mark a saved protocol unsaved once renamed!'
+        )
+    }
+
+    @test()
+    protected static async marksSavedProtocolUnsavedOnceBiosensorsChange() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+
+        this.addBiosensor('Muse S Gen 2')
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Beeps'],
+            'Did not mark a saved protocol unsaved once its biosensors changed!'
+        )
+    }
+
+    @test()
+    protected static async clearsUnsavedMarkWhenEditedBackToSaved() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+        this.typeName('Loud beeps')
+
+        this.typeName('Beeps')
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            [],
+            'Did not clear the unsaved mark when edited back to as saved!'
+        )
+    }
+
+    @test()
+    protected static async keepsUnsavedMarkWhenSavingFails() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickSave()
+
+        this.answer({ error: 'Permission denied' })
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Untitled protocol'],
+            'Did not keep the unsaved mark when saving failed!'
+        )
+    }
+
+    @test()
+    protected static async keepsUnsavedMarkForEditsMadeWhileSaving() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickSave()
+
+        this.typeName('Tilt series')
+        this.answer({ fileName: 'untitled-protocol.json' })
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Tilt series'],
+            'Did not keep the unsaved mark for edits made while saving!'
+        )
+    }
+
     private static openBiosensorMenu() {
         fireEvent.click(screen.getByRole('button', { name: /add biosensor/i }))
     }
@@ -927,6 +1028,18 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     private static get listedNames() {
         return within(screen.getByRole('navigation', { name: 'Protocols' }))
             .queryAllByRole('listitem')
+            .map((item) => within(item).getAllByRole('button')[0].textContent)
+    }
+
+    private static get unsavedNames() {
+        return within(screen.getByRole('navigation', { name: 'Protocols' }))
+            .queryAllByRole('listitem')
+            .filter(
+                (item) =>
+                    within(item).queryByRole('img', {
+                        name: 'Unsaved changes',
+                    }) !== null
+            )
             .map((item) => within(item).getAllByRole('button')[0].textContent)
     }
 

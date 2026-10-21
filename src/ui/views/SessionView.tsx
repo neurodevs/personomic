@@ -28,9 +28,11 @@ import useBiosensorChoices, {
     SelectedDevice,
     selectedFrom,
 } from '../hooks/useBiosensorChoices'
+import useWarningBeforeLeaving from '../hooks/useWarningBeforeLeaving'
 import {
     displayNameOf,
     fileContentsOf,
+    hasUnsavedChanges,
     Protocol,
     ProtocolFile,
 } from './ProtocolsView'
@@ -128,6 +130,16 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const isProtocolRenamed =
         chosenProtocolFile !== undefined &&
         !isSameProtocolName(protocolName, chosenProtocolFile.protocol.name)
+    const hasUnsavedProtocolEdits =
+        chosenProtocolFile !== undefined &&
+        isEditingProtocol &&
+        hasUnsavedChanges({
+            protocol: { name: protocolName.trim(), devices },
+            savedProtocol: chosenProtocolFile.savedProtocol,
+        })
+
+    useWarningBeforeLeaving(hasUnsavedProtocolEdits)
+
     const protocolWithSameName = savedProtocolFiles.find(
         (file) =>
             file !== chosenProtocolFile &&
@@ -202,7 +214,11 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
                     if (fileName) {
                         onProtocolFilesChange?.((previous) =>
-                            withSavedProtocol(previous, { fileName, protocol })
+                            withSavedProtocol(previous, {
+                                fileName,
+                                protocol,
+                                savedProtocol: protocol,
+                            })
                         )
                         setProtocolFileName(fileName)
                         setIsEditingProtocol(false)
@@ -571,6 +587,14 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 <div className="session-protocol">
                     <span className="session-protocol__heading">
                         Editing protocol
+                        {hasUnsavedProtocolEdits && (
+                            <span
+                                className="session-protocol__unsaved"
+                                role="img"
+                                aria-label="Unsaved changes"
+                                title="Unsaved changes"
+                            />
+                        )}
                     </span>
                     <input
                         type="text"

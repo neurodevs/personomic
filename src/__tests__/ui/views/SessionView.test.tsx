@@ -29,7 +29,7 @@ import SessionView, {
     setNow,
     setStreamMonitorComponent,
 } from '../../../ui/views/SessionView'
-import { ProtocolFile } from '../../../ui/views/ProtocolsView'
+import { Protocol, ProtocolFile } from '../../../ui/views/ProtocolsView'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class SessionViewTest extends AbstractPackageTest {
@@ -3583,6 +3583,88 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async marksProtocolSavedInSessionAsSaved() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.removeDevice('Zephyr BioHarness 3')
+
+        this.saveProtocolThroughOrchestrator('Save', 'tilt-series.json')
+
+        const [{ protocol, savedProtocol }] = this.protocolFiles
+
+        assert.isEqualDeep(
+            savedProtocol,
+            protocol,
+            'Did not mark the protocol saved in the session as saved!'
+        )
+    }
+
+    @test()
+    protected static async showsNoUnsavedMarkUntilEditsChangeProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickEditProtocol()
+
+        assert.isEqualDeep(
+            {
+                isMarked: this.isEditUnsavedShown,
+                isWarned: this.isLeavingWarned,
+            },
+            { isMarked: false, isWarned: false },
+            'Marked unsaved changes before the edits changed the protocol!'
+        )
+    }
+
+    @test()
+    protected static async marksUnsavedOnceBiosensorsAreEdited() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.removeDevice('Zephyr BioHarness 3')
+
+        assert.isEqualDeep(
+            {
+                isMarked: this.isEditUnsavedShown,
+                isWarned: this.isLeavingWarned,
+            },
+            { isMarked: true, isWarned: true },
+            'Did not mark unsaved changes once the biosensors were edited!'
+        )
+    }
+
+    @test()
+    protected static async marksUnsavedOnceProtocolIsRenamed() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+
+        this.typeProtocolName('Tilt only')
+
+        assert.isTrue(
+            this.isEditUnsavedShown,
+            'Did not mark unsaved changes once the protocol was renamed!'
+        )
+    }
+
+    @test()
+    protected static async stopsWarningOnceEditsAreCanceled() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.removeDevice('Zephyr BioHarness 3')
+
+        this.clickProtocolButton('Cancel')
+
+        assert.isFalse(
+            this.isLeavingWarned,
+            'Kept warning before leaving once the edits were canceled!'
+        )
+    }
+
+    @test()
     protected static async keepsEditingWhenSavingProtocolFails() {
         this.renderWithProtocols([this.tiltFile])
         this.chooseProtocol('Tilt series')
@@ -3622,31 +3704,28 @@ export default class SessionViewTest extends AbstractPackageTest {
         change: (files: ProtocolFile[]) => ProtocolFile[]
     ) => void
 
-    private static readonly beepsFile: ProtocolFile = {
-        fileName: 'beeps.json',
-        protocol: { name: 'Beeps', devices: [] },
-    }
+    private static readonly beepsFile = this.savedFile('beeps.json', {
+        name: 'Beeps',
+        devices: [],
+    })
 
-    private static readonly tiltFile: ProtocolFile = {
-        fileName: 'tilt-series.json',
-        protocol: {
-            name: 'Tilt series',
-            devices: [
-                {
-                    name: 'Muse S Gen 2',
-                    identifier: 'muse-uuid',
-                    nickname: 'Head',
-                    disabledStreams: ['PPG'],
-                },
-                {
-                    name: 'Zephyr BioHarness 3',
-                    identifier: '',
-                    nickname: '',
-                    disabledStreams: [],
-                },
-            ],
-        },
-    }
+    private static readonly tiltFile = this.savedFile('tilt-series.json', {
+        name: 'Tilt series',
+        devices: [
+            {
+                name: 'Muse S Gen 2',
+                identifier: 'muse-uuid',
+                nickname: 'Head',
+                disabledStreams: ['PPG'],
+            },
+            {
+                name: 'Zephyr BioHarness 3',
+                identifier: '',
+                nickname: '',
+                disabledStreams: [],
+            },
+        ],
+    })
 
     private static readonly unlockedProtocolState = {
         isAddBiosensorButtonShown: true,
@@ -3654,6 +3733,23 @@ export default class SessionViewTest extends AbstractPackageTest {
         canChangeNickname: true,
         canChangeStreams: true,
         canChangeIdentifier: true,
+    }
+
+    private static savedFile(
+        fileName: string,
+        protocol: Protocol
+    ): ProtocolFile {
+        return { fileName, protocol, savedProtocol: protocol }
+    }
+
+    private static get isEditUnsavedShown() {
+        return screen.queryByRole('img', { name: 'Unsaved changes' }) !== null
+    }
+
+    private static get isLeavingWarned() {
+        const leaving = new Event('beforeunload', { cancelable: true })
+        window.dispatchEvent(leaving)
+        return leaving.defaultPrevented
     }
 
     private static renderWithProtocols(files: ProtocolFile[]) {
