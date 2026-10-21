@@ -1,12 +1,12 @@
 import buildXdfFile, { XdfTestChunk } from '../testDoubles/Xdf/buildXdfFile'
 import simulatedMuseStreams, {
     SimulatedStream,
+    simulatedLoopSeconds,
     simulatedMuse,
     simulatedMuseModel,
 } from './simulatedMuse'
 
 const fileName = 'sample-muse-session.xdf'
-const durationSeconds = 60
 const firstTimestamp = 1000
 const maxSamplesCountedInOneByte = 255
 
@@ -31,7 +31,7 @@ export default function sampleRecording() {
 
 function chunksOf(stream: SimulatedStream): XdfTestChunk[] {
     const { sampleRateHz, sampleAt } = stream
-    const numSamples = durationSeconds * sampleRateHz
+    const numSamples = simulatedLoopSeconds * sampleRateHz
     const numChunks = Math.ceil(numSamples / maxSamplesCountedInOneByte)
 
     return Array.from({ length: numChunks }, (_, chunk) => {

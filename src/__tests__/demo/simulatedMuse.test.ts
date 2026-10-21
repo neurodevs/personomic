@@ -49,6 +49,25 @@ export default class SimulatedMuseTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async repeatsEveryTenSecondsSoLoopsAreSeamless() {
+        simulatedMuseStreams.forEach(({ type, sampleRateHz, sampleAt }) => {
+            const samplesPerLoop = 10 * sampleRateHz
+
+            for (const index of [0, 1, 777]) {
+                const looped = sampleAt(index + samplesPerLoop)
+
+                sampleAt(index).forEach((value, channel) => {
+                    assert.isBelow(
+                        Math.abs(looped[channel] - value),
+                        1e-6,
+                        `Did not repeat ${type} every ten seconds!`
+                    )
+                })
+            }
+        })
+    }
+
+    @test()
     protected static async variesFromSampleToSample() {
         simulatedMuseStreams.forEach(({ type, sampleAt }) => {
             assert.isFalse(

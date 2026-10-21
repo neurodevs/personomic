@@ -4209,6 +4209,48 @@ export default class SessionViewTest extends AbstractPackageTest {
         act(() => lastStreamMonitorProps?.onPlaybackEnd?.())
     }
 
+    @test()
+    protected static async loopsPlaybackOnlyOnceLoopIsPressed() {
+        render(<SessionView />)
+
+        await this.chooseRecording()
+        const beforePressing = this.loopState
+        fireEvent.click(screen.getByRole('button', { name: 'Loop' }))
+
+        assert.isEqualDeep(
+            { beforePressing, afterPressing: this.loopState },
+            {
+                beforePressing: { passed: false, pressed: 'false' },
+                afterPressing: { passed: true, pressed: 'true' },
+            },
+            'Did not loop playback only once Loop was pressed!'
+        )
+    }
+
+    @test()
+    protected static async keepsPlayingRecordingWhenLoopChanges() {
+        render(<SessionView />)
+
+        await this.chooseRecording()
+        const numMountsBefore = numStreamMonitorMounts
+        fireEvent.click(screen.getByRole('button', { name: 'Loop' }))
+
+        assert.isEqual(
+            numStreamMonitorMounts,
+            numMountsBefore,
+            'Restarted recording when loop changed!'
+        )
+    }
+
+    private static get loopState() {
+        return {
+            passed: lastStreamMonitorProps?.isPlaybackLooping,
+            pressed: screen
+                .getByRole('button', { name: 'Loop' })
+                .getAttribute('aria-pressed'),
+        }
+    }
+
     private static get offeredPlaybackSpeeds() {
         const group = screen.queryByRole('group', { name: 'Playback speed' })
 

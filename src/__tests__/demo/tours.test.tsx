@@ -148,6 +148,40 @@ export default class ToursTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async startsExplainingAnalyticsOnThePlayingSample() {
+        await this.choose('How real-time analytics work')
+
+        assert.isEqualDeep(
+            {
+                isPlayingSample:
+                    screen.queryByText(/sample-muse-session\.xdf/) !== null,
+                caption: this.caption,
+            },
+            {
+                isPlayingSample: true,
+                caption:
+                    "Each EEG channel's last 4 seconds are split into frequency bands, from slow delta to fast gamma, showing how much of the power falls in each.",
+            },
+            'Did not start explaining analytics on the playing sample!'
+        )
+    }
+
+    @test()
+    protected static async loopsTheSampleWhileExplainingAnalytics() {
+        await this.choose('How real-time analytics work')
+
+        await this.goToLastStep()
+
+        assert.isEqual(
+            screen
+                .getByRole('button', { name: 'Loop' })
+                .getAttribute('aria-pressed'),
+            'true',
+            'Did not loop the sample while explaining analytics!'
+        )
+    }
+
     private static async playToTheEnd(title: string) {
         this.playedTitle = title
         await this.choose(title)

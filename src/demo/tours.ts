@@ -79,7 +79,7 @@ const tours: Tour[] = [
                 target: (view) =>
                     view.getByRole('slider', { name: 'Playback position' }),
                 act: (slider) =>
-                    fireEvent.change(slider, { target: { value: '30' } }),
+                    fireEvent.change(slider, { target: { value: '5' } }),
             },
             {
                 caption: 'Click Play to carry on from there.',
@@ -88,6 +88,11 @@ const tours: Tour[] = [
             {
                 caption: 'Speed it up to skim through a long recording.',
                 target: (view) => view.getByRole('button', { name: '10×' }),
+            },
+            {
+                caption:
+                    'Turn on Loop to start over each time the recording ends.',
+                target: (view) => view.getByRole('button', { name: 'Loop' }),
             },
             {
                 caption: 'Click Stop to leave the recording.',
@@ -181,22 +186,22 @@ const tours: Tour[] = [
     },
     {
         title: 'How real-time analytics work',
-        steps: [
+        setup: [
             {
-                caption:
-                    'Signals are analyzed as they arrive, whether streaming live or replaying a recording. Switch to Playback to see it on a sample session.',
                 target: (view) => view.getByRole('radio', { name: 'Playback' }),
             },
             {
-                caption:
-                    'Click Play XDF recording… and choose a file. For this tour, we will use a sample Muse session.',
-                target: (view) =>
-                    view.getByRole('button', { name: 'Play XDF recording…' }),
-                act: (_, view) =>
-                    fireEvent.change(view.getByLabelText('Recording to play'), {
+                target: (view) => view.getByLabelText('Recording to play'),
+                act: (input) =>
+                    fireEvent.change(input, {
                         target: { files: [sampleRecording()] },
                     }),
             },
+            {
+                target: (view) => view.getByRole('button', { name: 'Loop' }),
+            },
+        ],
+        steps: [
             {
                 caption:
                     "Each EEG channel's last 4 seconds are split into frequency bands, from slow delta to fast gamma, showing how much of the power falls in each.",

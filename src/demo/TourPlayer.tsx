@@ -47,7 +47,7 @@ const TourPlayer: React.FC<TourPlayerProps> = (props: TourPlayerProps) => {
 
     const isCurrent = (run: number) => run === runRef.current
 
-    const perform = async (step: TourStep, target: HTMLElement) => {
+    const perform = async (step: TourAction, target: HTMLElement) => {
         await (step.act ?? clickOn)(target, view())
     }
 
@@ -98,10 +98,10 @@ const TourPlayer: React.FC<TourPlayerProps> = (props: TourPlayerProps) => {
             backend.setIsInstant(true)
 
             try {
-                for (const step of restart.tour.steps.slice(
-                    0,
-                    restart.stepIndex
-                )) {
+                for (const step of [
+                    ...(restart.tour.setup ?? []),
+                    ...restart.tour.steps.slice(0, restart.stepIndex),
+                ]) {
                     const target = await targetOf(step, view())
 
                     if (!isCurrent(run)) {
@@ -246,7 +246,7 @@ function captionFor(tour: Tour, stepIndex: number, isStuck: boolean) {
     return isStuck ? stuckCaption : tour.steps[stepIndex].caption
 }
 
-async function targetOf(step: TourStep, view: TourView) {
+async function targetOf(step: TourAction, view: TourView) {
     const { target, waitsUpToMs = defaultWaitMs } = step
     const giveUpAtMs = Date.now() + waitsUpToMs
 
@@ -271,14 +271,18 @@ export type TourView = BoundFunctions<typeof queries>
 
 export interface Tour {
     title: string
+    setup?: TourAction[]
     steps: TourStep[]
 }
 
-export interface TourStep {
-    caption: string
+export interface TourAction {
     target: (view: TourView) => HTMLElement
     waitsUpToMs?: number
     act?: (target: HTMLElement, view: TourView) => unknown
+}
+
+export interface TourStep extends TourAction {
+    caption: string
 }
 
 export interface TourBackend {

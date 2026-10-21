@@ -6,11 +6,13 @@ export interface PlaybackControlsProps {
     fileName: string
     hasEnded: boolean
     isPaused: boolean
+    isLooping: boolean
     progress?: PlaybackProgress
     speed: number
     onReplay: () => void
     onPause: () => void
     onPlay: () => void
+    onLoopChange: (isLooping: boolean) => void
     onSeek: (seconds: number) => void
     onHold: () => void
     onRelease: () => void
@@ -24,11 +26,13 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
         fileName,
         hasEnded,
         isPaused,
+        isLooping,
         progress,
         speed,
         onReplay,
         onPause,
         onPlay,
+        onLoopChange,
         onSeek,
         onHold,
         onRelease,
@@ -72,6 +76,14 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
                 onClick={hasEnded ? onReplay : isPaused ? onPlay : onPause}
             >
                 {hasEnded ? 'Replay' : isPaused ? 'Play' : 'Pause'}
+            </button>
+            <button
+                type="button"
+                className="connect-devices__play"
+                aria-pressed={isLooping}
+                onClick={() => onLoopChange(!isLooping)}
+            >
+                Loop
             </button>
             <span
                 className="connect-devices__speeds"

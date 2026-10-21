@@ -108,6 +108,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [numMonitorResets, setNumMonitorResets] = useState(0)
     const [playing, setPlaying] = useState<PlayingRecording>()
     const [playbackSpeed, setPlaybackSpeed] = useState(1)
+    const [isLooping, setIsLooping] = useState(false)
     const [isPositionHeld, setIsPositionHeld] = useState(false)
     const [isPaused, setIsPaused] = useState(false)
     const [mode, setMode] = useState<SessionMode>('live')
@@ -532,6 +533,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         isPaused={isPaused}
                         onPause={() => setIsPaused(true)}
                         onPlay={() => setIsPaused(false)}
+                        isLooping={isLooping}
+                        onLoopChange={setIsLooping}
                         onHold={() => setIsPositionHeld(true)}
                         onRelease={() => setIsPositionHeld(false)}
                         onSpeedChange={setPlaybackSpeed}
@@ -665,6 +668,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         playbackSpeed={playbackSpeed}
                         playbackSeek={playing?.seek}
                         isPlaybackPaused={isPositionHeld || isPaused}
+                        isPlaybackLooping={isLooping}
                         onPlaybackEnd={markPlaybackEnded}
                         onPlaybackProgress={showPlaybackProgress}
                         onPlaybackSeek={seek}

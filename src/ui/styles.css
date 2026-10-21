@@ -627,6 +627,11 @@ body {
 
 .connect-devices__browse:hover:not(:disabled),
 .connect-devices__browse:focus-visible,
+.connect-devices__play[aria-pressed='true'] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+}
+
 .connect-devices__play:hover,
 .connect-devices__play:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);

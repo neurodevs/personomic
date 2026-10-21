@@ -36,6 +36,7 @@ export interface StreamMonitorProps {
     playbackSpeed?: number
     playbackSeek?: PlaybackSeek
     isPlaybackPaused?: boolean
+    isPlaybackLooping?: boolean
     onPlaybackEnd?: () => void
     onPlaybackProgress?: (progress: PlaybackProgress) => void
     onPlaybackSeek?: (seconds: number) => void
@@ -68,6 +69,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         playbackSpeed = 1,
         playbackSeek,
         isPlaybackPaused = false,
+        isPlaybackLooping = false,
         onPlaybackEnd,
         onPlaybackProgress,
         onPlaybackSeek,
@@ -165,6 +167,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const isPlaybackPausedRef = useRef(isPlaybackPaused)
     isPlaybackPausedRef.current = isPlaybackPaused
 
+    const isPlaybackLoopingRef = useRef(isPlaybackLooping)
+    isPlaybackLoopingRef.current = isPlaybackLooping
+
     const playbackSeekRef = useRef(playbackSeek)
     playbackSeekRef.current = playbackSeek
 
@@ -225,7 +230,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         const retainedSecondsOfPort = (port: number) =>
             retainedSecondsFor(port, windowSecondsFor(port))
 
-        const playback = recording && playbackOf(recording, clock())
+        const playback =
+            recording &&
+            playbackOf(recording, clock(), () => isPlaybackLoopingRef.current)
 
         const scheduleNextFrame = () => {
             if (!isFrameScheduled) {
@@ -564,7 +571,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                                 key={stream.name}
                                 {...stream}
                                 knownPeakTimestamps={
-                                    knownPeakTimestampsByPort[stream.wssPort]
+                                    isPlaybackLooping
+                                        ? undefined
+                                        : knownPeakTimestampsByPort[
+                                              stream.wssPort
+                                          ]
                                 }
                                 downsampling={
                                     stream.downsampling ?? downsampling
@@ -925,12 +936,18 @@ function recordingSpanOf(recording: Recording) {
     }
 }
 
-function playbackOf(recording: Recording, clockMs: number) {
+function playbackOf(
+    recording: Recording,
+    clockMs: number,
+    isLooping: () => boolean
+) {
     const streams = recording.devices.flatMap((device) => device.streams)
     const numPlayed = streams.map(() => 0)
     const { start: recordingStart, end: recordingEnd } =
         recordingSpanOf(recording)
     const totalSeconds = Math.floor(recordingEnd - recordingStart)
+    const loopSeconds =
+        recordingEnd - recordingStart + shortestSampleIntervalOf(streams)
     let startedAtMs = clockMs
     let lastClockMs = clockMs
     let pacedMs = clockMs
@@ -966,7 +983,7 @@ function playbackOf(recording: Recording, clockMs: number) {
             if (end > first) {
                 numPlayed[index] = end
                 due[playbackPortOf(index)] = [
-                    samplesBetween(first, end, stream),
+                    loopedSamplesBetween(first, end, stream),
                 ]
             }
         })
@@ -974,15 +991,72 @@ function playbackOf(recording: Recording, clockMs: number) {
         return due
     }
 
-    const progressAt = (nowMs: number): PlaybackProgress => ({
-        elapsedSeconds: Math.min(
-            Math.floor((nowMs - startedAtMs) / 1000),
-            totalSeconds
-        ),
-        totalSeconds,
-    })
+    const endOfSamplesDueBy = (
+        dueBy: number,
+        stream: RecordedStream,
+        first: number
+    ) => {
+        const numSamples = stream.timestamps.length
+        const limit = isLooping() && numSamples > 0 ? Infinity : numSamples
+        let end = first
+
+        while (end < limit && loopedTimestampAt(end, stream) <= dueBy) {
+            end++
+        }
+
+        return end
+    }
+
+    const loopedTimestampAt = (index: number, stream: RecordedStream) => {
+        const numSamples = stream.timestamps.length
+        const loop = Math.floor(index / numSamples)
+
+        return stream.timestamps[index % numSamples] + loop * loopSeconds
+    }
+
+    const loopedSamplesBetween = (
+        first: number,
+        end: number,
+        stream: RecordedStream
+    ): StreamData => {
+        const numSamples = stream.timestamps.length
+        const played: StreamData = { samples: [], timestamps: [] }
+
+        for (let index = first; index < end;) {
+            const loop = Math.floor(index / numSamples)
+            const endOfLoop = Math.min(end, (loop + 1) * numSamples)
+            const { samples, timestamps } = samplesBetween(
+                index - loop * numSamples,
+                endOfLoop - loop * numSamples,
+                stream
+            )
+
+            played.samples.push(...samples)
+            played.timestamps.push(
+                ...timestamps.map((timestamp) => timestamp + loop * loopSeconds)
+            )
+            index = endOfLoop
+        }
+
+        return played
+    }
+
+    const progressAt = (nowMs: number): PlaybackProgress => {
+        const elapsedSeconds = (nowMs - startedAtMs) / 1000
+
+        return {
+            elapsedSeconds: Math.min(
+                Math.floor(
+                    isLooping() ? elapsedSeconds % loopSeconds : elapsedSeconds
+                ),
+                totalSeconds
+            ),
+            totalSeconds,
+        }
+    }
 
     const isUnfinished = () =>
+        isLooping() ||
         streams.some(
             (stream, index) => numPlayed[index] < stream.timestamps.length
         )
@@ -996,7 +1070,8 @@ function playbackOf(recording: Recording, clockMs: number) {
             streams.every(
                 (stream, index) =>
                     deviceIndexOfStream[index] !== deviceIndex ||
-                    numPlayed[index] >= stream.timestamps.length
+                    (!isLooping() &&
+                        numPlayed[index] >= stream.timestamps.length)
             )
         )
 
@@ -1063,19 +1138,13 @@ function endOfSamplesBefore(cutoff: number, stream: RecordedStream) {
     return index === -1 ? stream.timestamps.length : index
 }
 
-function endOfSamplesDueBy(
-    dueBy: number,
-    stream: RecordedStream,
-    first: number
-) {
-    const { timestamps } = stream
-    let end = first
+function shortestSampleIntervalOf(streams: RecordedStream[]) {
+    const fastestSampleRate = Math.max(
+        0,
+        ...streams.map((stream) => stream.sampleRateHz)
+    )
 
-    while (end < timestamps.length && timestamps[end] <= dueBy) {
-        end++
-    }
-
-    return end
+    return fastestSampleRate > 0 ? 1 / fastestSampleRate : 0
 }
 
 function samplesBetween(

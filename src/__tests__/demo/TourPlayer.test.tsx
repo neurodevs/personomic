@@ -26,7 +26,7 @@ export default class TourPlayerTest extends AbstractPackageTest {
                 ({ title }) =>
                     screen.queryByRole('button', { name: title }) !== null
             ),
-            [true, true],
+            [true, true, true],
             'Did not offer a button for each tour!'
         )
     }
@@ -228,6 +228,31 @@ export default class TourPlayerTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async setsUpTheAppBeforeTheFirstStep() {
+        await this.press('Count on from one')
+
+        assert.isEqualDeep(
+            [this.count, this.caption],
+            [1, 'Click Add to count on.'],
+            'Did not set up the app before the first step!'
+        )
+    }
+
+    @test()
+    protected static async setsUpTheAppAgainWhenGoingBack() {
+        await this.press('Count on from one')
+        await this.next()
+
+        await this.press('Back')
+
+        assert.isEqualDeep(
+            [this.count, this.caption],
+            [1, 'Click Add to count on.'],
+            'Did not set up the app again when going back!'
+        )
+    }
+
     private static async chooseCountingTour() {
         await this.press('Count to two')
     }
@@ -307,6 +332,24 @@ export default class TourPlayerTest extends AbstractPackageTest {
                 {
                     caption: 'Click Add.',
                     target: (view) => view.getByRole('button', { name: 'Add' }),
+                },
+            ],
+        },
+        {
+            title: 'Count on from one',
+            setup: [
+                {
+                    target: (view) => view.getByRole('button', { name: 'Add' }),
+                },
+            ],
+            steps: [
+                {
+                    caption: 'Click Add to count on.',
+                    target: (view) => view.getByRole('button', { name: 'Add' }),
+                },
+                {
+                    caption: 'See the count.',
+                    target: (view) => view.getByTestId('count'),
                 },
             ],
         },

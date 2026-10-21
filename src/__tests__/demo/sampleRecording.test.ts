@@ -29,7 +29,7 @@ export default class SampleRecordingTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async holdsAMinuteOfEachStream() {
+    protected static async holdsTenSecondsOfEachStream() {
         const { devices } = await this.read()
 
         assert.isEqualDeep(
@@ -37,8 +37,8 @@ export default class SampleRecordingTest extends AbstractPackageTest {
                 ({ timestamps, sampleRateHz }) =>
                     timestamps.length / sampleRateHz
             ),
-            [60, 60, 60, 60],
-            'Did not hold a minute of each stream!'
+            [10, 10, 10, 10],
+            'Did not hold ten seconds of each stream!'
         )
     }
 

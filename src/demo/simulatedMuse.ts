@@ -5,7 +5,9 @@ export const simulatedMuse = {
     bleName: 'MuseS-6A8C',
 }
 
-const simulatedMuseStreams: SimulatedStream[] = [
+export const simulatedLoopSeconds = 10
+
+const streamsWithinOneLoop: SimulatedStream[] = [
     {
         type: 'EEG',
         channelNames: ['EEG_TP10', 'EEG_AF8', 'EEG_TP9', 'EEG_AF7', 'EEG_AUX'],
@@ -66,6 +68,16 @@ const simulatedMuseStreams: SimulatedStream[] = [
     },
 ]
 
+const simulatedMuseStreams: SimulatedStream[] = streamsWithinOneLoop.map(
+    (stream) => ({
+        ...stream,
+        sampleAt: (index) =>
+            stream.sampleAt(
+                index % (simulatedLoopSeconds * stream.sampleRateHz)
+            ),
+    })
+)
+
 export default simulatedMuseStreams
 
 const auxChannel = 4
@@ -74,7 +86,7 @@ const frontalChannels = [1, 3]
 
 function brainwavesAt(t: number, channel: number) {
     const phase = channel * 0.7
-    const alphaStrength = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.05 * t)
+    const alphaStrength = 0.6 + 0.4 * Math.sin(2 * Math.PI * 0.1 * t)
 
     return (
         14 * alphaStrength * Math.sin(2 * Math.PI * 10 * t + phase) +
@@ -84,7 +96,7 @@ function brainwavesAt(t: number, channel: number) {
 }
 
 function blinkAt(t: number, channel: number) {
-    const secondsBetweenBlinks = 7
+    const secondsBetweenBlinks = 5
     const sinceBlink = (t % secondsBetweenBlinks) - 3
 
     return frontalChannels.includes(channel)
@@ -94,7 +106,7 @@ function blinkAt(t: number, channel: number) {
 
 function pulseAt(t: number) {
     const beatsPerSecond = 1.1
-    const breathingVariation = 0.04 * Math.sin(2 * Math.PI * 0.25 * t)
+    const breathingVariation = 0.04 * Math.sin(2 * Math.PI * 0.2 * t)
     const beatPhase = (t * beatsPerSecond + breathingVariation) % 1
 
     const peakPhase = 0.15
@@ -106,7 +118,7 @@ function pulseAt(t: number) {
 
 function swayAt(t: number) {
     return (
-        Math.sin(2 * Math.PI * 0.2 * t) + 0.3 * Math.sin(2 * Math.PI * 0.07 * t)
+        Math.sin(2 * Math.PI * 0.2 * t) + 0.3 * Math.sin(2 * Math.PI * 0.1 * t)
     )
 }
 

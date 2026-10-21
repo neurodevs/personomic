@@ -3482,6 +3482,94 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async loopsBackToStartWhileTimelineMovesOn() {
+        await this.play(this.recording, { isPlaybackLooping: true })
+
+        this.nowMs = 4000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            {
+                samples: [1, 2, 3, 4, 5, 6, 1, 2, 3, 4],
+                timestamps: [100, 100.5, 101, 103.5, 104],
+            },
+            'Did not loop back to start while timeline moved on!'
+        )
+    }
+
+    @test()
+    protected static async neverEndsWhileLooping() {
+        let numEnds = 0
+        await this.play(this.recording, {
+            isPlaybackLooping: true,
+            onPlaybackEnd: () => numEnds++,
+        })
+
+        this.nowMs = 20000
+        await this.runFrame()
+
+        assert.isEqual(numEnds, 0, 'Ended while looping!')
+    }
+
+    @test()
+    protected static async endsOnceLoopingIsTurnedOff() {
+        let numEnds = 0
+        const recording = this.recording
+        const onPlaybackEnd = () => numEnds++
+        const { rerender } = await this.play(recording, {
+            isPlaybackLooping: true,
+            onPlaybackEnd,
+        })
+
+        this.nowMs = 4000
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, {
+                isPlaybackLooping: false,
+                onPlaybackEnd,
+            })
+        )
+        this.nowMs = 20000
+        await this.runFrame()
+
+        assert.isEqual(numEnds, 1, 'Did not end once looping was turned off!')
+    }
+
+    @test()
+    protected static async reportsProgressWithinCurrentLoop() {
+        const reported: PlaybackProgress[] = []
+        await this.play(this.recording, {
+            isPlaybackLooping: true,
+            onPlaybackProgress: (progress) => reported.push(progress),
+        })
+
+        this.nowMs = 5000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            reported.at(-1),
+            { elapsedSeconds: 1, totalSeconds: 3 },
+            'Did not report progress within current loop!'
+        )
+    }
+
+    @test()
+    protected static async detectsPeaksAsTheyPlayWhileLooping() {
+        await this.play(this.recording, {
+            ...this.peakDetectionOnFirstStream,
+            isPlaybackLooping: true,
+        })
+
+        await this.runFrame()
+
+        assert.isUndefined(
+            this.latestPlotPropsFor(this.streams[0].name)?.knownPeakTimestamps,
+            'Did not detect peaks as they played while looping!'
+        )
+    }
+
     private static async playTwoDevicesUntilFirstRunsOut() {
         await this.play(this.recordingOfTwoDevices)
 
