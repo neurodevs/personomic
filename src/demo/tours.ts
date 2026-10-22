@@ -1,5 +1,6 @@
 import { fireEvent, within } from '@testing-library/dom'
 
+import DemoWebSocket from './DemoWebSocket'
 import sampleProtocol from './sampleProtocol'
 import sampleRecording from './sampleRecording'
 import { simulatedMuse, simulatedMuseModel } from './simulatedMuse'
@@ -46,7 +47,26 @@ const tours: Tour[] = [
             },
             {
                 caption:
-                    'You are streaming live: EEG with band powers, heart rate from PPG, and head motion. Click Stop to end the session and close the recording.',
+                    'You are streaming live. Click Next to see what happens if the headband loses signal.',
+                target: (view) => plotOf('EEG', view),
+                act: () => DemoWebSocket.loseSignal(),
+            },
+            {
+                caption:
+                    'The headband lost its signal. Personomic reconnects on its own.',
+                target: (view) => view.getByText('Signal lost. Reconnecting…'),
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'Reconnected. The straight line bridges the gap between the old and new data.',
+                target: (view) => plotOfResumedStreams(view),
+                waitsUpToMs: 10_000,
+                act: leaveAsIs,
+            },
+            {
+                caption:
+                    'Click Stop to end the session and close the recording.',
                 target: (view) => view.getByRole('button', { name: 'Stop' }),
             },
         ],
@@ -325,6 +345,12 @@ function plotOf(streamType: string, view: TourView) {
         .find((element) => element.classList.contains('stream-plot__name'))
 
     return name!.closest('section')!
+}
+
+function plotOfResumedStreams(view: TourView) {
+    view.getByLabelText('connected')
+
+    return plotOf('EEG', view)
 }
 
 function protocolMenuOffering(protocolName: string, view: TourView) {

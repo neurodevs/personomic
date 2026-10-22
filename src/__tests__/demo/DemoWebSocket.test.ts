@@ -231,6 +231,76 @@ export default class DemoWebSocketTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async reportsReconnectingThenStreamingWhenSignalIsLost() {
+        DemoWebSocket.reconnectAfterMs = 0
+        await this.startMuse()
+        const statusSocket = this.socketOn(8764)
+        await this.nextMessageOn(statusSocket)
+
+        const states: string[] = []
+        const twoStates = new Promise<void>((resolve) => {
+            statusSocket.onmessage = (event) => {
+                states.push(JSON.parse(event.data).devices[0].state)
+                if (states.length === 2) {
+                    resolve()
+                }
+            }
+        })
+
+        DemoWebSocket.loseSignal()
+        await twoStates
+
+        assert.isEqualDeep(
+            states,
+            ['reconnecting', 'streaming'],
+            'Did not report reconnecting, then streaming, when signal was lost!'
+        )
+    }
+
+    @test()
+    protected static async streamsNothingWhileSignalIsLost() {
+        DemoWebSocket.reconnectAfterMs = 60_000
+        await this.startMuse()
+        const eegSocket = await this.openEegSocket()
+
+        let numMessages = 0
+        eegSocket.onmessage = () => numMessages++
+
+        DemoWebSocket.loseSignal()
+        this.nowMs = 1000
+        await new Promise((resolve) => setTimeout(resolve, 10))
+
+        assert.isEqual(
+            numMessages,
+            0,
+            'Streamed samples while signal was lost!'
+        )
+    }
+
+    @test()
+    protected static async resumesStreamingAfterTheGapOnceReconnected() {
+        DemoWebSocket.reconnectAfterMs = 20
+        DemoWebSocket.resumeDataAfterMs = 0
+        await this.startMuse()
+        const eegSocket = await this.openEegSocket()
+
+        DemoWebSocket.loseSignal()
+        this.nowMs = 1000
+        await new Promise((resolve) => setTimeout(resolve, 40))
+
+        const data = this.nextMessageOn(eegSocket)
+        this.nowMs = 1500
+
+        const { timestamps } = await data
+
+        assert.isEqualDeep(
+            [timestamps[0], timestamps.length],
+            [1, 128],
+            'Did not resume streaming after the gap once reconnected!'
+        )
+    }
+
+    @test()
     protected static async streamsNothingWithoutARunningSession() {
         const eegSocket = this.socketOn(8765)
         let numMessages = 0
@@ -306,6 +376,12 @@ export default class DemoWebSocketTest extends AbstractPackageTest {
         const socket = new DemoWebSocket(`ws://localhost:${port}`)
         this.sockets.push(socket)
         return socket
+    }
+
+    private static async openEegSocket() {
+        const eegSocket = this.socketOn(8765)
+        await new Promise<void>((resolve) => (eegSocket.onopen = resolve))
+        return eegSocket
     }
 
     private static nextMessageOn(socket: DemoWebSocket) {

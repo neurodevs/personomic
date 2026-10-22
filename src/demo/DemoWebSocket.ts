@@ -13,11 +13,14 @@ const recordingsDirectory = '~/Personomic/Recordings'
 export default class DemoWebSocket {
     public static latencyMs = 400
     public static pushIntervalMs = 40
+    public static reconnectAfterMs = 2000
+    public static resumeDataAfterMs = 1000
     public static clock = () => performance.now()
 
     private static session?: RunningSession
     private static protocols = demoProtocols()
     private static statusSockets = new Set<DemoWebSocket>()
+    private static signalTimeoutIds = new Set<ReturnType<typeof setTimeout>>()
 
     public readyState: number = WebSocket.CONNECTING
     public onopen?: () => void
@@ -63,8 +66,44 @@ export default class DemoWebSocket {
     }
 
     public static reset() {
+        this.cancelSignalTimeouts()
         this.session = undefined
         this.protocols = demoProtocols()
+    }
+
+    public static loseSignal() {
+        const { session } = this
+
+        if (!session) {
+            return
+        }
+
+        session.state = 'reconnecting'
+        session.isDataPaused = true
+        this.broadcastStatus()
+
+        this.laterForSignal(() => {
+            session.state = 'streaming'
+            this.broadcastStatus()
+
+            this.laterForSignal(() => {
+                session.isDataPaused = false
+            }, this.resumeDataAfterMs)
+        }, this.reconnectAfterMs)
+    }
+
+    private static cancelSignalTimeouts() {
+        this.signalTimeoutIds.forEach((id) => clearTimeout(id))
+        this.signalTimeoutIds.clear()
+    }
+
+    private static laterForSignal(callback: () => void, ms: number) {
+        const id = setTimeout(() => {
+            this.signalTimeoutIds.delete(id)
+            callback()
+        }, ms)
+
+        this.signalTimeoutIds.add(id)
     }
 
     private open() {
@@ -97,6 +136,11 @@ export default class DemoWebSocket {
 
         this.pushIntervalId = setInterval(() => {
             const numDue = numDueAt(DemoWebSocket.clock())
+
+            if (DemoWebSocket.session?.isDataPaused) {
+                numPushed = numDue
+                return
+            }
 
             if (numDue <= numPushed) {
                 return
@@ -149,6 +193,8 @@ export default class DemoWebSocket {
             devices: started,
             xdfRecordPath,
             startedAtMs: this.clock(),
+            state: 'streaming',
+            isDataPaused: false,
             streams: started.flatMap((device) =>
                 simulatedMuseStreams.map((stream) => ({
                     ...stream,
@@ -162,6 +208,7 @@ export default class DemoWebSocket {
     }
 
     private static stop() {
+        this.cancelSignalTimeouts()
         this.session = undefined
         this.broadcastStatus()
 
@@ -232,7 +279,7 @@ function statusOf(session?: RunningSession) {
 
             return {
                 deviceName,
-                state: 'streaming',
+                state: session!.state,
                 listenPorts: streams.map((stream) => stream.listenPort),
                 streams,
             }
@@ -287,6 +334,8 @@ interface RunningSession {
     devices: RequestedDevice[]
     xdfRecordPath?: string
     startedAtMs: number
+    state: 'streaming' | 'reconnecting'
+    isDataPaused: boolean
     streams: SessionStream[]
 }
 

@@ -15,6 +15,8 @@ export default class ToursTest extends AbstractPackageTest {
         setWebSocketComponent(DemoWebSocket as any)
         DemoWebSocket.reset()
         DemoWebSocket.latencyMs = 0
+        DemoWebSocket.reconnectAfterMs = 300
+        DemoWebSocket.resumeDataAfterMs = 100
         localStorage.clear()
 
         render(
@@ -66,6 +68,27 @@ export default class ToursTest extends AbstractPackageTest {
             screen.queryByText(/^Recording to/) !== null &&
                 screen.queryAllByText('EEG').length > 0,
             'Did not stream and record the Muse before stopping!'
+        )
+    }
+
+    @test()
+    protected static async showsTheMuseLosingSignalAndReconnecting() {
+        await this.choose('How to run a session with Muse')
+
+        await this.playMuseTourUntilCaptionStartsWith(
+            'The headband lost its signal'
+        )
+        const whileLost = screen.queryByText('Signal lost. Reconnecting…')
+
+        await this.press('Next')
+
+        assert.isEqualDeep(
+            {
+                wasLostShown: whileLost !== null,
+                isConnectedAgain: screen.queryByLabelText('connected') !== null,
+            },
+            { wasLostShown: true, isConnectedAgain: true },
+            'Did not show the Muse losing signal and then reconnecting!'
         )
     }
 
@@ -247,6 +270,17 @@ export default class ToursTest extends AbstractPackageTest {
 
         for (let i = 1; i < steps.length; i++) {
             this.stuckStep = screen.getByText(/^Step \d+ of \d+$/).textContent
+            await this.press('Next')
+        }
+    }
+
+    private static async playMuseTourUntilCaptionStartsWith(start: string) {
+        const { steps } = this.tourTitled('How to run a session with Muse')
+
+        for (let i = 1; i < steps.length; i++) {
+            if (this.caption?.startsWith(start)) {
+                return
+            }
             await this.press('Next')
         }
     }
