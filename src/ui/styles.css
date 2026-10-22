@@ -1167,7 +1167,8 @@ body {
 }
 
 .stream-monitor__device-status--connecting,
-.stream-monitor__device-status--reconnecting {
+.stream-monitor__device-status--reconnecting,
+.stream-monitor__device-status--resuming {
   --status-color: #f5c542;
   animation: device-status-pulse 1.2s ease-in-out infinite;
 }
@@ -1192,7 +1193,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .stream-monitor__device-status--connecting,
-  .stream-monitor__device-status--reconnecting {
+  .stream-monitor__device-status--reconnecting,
+  .stream-monitor__device-status--resuming {
     animation: none;
   }
 }

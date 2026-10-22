@@ -100,6 +100,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [arrivalsByPort, setArrivalsByPort] = useState<
         Record<number, LatestArrival>
     >({})
+    const [arrivalsAtLossByKey, setArrivalsAtLossByKey] = useState<
+        Record<string, ArrivalsAtLoss>
+    >({})
     const [nowMs, setNowMs] = useState(0)
     const [chosenWindowSecondsByPort, setChosenWindowSecondsByPort] = useState<
         Record<number, number>
@@ -537,6 +540,30 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     const sharedNowTimestamp = sharedNowTimestampFor(arrivalsByPort, nowMs)
 
+    const reportedStatusByKey = Object.fromEntries(
+        devices.map((device) => [
+            device.key,
+            statusWhile(
+                isConnecting,
+                isReportingDevices
+                    ? deviceStatusFor(device, reportedDevices)
+                    : 'disconnected'
+            ),
+        ])
+    )
+
+    useEffect(() => {
+        setArrivalsAtLossByKey((previous) => {
+            const next = arrivalsAtLossFor(
+                devices,
+                reportedStatusByKey,
+                arrivalsByPort,
+                previous
+            )
+            return haveSameKeys(previous, next) ? previous : next
+        })
+    }, [gatewayDevices, arrivalsByPort])
+
     const liveIdentifiers = isGatewayConnected
         ? identifiersReportedBy(devices, gatewayDevices)
         : {}
@@ -550,11 +577,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
             {devices.map((device) => {
-                const status = statusWhile(
-                    isConnecting,
-                    isReportingDevices
-                        ? deviceStatusFor(device, reportedDevices)
-                        : 'disconnected'
+                const status = statusAfterReconnect(
+                    reportedStatusByKey[device.key]!,
+                    device,
+                    arrivalsByPort,
+                    arrivalsAtLossByKey[device.key]
                 )
 
                 return (
@@ -818,6 +845,78 @@ function deviceStatusFor(
         : 'disconnected'
 }
 
+function statusAfterReconnect(
+    reported: DeviceStatus,
+    device: BiosignalDevice,
+    arrivalsByPort: Record<number, LatestArrival>,
+    arrivalsAtLoss?: ArrivalsAtLoss
+): DeviceStatus {
+    const isAwaitingData =
+        arrivalsAtLoss !== undefined &&
+        !hasDataArrivedSince(arrivalsAtLoss, device, arrivalsByPort)
+
+    return reported === 'connected' && isAwaitingData ? 'resuming' : reported
+}
+
+function arrivalsAtLossFor(
+    devices: BiosignalDevice[],
+    reportedStatusByKey: Record<string, DeviceStatus>,
+    arrivalsByPort: Record<number, LatestArrival>,
+    previous: Record<string, ArrivalsAtLoss>
+) {
+    return Object.fromEntries(
+        devices.flatMap((device) => {
+            const reported = reportedStatusByKey[device.key]
+            const atLoss = previous[device.key]
+
+            if (reported === 'reconnecting') {
+                return [
+                    [
+                        device.key,
+                        atLoss ?? latestArrivalsOf(device, arrivalsByPort),
+                    ],
+                ]
+            }
+
+            const isStillAwaitingData =
+                atLoss !== undefined &&
+                reported !== 'disconnected' &&
+                !hasDataArrivedSince(atLoss, device, arrivalsByPort)
+
+            return isStillAwaitingData ? [[device.key, atLoss]] : []
+        })
+    )
+}
+
+function latestArrivalsOf(
+    device: BiosignalDevice,
+    arrivalsByPort: Record<number, LatestArrival>
+): ArrivalsAtLoss {
+    return device.streams.map((stream) => arrivalsByPort[stream.wssPort])
+}
+
+function hasDataArrivedSince(
+    arrivalsAtLoss: ArrivalsAtLoss,
+    device: BiosignalDevice,
+    arrivalsByPort: Record<number, LatestArrival>
+) {
+    return device.streams.some(
+        (stream, i) => arrivalsByPort[stream.wssPort] !== arrivalsAtLoss[i]
+    )
+}
+
+type ArrivalsAtLoss = (LatestArrival | undefined)[]
+
+function haveSameKeys(first: object, second: object) {
+    const firstKeys = Object.keys(first)
+    const secondKeys = Object.keys(second)
+
+    return (
+        firstKeys.length === secondKeys.length &&
+        firstKeys.every((key) => key in second)
+    )
+}
+
 function statusWhile(
     isConnecting: boolean,
     reported: DeviceStatus
@@ -895,7 +994,7 @@ const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
 }
 
 export type DeviceStatus =
-    'disconnected' | 'connecting' | 'connected' | 'reconnecting'
+    'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'resuming'
 
 type GatewayDeviceState =
     'disconnected' | 'connecting' | 'connected' | 'streaming' | 'reconnecting'

@@ -93,6 +93,11 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                         Signal lost. Reconnecting…
                     </span>
                 )}
+                {status === 'resuming' && (
+                    <span className="stream-monitor__device-alert">
+                        Reconnected. Starting streaming…
+                    </span>
+                )}
                 {isNicknameShown && (
                     <NicknameInput
                         deviceLabel={device.label}

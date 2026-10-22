@@ -271,6 +271,27 @@ export default class DevicePanelTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysStreamingIsStartingOnlyWhileResuming() {
+        this.renderPanel({ status: 'reconnecting' })
+        const whileReconnecting = this.isStreamingStartingSaid
+
+        this.renderPanel({ status: 'resuming' })
+
+        assert.isEqualDeep(
+            {
+                whileReconnecting,
+                whileResuming: this.isStreamingStartingSaid,
+            },
+            { whileReconnecting: false, whileResuming: true },
+            'Did not say streaming was starting only while resuming!'
+        )
+    }
+
+    private static get isStreamingStartingSaid() {
+        return screen.queryByText('Reconnected. Starting streaming…') !== null
+    }
+
     private static get isSignalLostSaid() {
         return screen.queryByText('Signal lost. Reconnecting…') !== null
     }

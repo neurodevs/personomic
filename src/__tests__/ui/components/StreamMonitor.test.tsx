@@ -536,6 +536,24 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsResumingAfterReconnectUntilDataArrivesAgain() {
+        await this.renderWithFakePlot()
+        await this.sendChunkToEachStream()
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), 'reconnecting')
+        this.receiveDeviceStatus(this.devicesFor(this.streams), 'streaming')
+        const beforeData = this.deviceStatusOf(this.deviceName)
+
+        await this.sendChunk({ samples: [1, 2], timestamps: [10, 11] })
+
+        assert.isEqualDeep(
+            { beforeData, afterData: this.deviceStatusOf(this.deviceName) },
+            { beforeData: 'resuming', afterData: 'connected' },
+            'Did not show resuming after a reconnect until data arrived again!'
+        )
+    }
+
     @test(
         'disconnected marks card disconnected',
         'disconnected',
