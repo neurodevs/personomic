@@ -157,6 +157,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         recordXdf: isRecordEnabled,
         recordDirectory,
         recordFileStub: recordName,
+        eventMarkers: chosenProtocolFile?.protocol.eventMarkers ?? [],
     })
 
     const isProtocolRenamed =

@@ -3471,6 +3471,42 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsEventMarkersOfProtocolEditedInSession() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        this.clickEditProtocol()
+        const isMarkedBeforeEditing = this.isEditUnsavedShown
+        this.typeProtocolName('Baselines 2')
+
+        this.clickProtocolButton('Save as new')
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            {
+                isMarkedBeforeEditing,
+                saved: this.lastSentMessage.protocol.eventMarkers,
+            },
+            {
+                isMarkedBeforeEditing: false,
+                saved: [
+                    { name: 'pre-baseline-begin', waitAfterMs: 300000 },
+                    { name: 'pre-baseline-end', waitAfterMs: 0 },
+                ],
+            },
+            'Did not keep the event markers of a protocol edited in the session!'
+        )
+    }
+
+    private static readonly baselineFile = this.savedFile('baselines.json', {
+        name: 'Baselines',
+        devices: [],
+        eventMarkers: [
+            { name: 'pre-baseline-begin', waitAfterMs: 300000 },
+            { name: 'pre-baseline-end', waitAfterMs: 0 },
+        ],
+    })
+
+    @test()
     protected static async updatesProtocolOnceSaved() {
         this.renderWithProtocols([this.beepsFile, this.tiltFile])
         this.chooseProtocol('Tilt series')

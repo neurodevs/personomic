@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useId, useRef, useState } from 'react'
 
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
@@ -376,6 +376,12 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                     changeSelectedProtocol({ devices })
                                 }
                             />
+                            <ProtocolEventMarkers
+                                markers={selected.protocol.eventMarkers ?? []}
+                                onMarkersChange={(eventMarkers) =>
+                                    changeSelectedProtocol({ eventMarkers })
+                                }
+                            />
                         </ProtocolForm>
                     </section>
                 )}
@@ -398,6 +404,12 @@ export interface Protocol {
     recordXdf?: boolean
     recordDirectory?: string
     recordFileStub?: string
+    eventMarkers?: EventMarker[]
+}
+
+export interface EventMarker {
+    name: string
+    waitAfterMs: number
 }
 
 const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
@@ -481,6 +493,169 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
 interface ProtocolBiosensorsProps {
     devices: SelectedDevice[]
     onDevicesChange: (devices: SelectedDevice[]) => void
+}
+
+const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
+    markers,
+    onMarkersChange,
+}) => {
+    const headingId = useId()
+
+    const hasMarkerNamed = (name: string) =>
+        markers.some((marker) => marker.name === name)
+
+    const removeMarkerAt = (index: number) =>
+        onMarkersChange(markers.filter((_, other) => other !== index))
+
+    const changeMarkerAt = (index: number, change: Partial<EventMarker>) =>
+        onMarkersChange(
+            markers.map((marker, other) =>
+                other === index ? { ...marker, ...change } : marker
+            )
+        )
+
+    const addMarker = () => {
+        const postBaselineIndex = markers.findIndex(
+            ({ name }) => name === postBaseline.name
+        )
+        const index =
+            postBaselineIndex === -1 ? markers.length : postBaselineIndex
+
+        onMarkersChange([
+            ...markers.slice(0, index),
+            { name: '', waitAfterMs: 0 },
+            ...markers.slice(index),
+        ])
+    }
+
+    return (
+        <section className="event-markers" aria-labelledby={headingId}>
+            <h3 id={headingId} className="event-markers__heading">
+                Event markers
+            </h3>
+            {markers.length === 0 ? (
+                <p className="event-markers__empty">No event markers yet.</p>
+            ) : (
+                <ul className="event-markers__list" aria-label="Event markers">
+                    {markers.map((marker, index) => {
+                        const number = index + 1
+
+                        return (
+                            <li key={index} className="event-markers__row">
+                                <span className="event-markers__time">
+                                    {clockTimeOf(startMsOf(markers, index))}
+                                </span>
+                                <input
+                                    type="text"
+                                    className="event-markers__name"
+                                    aria-label={`Event marker ${number} name`}
+                                    placeholder="marker-name"
+                                    value={marker.name}
+                                    onChange={(event) =>
+                                        changeMarkerAt(index, {
+                                            name: kebabCaseOf(
+                                                event.target.value
+                                            ),
+                                        })
+                                    }
+                                />
+                                <label className="event-markers__wait">
+                                    then wait
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        aria-label={`Event marker ${number} wait after (seconds)`}
+                                        placeholder="0"
+                                        value={
+                                            marker.waitAfterMs === 0
+                                                ? ''
+                                                : marker.waitAfterMs / 1000
+                                        }
+                                        onChange={(event) =>
+                                            changeMarkerAt(index, {
+                                                waitAfterMs: msFromSeconds(
+                                                    event.target.value
+                                                ),
+                                            })
+                                        }
+                                    />
+                                    s
+                                </label>
+                                <button
+                                    type="button"
+                                    className="protocols__remove"
+                                    aria-label={`Remove ${marker.name.trim() || `event marker ${number}`}`}
+                                    title="Remove"
+                                    onClick={() => removeMarkerAt(index)}
+                                >
+                                    ×
+                                </button>
+                            </li>
+                        )
+                    })}
+                </ul>
+            )}
+            <div className="event-markers__add">
+                <button
+                    type="button"
+                    className="add-biosensor__button"
+                    disabled={hasMarkerNamed(preBaseline.name)}
+                    onClick={() => onMarkersChange([preBaseline, ...markers])}
+                >
+                    + Add 5 min pre-baseline
+                </button>
+                <button
+                    type="button"
+                    className="add-biosensor__button"
+                    disabled={hasMarkerNamed(postBaseline.name)}
+                    onClick={() => onMarkersChange([...markers, postBaseline])}
+                >
+                    + Add 5 min post-baseline
+                </button>
+                <button
+                    type="button"
+                    className="add-biosensor__button"
+                    onClick={addMarker}
+                >
+                    + Add event marker
+                </button>
+            </div>
+        </section>
+    )
+}
+
+interface ProtocolEventMarkersProps {
+    markers: EventMarker[]
+    onMarkersChange: (markers: EventMarker[]) => void
+}
+
+const baselineMs = 5 * 60 * 1000
+const preBaseline: EventMarker = {
+    name: 'pre-baseline',
+    waitAfterMs: baselineMs,
+}
+const postBaseline: EventMarker = {
+    name: 'post-baseline',
+    waitAfterMs: baselineMs,
+}
+
+function msFromSeconds(typed: string) {
+    return Math.max(0, Number(typed) || 0) * 1000
+}
+
+function kebabCaseOf(typed: string) {
+    return typed.toLowerCase().replace(/\s+/g, '-').replace(/-+/g, '-')
+}
+
+function startMsOf(markers: EventMarker[], index: number) {
+    return markers
+        .slice(0, index)
+        .reduce((total, { waitAfterMs }) => total + waitAfterMs, 0)
+}
+
+function clockTimeOf(ms: number) {
+    const seconds = Math.round(ms / 1000)
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 }
 
 interface UploadProtocolButtonProps {
@@ -582,6 +757,20 @@ export function fileContentsOf(protocol: Protocol) {
         name,
         devices: devices.map(requestOf),
         ...recordDefaultsOf(protocol),
+        ...eventMarkersOf(protocol),
+    }
+}
+
+function eventMarkersOf({ eventMarkers = [] }: Protocol) {
+    if (eventMarkers.length === 0) {
+        return {}
+    }
+
+    return {
+        eventMarkers: eventMarkers.map(({ name, waitAfterMs }) => ({
+            name: name.trim().replace(/^-+|-+$/g, ''),
+            waitAfterMs,
+        })),
     }
 }
 
@@ -658,6 +847,7 @@ export function protocolFrom(contents: ProtocolContents): Protocol {
         recordXdf: contents.recordXdf === true,
         recordDirectory: textOr(contents.recordDirectory),
         recordFileStub: textOr(contents.recordFileStub),
+        eventMarkers: eventMarkersFrom(contents),
     }
 }
 
@@ -667,6 +857,20 @@ export interface ProtocolContents {
     recordXdf?: unknown
     recordDirectory?: unknown
     recordFileStub?: unknown
+    eventMarkers?: unknown
+}
+
+function eventMarkersFrom(contents: ProtocolContents): EventMarker[] {
+    if (!Array.isArray(contents.eventMarkers)) {
+        return []
+    }
+
+    return contents.eventMarkers
+        .filter((marker) => typeof marker?.name === 'string')
+        .map(({ name, waitAfterMs }) => ({
+            name,
+            waitAfterMs: typeof waitAfterMs === 'number' ? waitAfterMs : 0,
+        }))
 }
 
 function devicesFrom(contents: ProtocolContents): SelectedDevice[] {

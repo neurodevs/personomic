@@ -1390,6 +1390,335 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysNewProtocolHasNoEventMarkersYet() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isTrue(
+            within(this.eventMarkersSection).queryByText(
+                'No event markers yet.'
+            ) !== null,
+            'Did not say the new protocol has no event markers yet!'
+        )
+    }
+
+    @test()
+    protected static async showsEventMarkersBelowBiosensors() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        const biosensors = screen.getByRole('region', { name: 'Biosensors' })
+
+        assert.isTrue(
+            (biosensors.compareDocumentPosition(this.eventMarkersSection) &
+                Node.DOCUMENT_POSITION_FOLLOWING) !==
+                0,
+            'Did not show the event markers below the biosensors!'
+        )
+    }
+
+    @test()
+    protected static async addsFiveMinutePreBaseline() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickAddPreBaseline()
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [['0:00', 'pre-baseline']],
+            'Did not add a five minute pre-baseline!'
+        )
+    }
+
+    @test()
+    protected static async keepsPreBaselineFirstAndPostBaselineLast() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickAddPostBaseline()
+        this.clickAddPreBaseline()
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [
+                ['0:00', 'pre-baseline'],
+                ['5:00', 'post-baseline'],
+            ],
+            'Did not keep the pre-baseline first and the post-baseline last!'
+        )
+    }
+
+    @test()
+    protected static async disablesAddingEachBaselineOnceAdded() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickAddPreBaseline()
+
+        assert.isEqualDeep(
+            {
+                pre: this.addPreBaselineButton.disabled,
+                post: this.addPostBaselineButton.disabled,
+            },
+            { pre: true, post: false },
+            'Did not disable adding each baseline once it was added!'
+        )
+    }
+
+    @test()
+    protected static async removesBaseline() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddPostBaseline()
+
+        this.clickRemoveOf('pre-baseline')
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [['0:00', 'post-baseline']],
+            'Did not remove the baseline!'
+        )
+    }
+
+    @test()
+    protected static async changesNameAndWaitOfBaseline() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        const presetWait = this.waitInputOf(1).value
+
+        this.typeInto('Event marker 1 name', 'eyes-closed-baseline')
+        this.typeInto('Event marker 1 wait after (seconds)', '120')
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            {
+                presetWait,
+                saved: this.lastSentMessage.protocol.eventMarkers,
+            },
+            {
+                presetWait: '300',
+                saved: [{ name: 'eyes-closed-baseline', waitAfterMs: 120000 }],
+            },
+            'Did not change the name and wait of the baseline!'
+        )
+    }
+
+    private static waitInputOf(number: number) {
+        return screen.getByLabelText(
+            `Event marker ${number} wait after (seconds)`
+        ) as HTMLInputElement
+    }
+
+    @test()
+    protected static async addsCustomEventMarkerBetweenBaselines() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddPostBaseline()
+
+        this.clickAddEventMarker()
+
+        assert.isEqualDeep(
+            this.eventMarkerRows.map(([, name]) => name),
+            ['pre-baseline', '', 'post-baseline'],
+            'Did not add the custom event marker between the baselines!'
+        )
+    }
+
+    @test()
+    protected static async kebabCasesCustomEventMarkerName() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddEventMarker()
+
+        this.typeInto('Event marker 1 name', 'Stroke  Left Arm')
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [['0:00', 'stroke-left-arm']],
+            'Did not kebab-case the custom event marker name!'
+        )
+    }
+
+    @test()
+    protected static async suggestsKebabCaseMarkerName() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickAddEventMarker()
+
+        assert.isEqual(
+            screen
+                .getByLabelText('Event marker 1 name')
+                .getAttribute('placeholder'),
+            'marker-name',
+            'Did not suggest a kebab-case marker name!'
+        )
+    }
+
+    @test()
+    protected static async savesNameAndWaitOfCustomEventMarker() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddEventMarker()
+        this.typeInto('Event marker 1 name', ' stimulus ')
+        this.typeInto('Event marker 1 wait after (seconds)', '10')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.eventMarkers,
+            [{ name: 'stimulus', waitAfterMs: 10000 }],
+            'Did not save the name and wait of the custom event marker!'
+        )
+    }
+
+    @test()
+    protected static async timesMarkersAfterWaitOfCustomEventMarker() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddEventMarker()
+        this.typeInto('Event marker 2 wait after (seconds)', '10')
+
+        this.clickAddPostBaseline()
+
+        assert.isEqualDeep(
+            this.eventMarkerRows.map(([time]) => time),
+            ['0:00', '5:00', '5:10'],
+            'Did not time the markers after the wait of the custom event marker!'
+        )
+    }
+
+    @test()
+    protected static async removesOnlyTheCustomEventMarker() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddEventMarker()
+        this.clickAddEventMarker()
+        this.typeInto('Event marker 1 name', 'first')
+        this.typeInto('Event marker 2 name', 'second')
+
+        this.clickRemoveOf('first')
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [['0:00', 'second']],
+            'Did not remove only the custom event marker!'
+        )
+    }
+
+    @test()
+    protected static async savesEventMarkersWithProtocol() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.eventMarkers,
+            [{ name: 'pre-baseline', waitAfterMs: 300000 }],
+            'Did not save the event markers with the protocol!'
+        )
+    }
+
+    @test()
+    protected static async readsEventMarkersOfUploadedProtocol() {
+        this.answerListing()
+
+        await this.upload(
+            'i-insula.json',
+            JSON.stringify({
+                schemaVersion: 1,
+                name: 'I-INSULA',
+                devices: [],
+                eventMarkers: [
+                    { name: 'session-begin', waitAfterMs: 90000 },
+                    { name: 'session-end' },
+                    { waitAfterMs: 1000 },
+                ],
+            })
+        )
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [
+                ['0:00', 'session-begin'],
+                ['1:30', 'session-end'],
+            ],
+            'Did not read the event markers of an uploaded protocol!'
+        )
+    }
+
+    @test()
+    protected static async marksSavedProtocolUnsavedOnceEventMarkersChange() {
+        this.answerListing([this.file('beeps.json', 'Beeps')])
+        this.chooseListed('Beeps')
+
+        this.clickAddPostBaseline()
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Beeps'],
+            'Did not mark a saved protocol unsaved once its event markers changed!'
+        )
+    }
+
+    private static get eventMarkersSection() {
+        return screen.getByRole('region', { name: 'Event markers' })
+    }
+
+    private static get eventMarkerRows() {
+        return within(screen.getByRole('list', { name: 'Event markers' }))
+            .getAllByRole('listitem')
+            .map((item) => [
+                item.querySelector('.event-markers__time')!.textContent,
+                this.markerNameIn(item),
+            ])
+    }
+
+    private static markerNameIn(item: HTMLElement) {
+        const name = item.querySelector('.event-markers__name')!
+
+        return name instanceof HTMLInputElement ? name.value : name.textContent
+    }
+
+    private static clickAddEventMarker() {
+        fireEvent.click(
+            screen.getByRole('button', { name: '+ Add event marker' })
+        )
+    }
+
+    private static get addPreBaselineButton() {
+        return screen.getByRole('button', {
+            name: '+ Add 5 min pre-baseline',
+        }) as HTMLButtonElement
+    }
+
+    private static get addPostBaselineButton() {
+        return screen.getByRole('button', {
+            name: '+ Add 5 min post-baseline',
+        }) as HTMLButtonElement
+    }
+
+    private static clickAddPreBaseline() {
+        fireEvent.click(this.addPreBaselineButton)
+    }
+
+    private static clickAddPostBaseline() {
+        fireEvent.click(this.addPostBaselineButton)
+    }
+
     private static clickSavedPath(path: string) {
         fireEvent.click(screen.getByRole('button', { name: path }))
     }
