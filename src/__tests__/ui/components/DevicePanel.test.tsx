@@ -257,6 +257,24 @@ export default class DevicePanelTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysSignalIsLostOnlyWhileReconnecting() {
+        this.renderPanel({ status: 'connected' })
+        const whileConnected = this.isSignalLostSaid
+
+        this.renderPanel({ status: 'reconnecting' })
+
+        assert.isEqualDeep(
+            { whileConnected, whileReconnecting: this.isSignalLostSaid },
+            { whileConnected: false, whileReconnecting: true },
+            'Did not say the signal was lost only while reconnecting!'
+        )
+    }
+
+    private static get isSignalLostSaid() {
+        return screen.queryByText('Signal lost. Reconnecting…') !== null
+    }
+
     private static renderWithIdentifier(isRequired: boolean) {
         this.renderPanel({
             identifier: { label: 'UUID', value: '', isRequired },

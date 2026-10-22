@@ -520,6 +520,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     @test('connecting shows connecting', 'connecting', 'connecting')
     @test('connected shows connected', 'connected', 'connected')
     @test('streaming shows connected', 'streaming', 'connected')
+    @test('reconnecting shows reconnecting', 'reconnecting', 'reconnecting')
     protected static async showsDeviceStatusForGatewayState(
         state: string,
         expectedStatus: string

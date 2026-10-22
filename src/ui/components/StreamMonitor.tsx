@@ -891,12 +891,14 @@ const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
     connecting: 'connecting',
     connected: 'connected',
     streaming: 'connected',
+    reconnecting: 'reconnecting',
 }
 
-export type DeviceStatus = 'disconnected' | 'connecting' | 'connected'
+export type DeviceStatus =
+    'disconnected' | 'connecting' | 'connected' | 'reconnecting'
 
 type GatewayDeviceState =
-    'disconnected' | 'connecting' | 'connected' | 'streaming'
+    'disconnected' | 'connecting' | 'connected' | 'streaming' | 'reconnecting'
 
 interface GatewayDevice {
     deviceName: string
