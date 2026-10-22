@@ -599,6 +599,13 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    onClick={addMarker}
+                >
+                    + Add event marker
+                </button>
+                <button
+                    type="button"
+                    className="add-biosensor__button"
                     disabled={hasMarkerNamed(preBaseline.name)}
                     onClick={() => onMarkersChange([preBaseline, ...markers])}
                 >
@@ -611,13 +618,6 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                     onClick={() => onMarkersChange([...markers, postBaseline])}
                 >
                     + Add 5 min post-baseline
-                </button>
-                <button
-                    type="button"
-                    className="add-biosensor__button"
-                    onClick={addMarker}
-                >
-                    + Add event marker
                 </button>
             </div>
         </section>

@@ -1661,6 +1661,25 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersAddingEventMarkerFirst() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isEqualDeep(
+            within(this.eventMarkersSection)
+                .getAllByRole('button')
+                .map((button) => button.textContent),
+            [
+                '+ Add event marker',
+                '+ Add 5 min pre-baseline',
+                '+ Add 5 min post-baseline',
+            ],
+            'Did not offer adding an event marker first!'
+        )
+    }
+
+    @test()
     protected static async marksSavedProtocolUnsavedOnceEventMarkersChange() {
         this.answerListing([this.file('beeps.json', 'Beeps')])
         this.chooseListed('Beeps')
