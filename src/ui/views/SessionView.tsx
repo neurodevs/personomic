@@ -40,6 +40,7 @@ import {
     fileContentsOf,
     hasUnsavedChanges,
     isSameProtocolName,
+    ProtocolEventMarkers,
     recordDirectoryFor,
     revealProtocol,
     Protocol,
@@ -130,6 +131,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [isEditingProtocol, setIsEditingProtocol] = useState(false)
     const [protocolName, setProtocolName] = useState('')
     const [protocolSavedTo, setProtocolSavedTo] = useState<string>()
+    const [markers, setMarkers] = useState<ProtocolMarkers>(noMarkers)
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -155,9 +157,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         recordXdf: isRecordEnabled,
         recordDirectory,
         recordFileStub: recordName,
-        sessionBeginMarker: chosenProtocolFile?.protocol.sessionBeginMarker,
-        eventMarkers: chosenProtocolFile?.protocol.eventMarkers ?? [],
-        sessionEndMarker: chosenProtocolFile?.protocol.sessionEndMarker,
+        ...markers,
     })
 
     const isProtocolRenamed =
@@ -216,6 +216,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
             fillFrom(file.protocol)
         } else {
             setRecordDirectory(rememberedRecordDirectory())
+            setMarkers(noMarkers)
         }
     }
 
@@ -223,6 +224,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         const { devices, recordXdf, recordDirectory, recordFileStub } = protocol
 
         setDevices(devices)
+        setMarkers(markersOf(protocol))
         setIsRecordEnabled(recordXdf ?? false)
 
         setRecordDirectory(recordDirectory || recordDirectoryFor(protocol))
@@ -712,6 +714,20 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             />
                         )}
                     </BiosensorsSection>
+                    {isLive && chosenProtocolFile && (
+                        <ProtocolEventMarkers
+                            sessionBegin={markers.sessionBeginMarker}
+                            markers={markers.eventMarkers}
+                            sessionEnd={markers.sessionEndMarker}
+                            isLocked={!isEditingProtocol}
+                            onChange={(change) =>
+                                setMarkers((previous) => ({
+                                    ...previous,
+                                    ...change,
+                                }))
+                            }
+                        />
+                    )}
                 </ProtocolForm>
             </div>
         </>
@@ -740,6 +756,21 @@ const ControlGroup: React.FC<ControlGroupProps> = ({
         {children}
     </span>
 )
+
+function markersOf({
+    sessionBeginMarker,
+    eventMarkers = [],
+    sessionEndMarker,
+}: Protocol): ProtocolMarkers {
+    return { sessionBeginMarker, eventMarkers, sessionEndMarker }
+}
+
+const noMarkers: ProtocolMarkers = { eventMarkers: [] }
+
+type ProtocolMarkers = Pick<
+    EditedProtocol,
+    'sessionBeginMarker' | 'eventMarkers' | 'sessionEndMarker'
+>
 
 type SessionMode = 'live' | 'playback'
 

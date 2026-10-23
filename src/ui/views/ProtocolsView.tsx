@@ -499,10 +499,11 @@ interface ProtocolBiosensorsProps {
     onDevicesChange: (devices: SelectedDevice[]) => void
 }
 
-const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
+export const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
     sessionBegin,
     markers,
     sessionEnd,
+    isLocked = false,
     onChange,
 }) => {
     const headingId = useId()
@@ -566,7 +567,14 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
     }
 
     return (
-        <section className="event-markers" aria-labelledby={headingId}>
+        <section
+            className={
+                isLocked
+                    ? 'event-markers event-markers--locked'
+                    : 'event-markers'
+            }
+            aria-labelledby={headingId}
+        >
             <h3 id={headingId} className="event-markers__heading">
                 Event markers
             </h3>
@@ -585,6 +593,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                                 startMs={0}
                                 isSessionMarker
                                 showsBeginAndEnd={showsBeginAndEnd}
+                                isLocked={isLocked}
                                 onChange={(change) =>
                                     changeSessionMarkers(
                                         { ...sessionBegin, ...change },
@@ -604,6 +613,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                                     beginMarkers.length + index
                                 )}
                                 showsBeginAndEnd={showsBeginAndEnd}
+                                isLocked={isLocked}
                                 onChange={(change) =>
                                     changeMarkerAt(index, change)
                                 }
@@ -620,6 +630,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                                 )}
                                 isSessionMarker
                                 showsBeginAndEnd={showsBeginAndEnd}
+                                isLocked={isLocked}
                                 onChange={(change) =>
                                     changeSessionMarkers(sessionBegin, {
                                         ...sessionEnd,
@@ -648,6 +659,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    disabled={isLocked}
                     title="Add event marker"
                     onClick={addMarker}
                 >
@@ -656,6 +668,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    disabled={isLocked}
                     title={toggleTitleOf(
                         hasSessionMarkers,
                         'session-begin and session-end'
@@ -668,6 +681,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    disabled={isLocked}
                     title={toggleTitleOf(hasPreBaseline, '5 min pre-baseline')}
                     aria-label="+ 5m Pre-baseline"
                     aria-pressed={hasPreBaseline}
@@ -685,6 +699,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    disabled={isLocked}
                     title={toggleTitleOf(
                         hasPostBaseline,
                         '5 min post-baseline'
@@ -711,6 +726,7 @@ interface ProtocolEventMarkersProps {
     sessionBegin?: EventMarker
     markers: EventMarker[]
     sessionEnd?: EventMarker
+    isLocked?: boolean
     onChange: (change: Partial<Protocol>) => void
 }
 
@@ -720,6 +736,7 @@ const EventMarkerRow: React.FC<EventMarkerRowProps> = ({
     startMs,
     isSessionMarker = false,
     showsBeginAndEnd,
+    isLocked,
     onChange,
     onRemove,
 }) => (
@@ -732,6 +749,7 @@ const EventMarkerRow: React.FC<EventMarkerRowProps> = ({
                 aria-label={`${label} name`}
                 placeholder="marker-name"
                 value={marker.name}
+                disabled={isLocked}
                 onChange={(event) =>
                     onChange({ name: kebabCaseOf(event.target.value) })
                 }
@@ -743,6 +761,7 @@ const EventMarkerRow: React.FC<EventMarkerRowProps> = ({
                     min={0}
                     aria-label={`${label} wait after (seconds)`}
                     placeholder="0"
+                    disabled={isLocked}
                     value={
                         marker.waitAfterMs === 0
                             ? ''
@@ -761,6 +780,7 @@ const EventMarkerRow: React.FC<EventMarkerRowProps> = ({
                 className="protocols__remove"
                 aria-label={`Remove ${marker.name.trim() || label.toLowerCase()}`}
                 title="Remove"
+                disabled={isLocked}
                 onClick={onRemove}
             >
                 ×
@@ -785,6 +805,7 @@ interface EventMarkerRowProps {
     startMs: number
     isSessionMarker?: boolean
     showsBeginAndEnd: boolean
+    isLocked: boolean
     onChange: (change: Partial<EventMarker>) => void
     onRemove: () => void
 }

@@ -3506,6 +3506,192 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsEventMarkersOfChosenProtocol() {
+        this.renderWithProtocols([this.baselineFile])
+
+        this.chooseProtocol('Baselines')
+
+        assert.isEqualDeep(
+            this.shownEventMarkers,
+            [
+                ['0:00', 'start'],
+                ['0:00', 'pre-baseline'],
+                ['5:00', 'session-end'],
+            ],
+            'Did not show the event markers of the chosen protocol!'
+        )
+    }
+
+    @test()
+    protected static async locksEventMarkersUntilProtocolIsEdited() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        const lockedBeforeEditing = this.eventMarkerLockStates
+
+        this.clickEditProtocol()
+
+        assert.isEqualDeep(
+            {
+                lockedBeforeEditing,
+                lockedWhileEditing: this.eventMarkerLockStates,
+            },
+            {
+                lockedBeforeEditing: { controls: true, toggle: false },
+                lockedWhileEditing: { controls: false, toggle: false },
+            },
+            'Did not lock event markers until the protocol was edited!'
+        )
+    }
+
+    private static get eventMarkerLockStates() {
+        const section = within(this.eventMarkersSection)
+        const controls = [
+            ...section.getAllByRole('button'),
+            ...section.getAllByRole('textbox'),
+            ...section.getAllByRole('spinbutton'),
+        ] as HTMLButtonElement[]
+
+        return {
+            controls: controls.every((control) => control.disabled),
+            toggle: (
+                section.getByRole('checkbox', {
+                    name: 'Show advanced begin/end markers',
+                }) as HTMLInputElement
+            ).disabled,
+        }
+    }
+
+    @test()
+    protected static async savesEventMarkersEditedInSession() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        this.clickEditProtocol()
+        this.clickProtocolButton('+ 5m Post-baseline')
+        const isMarkedUnsaved = this.isEditUnsavedShown
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            {
+                isMarkedUnsaved,
+                saved: this.lastSentMessage.protocol.eventMarkers,
+            },
+            {
+                isMarkedUnsaved: true,
+                saved: [
+                    { name: 'pre-baseline', waitAfterMs: 300000 },
+                    { name: 'post-baseline', waitAfterMs: 300000 },
+                ],
+            },
+            'Did not save event markers edited in the session!'
+        )
+    }
+
+    @test()
+    protected static async discardsEventMarkerEditsOnCancel() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        this.clickEditProtocol()
+        this.clickProtocolButton('+ 5m Post-baseline')
+
+        this.clickProtocolButton('Cancel')
+
+        assert.isEqualDeep(
+            this.shownEventMarkers,
+            [
+                ['0:00', 'start'],
+                ['0:00', 'pre-baseline'],
+                ['5:00', 'session-end'],
+            ],
+            'Did not discard event marker edits on cancel!'
+        )
+    }
+
+    @test()
+    protected static async showsBeginAndEndMarkersOnceToggled() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+
+        fireEvent.click(
+            screen.getByRole('checkbox', {
+                name: 'Show advanced begin/end markers',
+            })
+        )
+
+        assert.isEqualDeep(
+            within(
+                screen.getByRole('list', {
+                    name: 'Event marker 1 begin and end markers',
+                })
+            )
+                .getAllByRole('listitem')
+                .map((item) => item.textContent),
+            ['pre-baseline-begin', 'pre-baseline-end'],
+            'Did not show begin and end markers once toggled!'
+        )
+    }
+
+    @test()
+    protected static async graysOutEventMarkersUntilProtocolIsEdited() {
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        const isGrayedBeforeEditing = this.areEventMarkersGrayed
+
+        this.clickEditProtocol()
+
+        assert.isEqualDeep(
+            {
+                isGrayedBeforeEditing,
+                isGrayedWhileEditing: this.areEventMarkersGrayed,
+            },
+            { isGrayedBeforeEditing: true, isGrayedWhileEditing: false },
+            'Did not gray out event markers until the protocol was edited!'
+        )
+    }
+
+    private static get areEventMarkersGrayed() {
+        return this.eventMarkersSection.classList.contains(
+            'event-markers--locked'
+        )
+    }
+
+    private static get eventMarkersSection() {
+        return screen.getByRole('region', { name: 'Event markers' })
+    }
+
+    @test()
+    protected static async showsEventMarkersOnlyOnceProtocolIsChosen() {
+        this.renderWithProtocols([this.baselineFile, this.beepsFile])
+        const isShownWithoutProtocol = this.areEventMarkersShown
+
+        this.chooseProtocol('Beeps')
+
+        assert.isEqualDeep(
+            {
+                isShownWithoutProtocol,
+                isShownWithoutMarkers: this.areEventMarkersShown,
+            },
+            { isShownWithoutProtocol: false, isShownWithoutMarkers: true },
+            'Did not show event markers only once a protocol was chosen!'
+        )
+    }
+
+    private static get shownEventMarkers() {
+        return within(screen.getByRole('list', { name: 'Event markers' }))
+            .getAllByRole('listitem')
+            .map((item) => [
+                item.querySelector('.event-markers__time')!.textContent,
+                (item.querySelector('.event-markers__name') as HTMLInputElement)
+                    .value,
+            ])
+    }
+
+    private static get areEventMarkersShown() {
+        return screen.queryByRole('region', { name: 'Event markers' }) !== null
+    }
+
     private static readonly baselineFile = this.savedFile('baselines.json', {
         name: 'Baselines',
         devices: [],

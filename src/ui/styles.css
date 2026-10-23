@@ -396,6 +396,20 @@ input.event-markers__name,
   color: var(--text-primary);
 }
 
+.event-markers--locked .event-markers__name,
+.event-markers--locked .event-markers__wait input {
+  color: var(--text-muted);
+}
+
+.event-markers--locked .add-biosensor__button,
+.event-markers--locked .add-biosensor__button:hover,
+.event-markers--locked .add-biosensor__button[aria-pressed='true'] {
+  border-color: var(--border-strong);
+  background: none;
+  color: rgba(95, 104, 120, 0.5);
+  cursor: default;
+}
+
 .protocols__error {
   margin: 10px 0 0;
   color: #e5484d;
