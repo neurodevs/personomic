@@ -1396,11 +1396,169 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         this.clickNewProtocol()
 
-        assert.isTrue(
-            within(this.eventMarkersSection).queryByText(
-                'No event markers yet.'
-            ) !== null,
+        assert.isEqualDeep(
+            {
+                isNoneSaid:
+                    within(this.eventMarkersSection).queryByText(
+                        'No event markers yet.'
+                    ) !== null,
+                isAdvancedOffered: this.isAdvancedMarkersToggleShown,
+            },
+            { isNoneSaid: true, isAdvancedOffered: false },
             'Did not say the new protocol has no event markers yet!'
+        )
+    }
+
+    private static get isAdvancedMarkersToggleShown() {
+        return (
+            screen.queryByRole('checkbox', {
+                name: 'Show advanced begin/end markers',
+            }) !== null
+        )
+    }
+
+    @test()
+    protected static async addsSessionMarkersAroundEventMarkers() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddPostBaseline()
+
+        this.clickAddSessionMarkers()
+
+        assert.isEqualDeep(
+            {
+                rows: this.allMarkerRows,
+                canAddAgain: !this.addSessionMarkersButton.disabled,
+            },
+            {
+                rows: [
+                    ['0:00', 'session-begin'],
+                    ['0:00', 'pre-baseline'],
+                    ['5:00', 'post-baseline'],
+                    ['10:00', 'session-end'],
+                ],
+                canAddAgain: false,
+            },
+            'Did not add the session markers around the event markers!'
+        )
+    }
+
+    @test()
+    protected static async savesAddedSessionMarkers() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddSessionMarkers()
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        const { sessionBeginMarker, sessionEndMarker } =
+            this.lastSentMessage.protocol
+
+        assert.isEqualDeep(
+            { sessionBeginMarker, sessionEndMarker },
+            {
+                sessionBeginMarker: { name: 'session-begin', waitAfterMs: 0 },
+                sessionEndMarker: { name: 'session-end', waitAfterMs: 0 },
+            },
+            'Did not save the added session markers!'
+        )
+    }
+
+    @test()
+    protected static async removesBothSessionMarkersTogether() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddSessionMarkers()
+        this.clickAddPreBaseline()
+
+        this.clickRemoveOf('session-end')
+
+        assert.isEqualDeep(
+            {
+                rows: this.allMarkerRows,
+                canAddAgain: !this.addSessionMarkersButton.disabled,
+            },
+            { rows: [['0:00', 'pre-baseline']], canAddAgain: true },
+            'Did not remove both session markers together!'
+        )
+    }
+
+    private static get addSessionMarkersButton() {
+        return screen.getByRole('button', {
+            name: '+ Session markers',
+        }) as HTMLButtonElement
+    }
+
+    private static clickAddSessionMarkers() {
+        fireEvent.click(this.addSessionMarkersButton)
+    }
+
+    @test()
+    protected static async changesNameAndWaitOfSessionMarkers() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddSessionMarkers()
+
+        this.typeInto('Session begin marker name', 'Recording Begin')
+        this.typeInto('Session begin marker wait after (seconds)', '30')
+        this.typeInto('Session end marker wait after (seconds)', '5')
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        const { sessionBeginMarker, sessionEndMarker } =
+            this.lastSentMessage.protocol
+
+        assert.isEqualDeep(
+            {
+                rows: this.allMarkerRows,
+                saved: { sessionBeginMarker, sessionEndMarker },
+            },
+            {
+                rows: [
+                    ['0:00', 'recording-begin'],
+                    ['0:30', 'pre-baseline'],
+                    ['5:30', 'session-end'],
+                ],
+                saved: {
+                    sessionBeginMarker: {
+                        name: 'recording-begin',
+                        waitAfterMs: 30000,
+                    },
+                    sessionEndMarker: {
+                        name: 'session-end',
+                        waitAfterMs: 5000,
+                    },
+                },
+            },
+            'Did not change the name and wait of the session markers!'
+        )
+    }
+
+    @test()
+    protected static async readsSessionMarkersOfUploadedProtocol() {
+        this.answerListing()
+
+        await this.upload(
+            'i-insula.json',
+            JSON.stringify({
+                schemaVersion: 1,
+                name: 'I-INSULA',
+                devices: [],
+                sessionBeginMarker: { name: 'start', waitAfterMs: 60000 },
+                sessionEndMarker: { name: 'stop' },
+            })
+        )
+
+        assert.isEqualDeep(
+            this.allMarkerRows,
+            [
+                ['0:00', 'start'],
+                ['1:00', 'stop'],
+            ],
+            'Did not read the session markers of an uploaded protocol!'
         )
     }
 
@@ -1661,29 +1819,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersAdvancedMarkersOnlyOnceMarkersExist() {
-        this.answerListing()
-        this.clickNewProtocol()
-        const whileNone = this.isAdvancedMarkersToggleShown
-
-        this.clickAddPreBaseline()
-
-        assert.isEqualDeep(
-            { whileNone, onceAdded: this.isAdvancedMarkersToggleShown },
-            { whileNone: false, onceAdded: true },
-            'Did not offer the advanced markers only once markers existed!'
-        )
-    }
-
-    private static get isAdvancedMarkersToggleShown() {
-        return (
-            screen.queryByRole('checkbox', {
-                name: 'Show advanced begin/end markers',
-            }) !== null
-        )
-    }
-
-    @test()
     protected static async hidesBeginAndEndMarkersByDefault() {
         this.answerListing()
         this.clickNewProtocol()
@@ -1734,20 +1869,26 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async saysWhenEventMarkersEnd() {
+    protected static async endsSessionAfterEveryEventMarker() {
         this.answerListing()
         this.clickNewProtocol()
         this.clickAddPreBaseline()
         this.clickAddEventMarker()
         this.typeInto('Event marker 2 wait after (seconds)', '10')
-
         this.clickAddPostBaseline()
 
-        assert.isEqual(
-            within(this.eventMarkersSection).queryByText(/^Ends at/)
-                ?.textContent,
-            'Ends at 10:10',
-            'Did not say when the event markers end!'
+        this.clickAddSessionMarkers()
+
+        assert.isEqualDeep(
+            this.allMarkerRows,
+            [
+                ['0:00', 'session-begin'],
+                ['0:00', 'pre-baseline'],
+                ['5:00', ''],
+                ['5:10', 'post-baseline'],
+                ['10:10', 'session-end'],
+            ],
+            'Did not end the session after every event marker!'
         )
     }
 
@@ -1778,11 +1919,12 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             within(this.eventMarkersSection)
                 .getAllByRole('button')
-                .map((button) => button.textContent),
+                .map((button) => [button.textContent, button.title]),
             [
-                '+ Add event marker',
-                '+ Add 5 min pre-baseline',
-                '+ Add 5 min post-baseline',
+                ['+ Event marker', 'Add event marker'],
+                ['+ Session markers', 'Add session-begin and session-end'],
+                ['+ 5m Pre-baseline', 'Add 5 min pre-baseline'],
+                ['+ 5m Post-baseline', 'Add 5 min post-baseline'],
             ],
             'Did not offer adding an event marker first!'
         )
@@ -1807,12 +1949,28 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     private static get eventMarkerRows() {
-        return within(screen.getByRole('list', { name: 'Event markers' }))
-            .getAllByRole('listitem')
-            .map((item) => [
-                item.querySelector('.event-markers__time')!.textContent,
-                this.markerNameIn(item),
-            ])
+        return this.markerRowsIn(
+            this.markerItems.filter(
+                (item) => !item.classList.contains('event-markers__session')
+            )
+        )
+    }
+
+    private static get allMarkerRows() {
+        return this.markerRowsIn(this.markerItems)
+    }
+
+    private static get markerItems() {
+        return Array.from(
+            screen.getByRole('list', { name: 'Event markers' }).children
+        ) as HTMLElement[]
+    }
+
+    private static markerRowsIn(items: HTMLElement[]) {
+        return items.map((item) => [
+            item.querySelector('.event-markers__time')!.textContent,
+            this.markerNameIn(item),
+        ])
     }
 
     private static markerNameIn(item: HTMLElement) {
@@ -1822,20 +1980,18 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     private static clickAddEventMarker() {
-        fireEvent.click(
-            screen.getByRole('button', { name: '+ Add event marker' })
-        )
+        fireEvent.click(screen.getByRole('button', { name: '+ Event marker' }))
     }
 
     private static get addPreBaselineButton() {
         return screen.getByRole('button', {
-            name: '+ Add 5 min pre-baseline',
+            name: '+ 5m Pre-baseline',
         }) as HTMLButtonElement
     }
 
     private static get addPostBaselineButton() {
         return screen.getByRole('button', {
-            name: '+ Add 5 min post-baseline',
+            name: '+ 5m Post-baseline',
         }) as HTMLButtonElement
     }
 

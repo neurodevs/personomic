@@ -377,10 +377,12 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                 }
                             />
                             <ProtocolEventMarkers
-                                markers={selected.protocol.eventMarkers ?? []}
-                                onMarkersChange={(eventMarkers) =>
-                                    changeSelectedProtocol({ eventMarkers })
+                                sessionBegin={
+                                    selected.protocol.sessionBeginMarker
                                 }
+                                markers={selected.protocol.eventMarkers ?? []}
+                                sessionEnd={selected.protocol.sessionEndMarker}
+                                onChange={changeSelectedProtocol}
                             />
                         </ProtocolForm>
                     </section>
@@ -404,7 +406,9 @@ export interface Protocol {
     recordXdf?: boolean
     recordDirectory?: string
     recordFileStub?: string
+    sessionBeginMarker?: EventMarker
     eventMarkers?: EventMarker[]
+    sessionEndMarker?: EventMarker
 }
 
 export interface EventMarker {
@@ -496,20 +500,37 @@ interface ProtocolBiosensorsProps {
 }
 
 const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
+    sessionBegin,
     markers,
-    onMarkersChange,
+    sessionEnd,
+    onChange,
 }) => {
     const headingId = useId()
     const [showsBeginAndEnd, setShowsBeginAndEnd] = useState(false)
+
+    const beginMarkers = sessionBegin ? [sessionBegin] : []
+    const allMarkers = [
+        ...beginMarkers,
+        ...markers,
+        ...(sessionEnd ? [sessionEnd] : []),
+    ]
+
+    const changeSessionMarkers = (
+        sessionBeginMarker?: EventMarker,
+        sessionEndMarker?: EventMarker
+    ) => onChange({ sessionBeginMarker, sessionEndMarker })
+
+    const changeMarkers = (eventMarkers: EventMarker[]) =>
+        onChange({ eventMarkers })
 
     const hasMarkerNamed = (name: string) =>
         markers.some((marker) => marker.name === name)
 
     const removeMarkerAt = (index: number) =>
-        onMarkersChange(markers.filter((_, other) => other !== index))
+        changeMarkers(markers.filter((_, other) => other !== index))
 
     const changeMarkerAt = (index: number, change: Partial<EventMarker>) =>
-        onMarkersChange(
+        changeMarkers(
             markers.map((marker, other) =>
                 other === index ? { ...marker, ...change } : marker
             )
@@ -522,7 +543,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
         const index =
             postBaselineIndex === -1 ? markers.length : postBaselineIndex
 
-        onMarkersChange([
+        changeMarkers([
             ...markers.slice(0, index),
             { name: '', waitAfterMs: 0 },
             ...markers.slice(index),
@@ -534,7 +555,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
             <h3 id={headingId} className="event-markers__heading">
                 Event markers
             </h3>
-            {markers.length === 0 ? (
+            {allMarkers.length === 0 ? (
                 <p className="event-markers__empty">No event markers yet.</p>
             ) : (
                 <div className="event-markers__box">
@@ -542,93 +563,59 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                         className="event-markers__list"
                         aria-label="Event markers"
                     >
-                        {markers.map((marker, index) => {
-                            const number = index + 1
-
-                            return (
-                                <li key={index}>
-                                    <div className="event-markers__row">
-                                        <span className="event-markers__time">
-                                            {clockTimeOf(
-                                                startMsOf(markers, index)
-                                            )}
-                                        </span>
-                                        <input
-                                            type="text"
-                                            className="event-markers__name"
-                                            aria-label={`Event marker ${number} name`}
-                                            placeholder="marker-name"
-                                            value={marker.name}
-                                            onChange={(event) =>
-                                                changeMarkerAt(index, {
-                                                    name: kebabCaseOf(
-                                                        event.target.value
-                                                    ),
-                                                })
-                                            }
-                                        />
-                                        <label className="event-markers__wait">
-                                            then wait
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                aria-label={`Event marker ${number} wait after (seconds)`}
-                                                placeholder="0"
-                                                value={
-                                                    marker.waitAfterMs === 0
-                                                        ? ''
-                                                        : marker.waitAfterMs /
-                                                          1000
-                                                }
-                                                onChange={(event) =>
-                                                    changeMarkerAt(index, {
-                                                        waitAfterMs:
-                                                            msFromSeconds(
-                                                                event.target
-                                                                    .value
-                                                            ),
-                                                    })
-                                                }
-                                            />
-                                            s
-                                        </label>
-                                        <button
-                                            type="button"
-                                            className="protocols__remove"
-                                            aria-label={`Remove ${marker.name.trim() || `event marker ${number}`}`}
-                                            title="Remove"
-                                            onClick={() =>
-                                                removeMarkerAt(index)
-                                            }
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                    {showsBeginAndEnd && (
-                                        <ul
-                                            className="event-markers__emitted"
-                                            aria-label={`Event marker ${number} begin and end markers`}
-                                        >
-                                            {emittedNamesOf(marker).map(
-                                                (name) => (
-                                                    <li key={name}>{name}</li>
-                                                )
-                                            )}
-                                        </ul>
-                                    )}
-                                </li>
-                            )
-                        })}
+                        {sessionBegin && (
+                            <EventMarkerRow
+                                label="Session begin marker"
+                                marker={sessionBegin}
+                                startMs={0}
+                                isSessionMarker
+                                showsBeginAndEnd={showsBeginAndEnd}
+                                onChange={(change) =>
+                                    changeSessionMarkers(
+                                        { ...sessionBegin, ...change },
+                                        sessionEnd
+                                    )
+                                }
+                                onRemove={() => changeSessionMarkers()}
+                            />
+                        )}
+                        {markers.map((marker, index) => (
+                            <EventMarkerRow
+                                key={index}
+                                label={`Event marker ${index + 1}`}
+                                marker={marker}
+                                startMs={startMsOf(
+                                    allMarkers,
+                                    beginMarkers.length + index
+                                )}
+                                showsBeginAndEnd={showsBeginAndEnd}
+                                onChange={(change) =>
+                                    changeMarkerAt(index, change)
+                                }
+                                onRemove={() => removeMarkerAt(index)}
+                            />
+                        ))}
+                        {sessionEnd && (
+                            <EventMarkerRow
+                                label="Session end marker"
+                                marker={sessionEnd}
+                                startMs={startMsOf(
+                                    allMarkers,
+                                    allMarkers.length - 1
+                                )}
+                                isSessionMarker
+                                showsBeginAndEnd={showsBeginAndEnd}
+                                onChange={(change) =>
+                                    changeSessionMarkers(sessionBegin, {
+                                        ...sessionEnd,
+                                        ...change,
+                                    })
+                                }
+                                onRemove={() => changeSessionMarkers()}
+                            />
+                        )}
                     </ul>
                     <div className="event-markers__footer">
-                        <span className="event-markers__ends">
-                            Ends at{' '}
-                            <span className="event-markers__ends-time">
-                                {clockTimeOf(
-                                    startMsOf(markers, markers.length)
-                                )}
-                            </span>
-                        </span>
                         <label className="event-markers__advanced">
                             <input
                                 type="checkbox"
@@ -646,25 +633,46 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    title="Add event marker"
                     onClick={addMarker}
                 >
-                    + Add event marker
+                    + Event marker
                 </button>
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    title="Add session-begin and session-end"
+                    disabled={sessionBegin !== undefined}
+                    onClick={() =>
+                        changeSessionMarkers(
+                            defaultSessionBeginMarker,
+                            defaultSessionEndMarker
+                        )
+                    }
+                >
+                    + Session markers
+                </button>
+                <button
+                    type="button"
+                    className="add-biosensor__button"
+                    title="Add 5 min pre-baseline"
+                    aria-label="+ 5m Pre-baseline"
                     disabled={hasMarkerNamed(preBaseline.name)}
-                    onClick={() => onMarkersChange([preBaseline, ...markers])}
+                    onClick={() => changeMarkers([preBaseline, ...markers])}
                 >
-                    + Add 5 min pre-baseline
+                    + 5<span className="event-markers__unit">m</span>{' '}
+                    Pre-baseline
                 </button>
                 <button
                     type="button"
                     className="add-biosensor__button"
+                    title="Add 5 min post-baseline"
+                    aria-label="+ 5m Post-baseline"
                     disabled={hasMarkerNamed(postBaseline.name)}
-                    onClick={() => onMarkersChange([...markers, postBaseline])}
+                    onClick={() => changeMarkers([...markers, postBaseline])}
                 >
-                    + Add 5 min post-baseline
+                    + 5<span className="event-markers__unit">m</span>{' '}
+                    Post-baseline
                 </button>
             </div>
         </section>
@@ -672,8 +680,95 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
 }
 
 interface ProtocolEventMarkersProps {
+    sessionBegin?: EventMarker
     markers: EventMarker[]
-    onMarkersChange: (markers: EventMarker[]) => void
+    sessionEnd?: EventMarker
+    onChange: (change: Partial<Protocol>) => void
+}
+
+const EventMarkerRow: React.FC<EventMarkerRowProps> = ({
+    label,
+    marker,
+    startMs,
+    isSessionMarker = false,
+    showsBeginAndEnd,
+    onChange,
+    onRemove,
+}) => (
+    <li className={isSessionMarker ? 'event-markers__session' : undefined}>
+        <div className="event-markers__row">
+            <span className="event-markers__time">{clockTimeOf(startMs)}</span>
+            <input
+                type="text"
+                className="event-markers__name"
+                aria-label={`${label} name`}
+                placeholder="marker-name"
+                value={marker.name}
+                onChange={(event) =>
+                    onChange({ name: kebabCaseOf(event.target.value) })
+                }
+            />
+            <label className="event-markers__wait">
+                then wait
+                <input
+                    type="number"
+                    min={0}
+                    aria-label={`${label} wait after (seconds)`}
+                    placeholder="0"
+                    value={
+                        marker.waitAfterMs === 0
+                            ? ''
+                            : marker.waitAfterMs / 1000
+                    }
+                    onChange={(event) =>
+                        onChange({
+                            waitAfterMs: msFromSeconds(event.target.value),
+                        })
+                    }
+                />
+                s
+            </label>
+            <button
+                type="button"
+                className="protocols__remove"
+                aria-label={`Remove ${marker.name.trim() || label.toLowerCase()}`}
+                title="Remove"
+                onClick={onRemove}
+            >
+                ×
+            </button>
+        </div>
+        {showsBeginAndEnd && (
+            <ul
+                className="event-markers__emitted"
+                aria-label={`${label} begin and end markers`}
+            >
+                {emittedNamesOf(marker).map((name) => (
+                    <li key={name}>{name}</li>
+                ))}
+            </ul>
+        )}
+    </li>
+)
+
+interface EventMarkerRowProps {
+    label: string
+    marker: EventMarker
+    startMs: number
+    isSessionMarker?: boolean
+    showsBeginAndEnd: boolean
+    onChange: (change: Partial<EventMarker>) => void
+    onRemove: () => void
+}
+
+export const defaultSessionBeginMarker: EventMarker = {
+    name: 'session-begin',
+    waitAfterMs: 0,
+}
+
+export const defaultSessionEndMarker: EventMarker = {
+    name: 'session-end',
+    waitAfterMs: 0,
 }
 
 const baselineMs = 5 * 60 * 1000
@@ -812,17 +907,24 @@ export function fileContentsOf(protocol: Protocol) {
     }
 }
 
-function eventMarkersOf({ eventMarkers = [] }: Protocol) {
-    if (eventMarkers.length === 0) {
-        return {}
-    }
+function eventMarkersOf(protocol: Protocol) {
+    const { sessionBeginMarker, eventMarkers = [], sessionEndMarker } = protocol
 
     return {
-        eventMarkers: eventMarkers.map(({ name, waitAfterMs }) => ({
-            name: name.trim().replace(/^-+|-+$/g, ''),
-            waitAfterMs,
-        })),
+        ...(sessionBeginMarker && {
+            sessionBeginMarker: savedMarkerOf(sessionBeginMarker),
+        }),
+        ...(eventMarkers.length > 0 && {
+            eventMarkers: eventMarkers.map(savedMarkerOf),
+        }),
+        ...(sessionEndMarker && {
+            sessionEndMarker: savedMarkerOf(sessionEndMarker),
+        }),
     }
+}
+
+function savedMarkerOf({ name, waitAfterMs }: EventMarker): EventMarker {
+    return { name: name.trim().replace(/^-+|-+$/g, ''), waitAfterMs }
 }
 
 function recordDefaultsOf(protocol: Protocol) {
@@ -898,7 +1000,9 @@ export function protocolFrom(contents: ProtocolContents): Protocol {
         recordXdf: contents.recordXdf === true,
         recordDirectory: textOr(contents.recordDirectory),
         recordFileStub: textOr(contents.recordFileStub),
+        sessionBeginMarker: markerFrom(contents.sessionBeginMarker),
         eventMarkers: eventMarkersFrom(contents),
+        sessionEndMarker: markerFrom(contents.sessionEndMarker),
     }
 }
 
@@ -908,7 +1012,9 @@ export interface ProtocolContents {
     recordXdf?: unknown
     recordDirectory?: unknown
     recordFileStub?: unknown
+    sessionBeginMarker?: unknown
     eventMarkers?: unknown
+    sessionEndMarker?: unknown
 }
 
 function eventMarkersFrom(contents: ProtocolContents): EventMarker[] {
@@ -917,11 +1023,24 @@ function eventMarkersFrom(contents: ProtocolContents): EventMarker[] {
     }
 
     return contents.eventMarkers
-        .filter((marker) => typeof marker?.name === 'string')
-        .map(({ name, waitAfterMs }) => ({
-            name,
-            waitAfterMs: typeof waitAfterMs === 'number' ? waitAfterMs : 0,
-        }))
+        .map(markerFrom)
+        .filter((marker): marker is EventMarker => marker !== undefined)
+}
+
+function markerFrom(value: unknown): EventMarker | undefined {
+    if (!isPlainObject(value) || typeof value.name !== 'string') {
+        return undefined
+    }
+
+    const { name, waitAfterMs } = value as {
+        name: string
+        waitAfterMs?: unknown
+    }
+
+    return {
+        name,
+        waitAfterMs: typeof waitAfterMs === 'number' ? waitAfterMs : 0,
+    }
 }
 
 function devicesFrom(contents: ProtocolContents): SelectedDevice[] {

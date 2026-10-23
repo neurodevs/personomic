@@ -3481,17 +3481,26 @@ export default class SessionViewTest extends AbstractPackageTest {
         this.clickProtocolButton('Save as new')
         act(() => this.orchestratorSocket.open())
 
+        const { sessionBeginMarker, eventMarkers, sessionEndMarker } =
+            this.lastSentMessage.protocol
+
         assert.isEqualDeep(
             {
                 isMarkedBeforeEditing,
-                saved: this.lastSentMessage.protocol.eventMarkers,
+                saved: { sessionBeginMarker, eventMarkers, sessionEndMarker },
             },
             {
                 isMarkedBeforeEditing: false,
-                saved: [
-                    { name: 'pre-baseline-begin', waitAfterMs: 300000 },
-                    { name: 'pre-baseline-end', waitAfterMs: 0 },
-                ],
+                saved: {
+                    sessionBeginMarker: { name: 'start', waitAfterMs: 0 },
+                    eventMarkers: [
+                        { name: 'pre-baseline', waitAfterMs: 300000 },
+                    ],
+                    sessionEndMarker: {
+                        name: 'session-end',
+                        waitAfterMs: 5000,
+                    },
+                },
             },
             'Did not keep the event markers of a protocol edited in the session!'
         )
@@ -3500,10 +3509,9 @@ export default class SessionViewTest extends AbstractPackageTest {
     private static readonly baselineFile = this.savedFile('baselines.json', {
         name: 'Baselines',
         devices: [],
-        eventMarkers: [
-            { name: 'pre-baseline-begin', waitAfterMs: 300000 },
-            { name: 'pre-baseline-end', waitAfterMs: 0 },
-        ],
+        sessionBeginMarker: { name: 'start', waitAfterMs: 0 },
+        eventMarkers: [{ name: 'pre-baseline', waitAfterMs: 300000 }],
+        sessionEndMarker: { name: 'session-end', waitAfterMs: 5000 },
     })
 
     @test()

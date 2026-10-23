@@ -155,7 +155,9 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         recordXdf: isRecordEnabled,
         recordDirectory,
         recordFileStub: recordName,
+        sessionBeginMarker: chosenProtocolFile?.protocol.sessionBeginMarker,
         eventMarkers: chosenProtocolFile?.protocol.eventMarkers ?? [],
+        sessionEndMarker: chosenProtocolFile?.protocol.sessionEndMarker,
     })
 
     const isProtocolRenamed =
@@ -753,7 +755,7 @@ interface PlayingRecording {
     progress?: PlaybackProgress
 }
 
-function protocolEditedFrom(edited: Required<Protocol>): Protocol {
+function protocolEditedFrom(edited: EditedProtocol): Protocol {
     const name = edited.name.trim()
 
     return {
@@ -769,6 +771,11 @@ function protocolEditedFrom(edited: Required<Protocol>): Protocol {
         ),
     }
 }
+
+type EditedProtocol = Required<
+    Omit<Protocol, 'sessionBeginMarker' | 'sessionEndMarker'>
+> &
+    Pick<Protocol, 'sessionBeginMarker' | 'sessionEndMarker'>
 
 function withoutDefault(value: string, defaultValue: string) {
     return value === defaultValue ? '' : value
