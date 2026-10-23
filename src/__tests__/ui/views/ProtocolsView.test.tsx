@@ -1429,7 +1429,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             {
                 rows: this.allMarkerRows,
-                canAddAgain: !this.addSessionMarkersButton.disabled,
+                toggle: this.toggleStateOf(this.addSessionMarkersButton),
             },
             {
                 rows: [
@@ -1438,10 +1438,45 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
                     ['5:00', 'post-baseline'],
                     ['10:00', 'session-end'],
                 ],
-                canAddAgain: false,
+                toggle: {
+                    isPressed: 'true',
+                    tooltip: 'Remove session-begin and session-end',
+                },
             },
             'Did not add the session markers around the event markers!'
         )
+    }
+
+    @test()
+    protected static async removesSessionMarkersWhenPressedAgain() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddSessionMarkers()
+        this.clickAddPreBaseline()
+
+        this.clickAddSessionMarkers()
+
+        assert.isEqualDeep(
+            {
+                rows: this.allMarkerRows,
+                toggle: this.toggleStateOf(this.addSessionMarkersButton),
+            },
+            {
+                rows: [['0:00', 'pre-baseline']],
+                toggle: {
+                    isPressed: 'false',
+                    tooltip: 'Add session-begin and session-end',
+                },
+            },
+            'Did not remove the session markers when pressed again!'
+        )
+    }
+
+    private static toggleStateOf(button: HTMLButtonElement) {
+        return {
+            isPressed: button.getAttribute('aria-pressed'),
+            tooltip: button.title,
+        }
     }
 
     @test()
@@ -1478,9 +1513,10 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         assert.isEqualDeep(
             {
                 rows: this.allMarkerRows,
-                canAddAgain: !this.addSessionMarkersButton.disabled,
+                isPressed:
+                    this.addSessionMarkersButton.getAttribute('aria-pressed'),
             },
-            { rows: [['0:00', 'pre-baseline']], canAddAgain: true },
+            { rows: [['0:00', 'pre-baseline']], isPressed: 'false' },
             'Did not remove both session markers together!'
         )
     }
@@ -1611,7 +1647,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async disablesAddingEachBaselineOnceAdded() {
+    protected static async pressesEachBaselineButtonOnceAdded() {
         this.answerListing()
         this.clickNewProtocol()
 
@@ -1619,11 +1655,38 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             {
-                pre: this.addPreBaselineButton.disabled,
-                post: this.addPostBaselineButton.disabled,
+                pre: this.toggleStateOf(this.addPreBaselineButton),
+                post: this.toggleStateOf(this.addPostBaselineButton),
             },
-            { pre: true, post: false },
-            'Did not disable adding each baseline once it was added!'
+            {
+                pre: {
+                    isPressed: 'true',
+                    tooltip: 'Remove 5 min pre-baseline',
+                },
+                post: {
+                    isPressed: 'false',
+                    tooltip: 'Add 5 min post-baseline',
+                },
+            },
+            'Did not press each baseline button once it was added!'
+        )
+    }
+
+    @test()
+    protected static async removesBaselineWhenPressedAgain() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddEventMarker()
+        this.clickAddPostBaseline()
+
+        this.clickAddPreBaseline()
+        this.clickAddPostBaseline()
+
+        assert.isEqualDeep(
+            this.eventMarkerRows,
+            [['0:00', '']],
+            'Did not remove the baseline when pressed again!'
         )
     }
 

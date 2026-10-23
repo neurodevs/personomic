@@ -526,6 +526,21 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
     const hasMarkerNamed = (name: string) =>
         markers.some((marker) => marker.name === name)
 
+    const markersNamedOtherThan = (name: string) =>
+        markers.filter((marker) => marker.name !== name)
+
+    const hasSessionMarkers = sessionBegin !== undefined
+    const hasPreBaseline = hasMarkerNamed(preBaseline.name)
+    const hasPostBaseline = hasMarkerNamed(postBaseline.name)
+
+    const toggleSessionMarkers = () =>
+        hasSessionMarkers
+            ? changeSessionMarkers()
+            : changeSessionMarkers(
+                  defaultSessionBeginMarker,
+                  defaultSessionEndMarker
+              )
+
     const removeMarkerAt = (index: number) =>
         changeMarkers(markers.filter((_, other) => other !== index))
 
@@ -641,24 +656,28 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
-                    title="Add session-begin and session-end"
-                    disabled={sessionBegin !== undefined}
-                    onClick={() =>
-                        changeSessionMarkers(
-                            defaultSessionBeginMarker,
-                            defaultSessionEndMarker
-                        )
-                    }
+                    title={toggleTitleOf(
+                        hasSessionMarkers,
+                        'session-begin and session-end'
+                    )}
+                    aria-pressed={hasSessionMarkers}
+                    onClick={toggleSessionMarkers}
                 >
                     + Session markers
                 </button>
                 <button
                     type="button"
                     className="add-biosensor__button"
-                    title="Add 5 min pre-baseline"
+                    title={toggleTitleOf(hasPreBaseline, '5 min pre-baseline')}
                     aria-label="+ 5m Pre-baseline"
-                    disabled={hasMarkerNamed(preBaseline.name)}
-                    onClick={() => changeMarkers([preBaseline, ...markers])}
+                    aria-pressed={hasPreBaseline}
+                    onClick={() =>
+                        changeMarkers(
+                            hasPreBaseline
+                                ? markersNamedOtherThan(preBaseline.name)
+                                : [preBaseline, ...markers]
+                        )
+                    }
                 >
                     + 5<span className="event-markers__unit">m</span>{' '}
                     Pre-baseline
@@ -666,10 +685,19 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
                 <button
                     type="button"
                     className="add-biosensor__button"
-                    title="Add 5 min post-baseline"
+                    title={toggleTitleOf(
+                        hasPostBaseline,
+                        '5 min post-baseline'
+                    )}
                     aria-label="+ 5m Post-baseline"
-                    disabled={hasMarkerNamed(postBaseline.name)}
-                    onClick={() => changeMarkers([...markers, postBaseline])}
+                    aria-pressed={hasPostBaseline}
+                    onClick={() =>
+                        changeMarkers(
+                            hasPostBaseline
+                                ? markersNamedOtherThan(postBaseline.name)
+                                : [...markers, postBaseline]
+                        )
+                    }
                 >
                     + 5<span className="event-markers__unit">m</span>{' '}
                     Post-baseline
@@ -779,6 +807,10 @@ const preBaseline: EventMarker = {
 const postBaseline: EventMarker = {
     name: 'post-baseline',
     waitAfterMs: baselineMs,
+}
+
+function toggleTitleOf(isPressed: boolean, what: string) {
+    return `${isPressed ? 'Remove' : 'Add'} ${what}`
 }
 
 function msFromSeconds(typed: string) {

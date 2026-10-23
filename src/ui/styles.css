@@ -389,9 +389,11 @@ input.event-markers__name,
   text-transform: none;
 }
 
-.event-markers__add .add-biosensor__button:disabled {
-  opacity: 0.35;
-  cursor: default;
+.event-markers__add .add-biosensor__button[aria-pressed='true'] {
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
 }
 
 .protocols__error {
