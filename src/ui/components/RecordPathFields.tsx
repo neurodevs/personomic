@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-export const defaultRecordDirectory = '~/Personomic'
+export const defaultRecordDirectory = '~/Personomic/Sessions'
 export const defaultRecordName = 'session'
 
 const recordDirectoryLabel = 'Recordings folder'

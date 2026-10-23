@@ -102,9 +102,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [devices, setDevices] = useState<SelectedDevice[]>([])
     const [isRecordEnabled, setIsRecordEnabled] = useState(false)
     const [recordDirectory, setRecordDirectory] = useState(
-        () =>
-            localStorage.getItem(recordDirectoryStorageKey) ??
-            defaultRecordDirectory
+        rememberedRecordDirectory
     )
     const [recordName, setRecordName] = useState(defaultRecordName)
     const [recordStartedAt, setRecordStartedAt] = useState<Date>()
@@ -214,6 +212,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
         if (file) {
             fillFrom(file.protocol)
+        } else {
+            setRecordDirectory(rememberedRecordDirectory())
         }
     }
 
@@ -788,6 +788,13 @@ function sessionButtonLabelFor(session: SessionState, deviceNames: string[]) {
     return session === 'connecting' && deviceNames.includes(anyMuseName)
         ? 'Detecting Muse model…'
         : sessionButtonLabels[session]
+}
+
+function rememberedRecordDirectory() {
+    return (
+        localStorage.getItem(recordDirectoryStorageKey) ??
+        defaultRecordDirectory
+    )
 }
 
 function recordPathFor(directory: string, name: string, startedAt: Date) {

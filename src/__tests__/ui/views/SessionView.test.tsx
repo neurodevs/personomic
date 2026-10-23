@@ -1586,7 +1586,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.recordDirectoryInput.value,
-            '~/Personomic',
+            '~/Personomic/Sessions',
             'Did not offer default recordings folder!'
         )
     }
@@ -1618,7 +1618,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Personomic/session_2026-10-07_14-32-05.xdf',
+            '~/Personomic/Sessions/session_2026-10-07_14-32-05.xdf',
             'Did not record to default folder when folder was blank!'
         )
     }
@@ -1668,7 +1668,7 @@ export default class SessionViewTest extends AbstractPackageTest {
                 shown: this.shownRecordTimestamp,
             },
             {
-                sent: '~/Personomic/session_2026-10-07_14-32-05.xdf',
+                sent: '~/Personomic/Sessions/session_2026-10-07_14-32-05.xdf',
                 shown: '_2026-10-07_14-32-05.xdf',
             },
             'Did not freeze shown timestamp at sent one while connecting!'
@@ -1717,7 +1717,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Personomic/resting baseline_2026-10-07_14-32-05.xdf',
+            '~/Personomic/Sessions/resting baseline_2026-10-07_14-32-05.xdf',
             'Did not put typed recording name before timestamp!'
         )
     }
@@ -1733,7 +1733,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Personomic/sub-01-run-2_2026-10-07_14-32-05.xdf',
+            '~/Personomic/Sessions/sub-01-run-2_2026-10-07_14-32-05.xdf',
             'Did not replace illegal file name characters in recording name!'
         )
     }
@@ -1749,7 +1749,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.lastSentMessage.xdfRecordPath,
-            '~/Personomic/session_2026-10-07_14-32-05.xdf',
+            '~/Personomic/Sessions/session_2026-10-07_14-32-05.xdf',
             'Did not use default recording name when name was blank!'
         )
     }
@@ -3970,6 +3970,35 @@ export default class SessionViewTest extends AbstractPackageTest {
             this.recordDirectoryInput.value,
             '~/Personomic/Protocols/quick-study',
             'Did not record into a folder named after a protocol without one!'
+        )
+    }
+
+    @test()
+    protected static async recordsIntoSessionsFolderOnceNoProtocolIsChosen() {
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+
+        this.chooseProtocol('No protocol')
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '~/Personomic/Sessions',
+            'Did not record into the sessions folder once no protocol was chosen!'
+        )
+    }
+
+    @test()
+    protected static async recordsIntoRememberedFolderOnceNoProtocolIsChosen() {
+        localStorage.setItem('personomic.recordDirectory', '/remembered')
+        this.renderWithProtocols([this.recordingFile])
+        this.chooseProtocol('Recorded study')
+
+        this.chooseProtocol('No protocol')
+
+        assert.isEqual(
+            this.recordDirectoryInput.value,
+            '/remembered',
+            'Did not record into the remembered folder once no protocol was chosen!'
         )
     }
 
