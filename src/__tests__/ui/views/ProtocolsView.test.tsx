@@ -1661,6 +1661,115 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersAdvancedMarkersOnlyOnceMarkersExist() {
+        this.answerListing()
+        this.clickNewProtocol()
+        const whileNone = this.isAdvancedMarkersToggleShown
+
+        this.clickAddPreBaseline()
+
+        assert.isEqualDeep(
+            { whileNone, onceAdded: this.isAdvancedMarkersToggleShown },
+            { whileNone: false, onceAdded: true },
+            'Did not offer the advanced markers only once markers existed!'
+        )
+    }
+
+    private static get isAdvancedMarkersToggleShown() {
+        return (
+            screen.queryByRole('checkbox', {
+                name: 'Show advanced begin/end markers',
+            }) !== null
+        )
+    }
+
+    @test()
+    protected static async hidesBeginAndEndMarkersByDefault() {
+        this.answerListing()
+        this.clickNewProtocol()
+
+        this.clickAddPreBaseline()
+
+        assert.isFalse(
+            screen.queryByRole('list', {
+                name: 'Event marker 1 begin and end markers',
+            }) !== null,
+            'Showed the begin and end markers by default!'
+        )
+    }
+
+    @test()
+    protected static async showsBeginAndEndMarkersWhenAskedTo() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddPostBaseline()
+
+        this.clickShowAdvancedMarkers()
+
+        assert.isEqualDeep(
+            [this.emittedMarkersOf(1), this.emittedMarkersOf(2)],
+            [
+                ['pre-baseline-begin', 'pre-baseline-end'],
+                ['post-baseline-begin', 'post-baseline-end'],
+            ],
+            'Did not show the begin and end markers when asked to!'
+        )
+    }
+
+    @test()
+    protected static async showsOnlyTheNameOfMarkerWithoutWait() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddEventMarker()
+        this.typeInto('Event marker 1 name', 'stimulus')
+
+        this.clickShowAdvancedMarkers()
+
+        assert.isEqualDeep(
+            this.emittedMarkersOf(1),
+            ['stimulus'],
+            'Did not show only the name of a marker without a wait!'
+        )
+    }
+
+    @test()
+    protected static async saysWhenEventMarkersEnd() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.clickAddPreBaseline()
+        this.clickAddEventMarker()
+        this.typeInto('Event marker 2 wait after (seconds)', '10')
+
+        this.clickAddPostBaseline()
+
+        assert.isEqual(
+            within(this.eventMarkersSection).queryByText(/^Ends at/)
+                ?.textContent,
+            'Ends at 10:10',
+            'Did not say when the event markers end!'
+        )
+    }
+
+    private static clickShowAdvancedMarkers() {
+        fireEvent.click(
+            screen.getByRole('checkbox', {
+                name: 'Show advanced begin/end markers',
+            })
+        )
+    }
+
+    private static emittedMarkersOf(number: number) {
+        return within(
+            screen.getByRole('list', {
+                name: `Event marker ${number} begin and end markers`,
+            })
+        )
+            .getAllByRole('listitem')
+            .map((item) => item.textContent)
+    }
+
+    @test()
     protected static async offersAddingEventMarkerFirst() {
         this.answerListing()
 

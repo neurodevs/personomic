@@ -500,6 +500,7 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
     onMarkersChange,
 }) => {
     const headingId = useId()
+    const [showsBeginAndEnd, setShowsBeginAndEnd] = useState(false)
 
     const hasMarkerNamed = (name: string) =>
         markers.some((marker) => marker.name === name)
@@ -536,64 +537,110 @@ const ProtocolEventMarkers: React.FC<ProtocolEventMarkersProps> = ({
             {markers.length === 0 ? (
                 <p className="event-markers__empty">No event markers yet.</p>
             ) : (
-                <ul className="event-markers__list" aria-label="Event markers">
-                    {markers.map((marker, index) => {
-                        const number = index + 1
+                <div className="event-markers__box">
+                    <ul
+                        className="event-markers__list"
+                        aria-label="Event markers"
+                    >
+                        {markers.map((marker, index) => {
+                            const number = index + 1
 
-                        return (
-                            <li key={index} className="event-markers__row">
-                                <span className="event-markers__time">
-                                    {clockTimeOf(startMsOf(markers, index))}
-                                </span>
-                                <input
-                                    type="text"
-                                    className="event-markers__name"
-                                    aria-label={`Event marker ${number} name`}
-                                    placeholder="marker-name"
-                                    value={marker.name}
-                                    onChange={(event) =>
-                                        changeMarkerAt(index, {
-                                            name: kebabCaseOf(
-                                                event.target.value
-                                            ),
-                                        })
-                                    }
-                                />
-                                <label className="event-markers__wait">
-                                    then wait
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        aria-label={`Event marker ${number} wait after (seconds)`}
-                                        placeholder="0"
-                                        value={
-                                            marker.waitAfterMs === 0
-                                                ? ''
-                                                : marker.waitAfterMs / 1000
-                                        }
-                                        onChange={(event) =>
-                                            changeMarkerAt(index, {
-                                                waitAfterMs: msFromSeconds(
-                                                    event.target.value
-                                                ),
-                                            })
-                                        }
-                                    />
-                                    s
-                                </label>
-                                <button
-                                    type="button"
-                                    className="protocols__remove"
-                                    aria-label={`Remove ${marker.name.trim() || `event marker ${number}`}`}
-                                    title="Remove"
-                                    onClick={() => removeMarkerAt(index)}
-                                >
-                                    ×
-                                </button>
-                            </li>
-                        )
-                    })}
-                </ul>
+                            return (
+                                <li key={index}>
+                                    <div className="event-markers__row">
+                                        <span className="event-markers__time">
+                                            {clockTimeOf(
+                                                startMsOf(markers, index)
+                                            )}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            className="event-markers__name"
+                                            aria-label={`Event marker ${number} name`}
+                                            placeholder="marker-name"
+                                            value={marker.name}
+                                            onChange={(event) =>
+                                                changeMarkerAt(index, {
+                                                    name: kebabCaseOf(
+                                                        event.target.value
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                        <label className="event-markers__wait">
+                                            then wait
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                aria-label={`Event marker ${number} wait after (seconds)`}
+                                                placeholder="0"
+                                                value={
+                                                    marker.waitAfterMs === 0
+                                                        ? ''
+                                                        : marker.waitAfterMs /
+                                                          1000
+                                                }
+                                                onChange={(event) =>
+                                                    changeMarkerAt(index, {
+                                                        waitAfterMs:
+                                                            msFromSeconds(
+                                                                event.target
+                                                                    .value
+                                                            ),
+                                                    })
+                                                }
+                                            />
+                                            s
+                                        </label>
+                                        <button
+                                            type="button"
+                                            className="protocols__remove"
+                                            aria-label={`Remove ${marker.name.trim() || `event marker ${number}`}`}
+                                            title="Remove"
+                                            onClick={() =>
+                                                removeMarkerAt(index)
+                                            }
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    {showsBeginAndEnd && (
+                                        <ul
+                                            className="event-markers__emitted"
+                                            aria-label={`Event marker ${number} begin and end markers`}
+                                        >
+                                            {emittedNamesOf(marker).map(
+                                                (name) => (
+                                                    <li key={name}>{name}</li>
+                                                )
+                                            )}
+                                        </ul>
+                                    )}
+                                </li>
+                            )
+                        })}
+                    </ul>
+                    <div className="event-markers__footer">
+                        <span className="event-markers__ends">
+                            Ends at{' '}
+                            <span className="event-markers__ends-time">
+                                {clockTimeOf(
+                                    startMsOf(markers, markers.length)
+                                )}
+                            </span>
+                        </span>
+                        <label className="event-markers__advanced">
+                            <input
+                                type="checkbox"
+                                checked={showsBeginAndEnd}
+                                onChange={(event) =>
+                                    setShowsBeginAndEnd(event.target.checked)
+                                }
+                            />
+                            Show advanced begin/end markers
+                        </label>
+                    </div>
+                </div>
             )}
             <div className="event-markers__add">
                 <button
@@ -651,6 +698,10 @@ function startMsOf(markers: EventMarker[], index: number) {
     return markers
         .slice(0, index)
         .reduce((total, { waitAfterMs }) => total + waitAfterMs, 0)
+}
+
+function emittedNamesOf({ name, waitAfterMs }: EventMarker) {
+    return waitAfterMs === 0 ? [name] : [`${name}-begin`, `${name}-end`]
 }
 
 function clockTimeOf(ms: number) {

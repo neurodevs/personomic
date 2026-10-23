@@ -278,13 +278,17 @@ body {
   margin-top: 20px;
 }
 
+.event-markers__box {
+  padding: 14px 8px 0 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+}
+
 .event-markers__list {
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 4px 8px 4px 20px;
-  border: 1px solid var(--border-strong);
-  border-radius: 20px;
+  padding: 0;
   list-style: none;
 }
 
@@ -329,6 +333,54 @@ input.event-markers__name,
 .event-markers__wait input {
   width: 72px;
   color: var(--text-primary);
+}
+
+.event-markers__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 10px 12px 12px 0;
+  border-top: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.event-markers__ends {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.event-markers__ends-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.event-markers__advanced {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.event-markers__emitted {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 0 0 0 58px;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.event-markers__emitted li + li::before {
+  content: '→';
+  margin-right: 8px;
+}
+
+.event-markers__list > li:last-child .event-markers__emitted {
+  margin-bottom: 0;
 }
 
 .event-markers__add {
