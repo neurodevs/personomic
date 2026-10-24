@@ -86,6 +86,14 @@ connections open while hidden.
 Each tour step finds its target the way a test does, by role and name, so
 `tours.test.tsx` fails when a UI change breaks a tour.
 
+## Deploying the demo to personomic.app
+
+`yarn build.web` builds only the demo, as `dist/web/index.html`, so the site
+opens straight into the tours without an orchestrator. `yarn deploy.web` builds
+it, uploads `dist/web` to a bunny.net Storage Zone, assets first and the page
+last, then purges the Pull Zone's cache. Copy `.env.example` to `.env.local`
+and fill in the Storage Zone and Pull Zone it deploys to.
+
 ## Playing a recording
 
 Click "Play XDF recording…" and choose an XDF file, such as one recorded here. The
