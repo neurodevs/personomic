@@ -96,7 +96,7 @@ and fill in the Storage Zone and Pull Zone it deploys to.
 
 ## Playing a recording
 
-Click "Play XDF recording…" and choose an XDF file, such as one recorded here. The
+Click "Play XDF" and choose an XDF file, such as one recorded here. The
 app reads it in the browser and plays it through the same plots as a live
 session, with the timing it was recorded with, so it needs neither biosensors
 nor the orchestrator. The biosensors in the recording replace the ones you

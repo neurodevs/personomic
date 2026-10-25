@@ -257,6 +257,21 @@ body {
   font-size: 14px;
 }
 
+.biosensors__empty--action {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.biosensors__empty--action:hover,
+.biosensors__empty--action:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-secondary);
+  outline: none;
+}
+
 .protocols__record + .biosensors {
   margin-top: 20px;
 }

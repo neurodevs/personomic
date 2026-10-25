@@ -81,9 +81,9 @@ const tours: Tour[] = [
             },
             {
                 caption:
-                    'Click Play XDF recording… and choose a file. It is read right in your browser. For this tour, we will use a sample recording.',
+                    'Click Play XDF and choose a file. It is read right in your browser. For this tour, we will use a sample recording.',
                 target: (view) =>
-                    view.getByRole('button', { name: 'Play XDF recording…' }),
+                    view.getByRole('button', { name: 'Play XDF' }),
                 act: (_, view) =>
                     fireEvent.change(view.getByLabelText('Recording to play'), {
                         target: { files: [sampleRecording()] },

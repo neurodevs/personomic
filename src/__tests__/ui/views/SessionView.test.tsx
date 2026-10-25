@@ -2356,11 +2356,26 @@ export default class SessionViewTest extends AbstractPackageTest {
             {
                 record,
                 play: screen.queryByRole('button', {
-                    name: 'Play XDF recording…',
+                    name: 'Play XDF',
                 })?.textContent,
             },
-            { record: 'Record XDF', play: 'Play XDF recording…' },
+            { record: 'Record XDF', play: 'Play XDF' },
             'Did not name record and play after XDF!'
+        )
+    }
+
+    @test()
+    protected static async stylesPlayXdfLikeConnect() {
+        render(<SessionView />)
+        const connect = screen.getByRole('button', { name: 'Connect' })
+        const connectClass = connect.className
+
+        this.chooseMode('Playback')
+
+        assert.isEqual(
+            screen.getByRole('button', { name: 'Play XDF' }).className,
+            connectClass,
+            'Did not style Play XDF like Connect!'
         )
     }
 
@@ -2520,14 +2535,33 @@ export default class SessionViewTest extends AbstractPackageTest {
         let numTimesAsked = 0
         this.recordingToPlayInput.click = () => numTimesAsked++
 
-        fireEvent.click(
-            screen.getByRole('button', { name: /play xdf recording/i })
-        )
+        fireEvent.click(screen.getByRole('button', { name: 'Play XDF' }))
 
         assert.isEqual(
             numTimesAsked,
             1,
             'Did not ask for file when play recording was clicked!'
+        )
+    }
+
+    @test()
+    protected static async asksForFileWhenChooseRecordingMessageIsClicked() {
+        render(<SessionView />)
+        this.chooseMode('Playback')
+
+        let numTimesAsked = 0
+        this.recordingToPlayInput.click = () => numTimesAsked++
+
+        fireEvent.click(
+            screen.getByRole('button', {
+                name: 'Choose an XDF recording to see its biosensors.',
+            })
+        )
+
+        assert.isEqual(
+            numTimesAsked,
+            1,
+            'Did not ask for file when the choose recording message was clicked!'
         )
     }
 
@@ -4017,7 +4051,7 @@ export default class SessionViewTest extends AbstractPackageTest {
                 isNoneSaid: this.isNoneAddedSaid,
                 isRecordingAskedFor:
                     screen.queryByText(
-                        'Choose a recording to see its biosensors.'
+                        'Choose an XDF recording to see its biosensors.'
                     ) !== null,
             },
             { isNoneSaid: false, isRecordingAskedFor: true },
@@ -4753,10 +4787,7 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     private static get isPlayRecordingOffered() {
-        return (
-            screen.queryByRole('button', { name: /play xdf recording/i }) !==
-            null
-        )
+        return screen.queryByRole('button', { name: 'Play XDF' }) !== null
     }
 
     private static renderWithMuse() {

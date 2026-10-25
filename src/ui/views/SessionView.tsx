@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import familyOf from '../../functions/familyOf'
 import readXdfRecording, { Recording } from '../../functions/readXdfRecording'
@@ -8,7 +8,9 @@ import sendToOrchestrator, {
 import AddBiosensorButton from '../components/AddBiosensorButton'
 import BiosensorsSection from '../components/BiosensorsSection'
 import PlaybackControls from '../components/PlaybackControls'
-import PlayRecordingButton from '../components/PlayRecordingButton'
+import PlayRecordingButton, {
+    RecordingPicker,
+} from '../components/PlayRecordingButton'
 import {
     defaultRecordDirectory,
     defaultRecordName,
@@ -66,7 +68,7 @@ const streamOptions: Record<string, StreamOptions> = {
     Battery: { yLimits: { min: 0, max: 100 }, units: '%' },
 }
 
-const chooseRecordingMessage = 'Choose a recording to see its biosensors.'
+const chooseRecordingMessage = 'Choose an XDF recording to see its biosensors.'
 
 const intermittentWindowSeconds = 120
 
@@ -137,6 +139,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const isPlaying = session === 'playing'
     const isLive = mode === 'live'
     const isChoosingRecording = mode === 'playback' && !isPlaying
+    const recordingPicker = useRef<RecordingPicker>(null)
     const monitoredNames = isChoosingRecording
         ? []
         : devices.map(({ name }) => name)
@@ -515,6 +518,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 )}
                 {isChoosingRecording && (
                     <PlayRecordingButton
+                        ref={recordingPicker}
                         onChoose={(file) => void playRecordingIn(file)}
                     />
                 )}
@@ -661,6 +665,11 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         emptyMessage={
                             isChoosingRecording
                                 ? chooseRecordingMessage
+                                : undefined
+                        }
+                        onEmptyClick={
+                            isChoosingRecording
+                                ? () => recordingPicker.current?.open()
                                 : undefined
                         }
                     >

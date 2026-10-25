@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 
 import BiosensorsSection from '../../../ui/components/BiosensorsSection'
 import AbstractPackageTest from '../../AbstractPackageTest'
@@ -47,6 +47,38 @@ export default class BiosensorsSectionTest extends AbstractPackageTest {
             },
             { given: true, noneAdded: false },
             'Did not say the given message when empty!'
+        )
+    }
+
+    @test()
+    protected static async makesEmptyMessageClickableWhenGivenAction() {
+        let numClicks = 0
+        render(
+            <BiosensorsSection
+                isEmpty
+                emptyMessage="Choose a recording."
+                onEmptyClick={() => numClicks++}
+            />
+        )
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Choose a recording.' })
+        )
+
+        assert.isEqual(
+            numClicks,
+            1,
+            'Did not make the empty message clickable when given an action!'
+        )
+    }
+
+    @test()
+    protected static async keepsEmptyMessagePlainWithoutAction() {
+        render(<BiosensorsSection isEmpty />)
+
+        assert.isNull(
+            screen.queryByRole('button', { name: 'None added yet.' }),
+            'Made the empty message a button without an action!'
         )
     }
 

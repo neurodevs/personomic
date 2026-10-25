@@ -1,15 +1,24 @@
-import React, { useRef } from 'react'
+import React, { useImperativeHandle, useRef } from 'react'
 
 export interface PlayRecordingButtonProps {
     onChoose: (file: File) => void
+    ref?: React.Ref<RecordingPicker>
+}
+
+export interface RecordingPicker {
+    open: () => void
 }
 
 const PlayRecordingButton: React.FC<PlayRecordingButtonProps> = (
     props: PlayRecordingButtonProps
 ) => {
-    const { onChoose } = props
+    const { onChoose, ref } = props
 
     const recordingToPlayInput = useRef<HTMLInputElement>(null)
+
+    const open = () => recordingToPlayInput.current?.click()
+
+    useImperativeHandle(ref, () => ({ open }))
 
     const chooseRecording = (event: React.ChangeEvent<HTMLInputElement>) => {
         const [file] = event.target.files ?? []
@@ -24,8 +33,8 @@ const PlayRecordingButton: React.FC<PlayRecordingButtonProps> = (
         <>
             <button
                 type="button"
-                className="connect-devices__play"
-                onClick={() => recordingToPlayInput.current?.click()}
+                className="connect-devices__button"
+                onClick={open}
             >
                 {playRecordingLabel}
             </button>
@@ -43,5 +52,5 @@ const PlayRecordingButton: React.FC<PlayRecordingButtonProps> = (
 
 export default PlayRecordingButton
 
-const playRecordingLabel = 'Play XDF recording…'
+const playRecordingLabel = 'Play XDF'
 const recordingToPlayLabel = 'Recording to play'
