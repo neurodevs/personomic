@@ -782,6 +782,23 @@ input.event-markers__name,
   cursor: pointer;
 }
 
+.connect-devices__play-pause {
+  position: relative;
+}
+
+.connect-devices__play-sizer {
+  visibility: hidden;
+}
+
+.connect-devices__play-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .connect-devices__browse:disabled {
   color: var(--text-muted);
   cursor: default;
@@ -808,8 +825,8 @@ input.event-markers__name,
 }
 
 .connect-devices__seek {
-  flex: 1 1 200px;
-  min-width: 160px;
+  flex: 1 1 120px;
+  min-width: 120px;
   margin: 0;
   accent-color: var(--text-secondary);
   cursor: pointer;

@@ -72,10 +72,18 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
             )}
             <button
                 type="button"
-                className="connect-devices__play"
+                className="connect-devices__play connect-devices__play-pause"
                 onClick={hasEnded ? onReplay : isPaused ? onPlay : onPause}
             >
-                {hasEnded ? 'Replay' : isPaused ? 'Play' : 'Pause'}
+                <span
+                    aria-hidden="true"
+                    className="connect-devices__play-sizer"
+                >
+                    {labelSettingPlayButtonWidth}
+                </span>
+                <span className="connect-devices__play-label">
+                    {hasEnded ? 'Replay' : isPaused ? 'Play' : 'Pause'}
+                </span>
             </button>
             <button
                 type="button"
@@ -107,6 +115,8 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = (
 }
 
 export default PlaybackControls
+
+const labelSettingPlayButtonWidth = 'Play'
 
 const playbackSpeeds = [1, 2, 5, 10, 20, 50, 100]
 

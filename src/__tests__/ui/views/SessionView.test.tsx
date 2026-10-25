@@ -4625,7 +4625,9 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     private static get playbackButtonText() {
-        return this.playbackButton.textContent
+        return ['Pause', 'Play', 'Replay'].find((name) =>
+            screen.queryByRole('button', { name })
+        )
     }
 
     private static clickPlaybackButton() {
