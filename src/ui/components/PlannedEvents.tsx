@@ -1,4 +1,10 @@
-import React, { useRef } from 'react'
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+} from 'react'
 
 export interface PlannedEventsProps {
     scope: EventScope
@@ -155,21 +161,27 @@ export const PlannedEventRow: React.FC<PlannedEventRowProps> = ({
                         <option value="audio">Play audio</option>
                     </select>
                     {action.kind === 'cue' && (
-                        <input
-                            type="text"
-                            className="planned-events__text"
-                            aria-label={`${label} cue`}
-                            placeholder="What to do, e.g. Tilt head left"
-                            value={action.text}
-                            onChange={(change) =>
-                                onChange({
-                                    action: {
-                                        kind: 'cue',
-                                        text: change.target.value,
-                                    },
-                                })
-                            }
-                        />
+                        <>
+                            <input
+                                type="text"
+                                className="planned-events__text"
+                                aria-label={`${label} cue`}
+                                placeholder="What to do, e.g. Tilt head left"
+                                value={action.text}
+                                onChange={(change) =>
+                                    onChange({
+                                        action: {
+                                            kind: 'cue',
+                                            text: change.target.value,
+                                        },
+                                    })
+                                }
+                            />
+                            <CuePlayButton
+                                label={`${label} cue`}
+                                text={action.text}
+                            />
+                        </>
                     )}
                     {action.kind === 'arm' && (
                         <input
@@ -301,6 +313,94 @@ export interface PlannedEventRowProps {
     onChange: (change: Partial<PlannedEvent>) => void
     onRemove: () => void
 }
+
+export const defaultCueVoice = 'Tara'
+
+export const CueVoice = createContext(defaultCueVoice)
+
+const CuePlayButton: React.FC<CuePlayButtonProps> = ({ label, text }) => {
+    const voice = useContext(CueVoice)
+    const [playback, setPlayback] = useState<CuePlayback>('stopped')
+    const playbackRef = useRef(playback)
+    playbackRef.current = playback
+
+    useEffect(() => {
+        if (playbackRef.current !== 'stopped') {
+            speaker.cancel()
+        }
+    }, [text, voice])
+
+    useEffect(
+        () => () => {
+            if (playbackRef.current !== 'stopped') {
+                speaker.cancel()
+            }
+        },
+        []
+    )
+
+    const toggle = () => {
+        if (playback === 'playing') {
+            speaker.pause()
+            setPlayback('paused')
+        } else if (playback === 'paused') {
+            speaker.resume()
+            setPlayback('playing')
+        } else {
+            speaker.speak(text, voice, () => setPlayback('stopped'))
+            setPlayback('playing')
+        }
+    }
+
+    const verb = playback === 'playing' ? 'Pause' : 'Play'
+
+    return (
+        <button
+            type="button"
+            className="planned-events__play"
+            aria-label={`${verb} ${label.toLowerCase()}`}
+            title={verb}
+            disabled={!text.trim()}
+            onClick={toggle}
+        >
+            {playback === 'playing' ? <PauseSymbol /> : <PlaySymbol />}
+        </button>
+    )
+}
+
+const PlaySymbol: React.FC = () => (
+    <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        data-symbol="play"
+    >
+        <path d="M6 3.5v17a1 1 0 0 0 1.5.86l14-8.5a1 1 0 0 0 0-1.72l-14-8.5A1 1 0 0 0 6 3.5z" />
+    </svg>
+)
+
+const PauseSymbol: React.FC = () => (
+    <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+        data-symbol="pause"
+    >
+        <rect x="5" y="3" width="5" height="18" rx="1" />
+        <rect x="14" y="3" width="5" height="18" rx="1" />
+    </svg>
+)
+
+interface CuePlayButtonProps {
+    label: string
+    text: string
+}
+
+type CuePlayback = 'stopped' | 'playing' | 'paused'
 
 const AudioChooser: React.FC<AudioChooserProps> = ({
     label,
@@ -553,4 +653,69 @@ export function objectsIn(value: unknown): Record<string, unknown>[] {
                   !Array.isArray(item)
           )
         : []
+}
+
+// Test doubles
+
+let speakingUtterance: SpeechSynthesisUtterance | undefined
+
+export let speaker: Speaker = {
+    speak(text, voice, onEnd) {
+        const utterance = new SpeechSynthesisUtterance(text)
+        utterance.voice = browserVoiceNamed(voice) ?? null
+        const finish = () => {
+            if (speakingUtterance === utterance) {
+                speakingUtterance = undefined
+            }
+            onEnd()
+        }
+        utterance.onend = finish
+        utterance.onerror = (event) => {
+            if (!isStoppedOnPurpose(event)) {
+                console.warn(`Could not speak the cue: ${event.error}`)
+            }
+            finish()
+        }
+
+        const isBusy = speechSynthesis.speaking || speechSynthesis.pending
+        speakingUtterance = utterance
+        speechSynthesis.cancel()
+        speechSynthesis.resume()
+
+        if (isBusy) {
+            setTimeout(() => speechSynthesis.speak(utterance), 100)
+        } else {
+            speechSynthesis.speak(utterance)
+        }
+    },
+    pause: () => speechSynthesis.pause(),
+    resume: () => speechSynthesis.resume(),
+    cancel: () => speechSynthesis.cancel(),
+    voiceNames: () => speechSynthesis.getVoices().map(({ name }) => name),
+    onVoicesChanged(listener) {
+        speechSynthesis.addEventListener('voiceschanged', listener)
+        return () =>
+            speechSynthesis.removeEventListener('voiceschanged', listener)
+    },
+}
+
+function browserVoiceNamed(name: string) {
+    return speechSynthesis.getVoices().find((voice) => voice.name === name)
+}
+
+function isStoppedOnPurpose(event: SpeechSynthesisErrorEvent) {
+    return event.error === 'canceled' || event.error === 'interrupted'
+}
+
+export function setSpeaker(nextSpeaker: Speaker) {
+    speaker = nextSpeaker
+}
+
+export interface Speaker {
+    speak(text: string, voice: string, onEnd: () => void): void
+    pause(): void
+    resume(): void
+    cancel(): void
+    voiceNames(): string[]
+    onVoicesChanged(listener: () => void): () => void
 }

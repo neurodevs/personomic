@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import React, { useState } from 'react'
 
 import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
+import FakeSpeaker from '../../../testDoubles/Speaker/FakeSpeaker'
 import FakeStreamPlot from '../../../testDoubles/StreamPlot/FakeStreamPlot'
 import FakeStreamMonitor, {
     lastStreamMonitorProps,
@@ -3573,6 +3574,26 @@ export default class SessionViewTest extends AbstractPackageTest {
             },
             { isMarkedUnsaved: true, saved: ['pre-baseline', 'post-baseline'] },
             'Did not save the phases edited in the session!'
+        )
+    }
+
+    @test()
+    protected static async savesCueVoiceEditedInSession() {
+        FakeSpeaker.availableVoices = ['Alex', 'Tara']
+        this.renderWithProtocols([this.baselineFile])
+        this.chooseProtocol('Baselines')
+        this.clickEditProtocol()
+        fireEvent.change(screen.getByLabelText('Cue voice'), {
+            target: { value: 'Alex' },
+        })
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqual(
+            this.lastSentMessage.protocol.voice,
+            'Alex',
+            'Did not save the cue voice edited in the session!'
         )
     }
 

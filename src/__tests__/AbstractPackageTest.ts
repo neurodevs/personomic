@@ -8,6 +8,8 @@ import AbstractModuleTest from '@neurodevs/node-tdd'
 
 import FakePpgDetector from '../testDoubles/PpgDetector/FakePpgDetector'
 import FakeResizeObserver from '../testDoubles/ResizeObserver/FakeResizeObserver'
+import FakeSpeaker from '../testDoubles/Speaker/FakeSpeaker'
+import { setSpeaker } from '../ui/components/PlannedEvents'
 import { setResizeObserverComponent } from '../ui/components/StreamPlot'
 
 export default class AbstractPackageTest extends AbstractModuleTest {
@@ -24,6 +26,9 @@ export default class AbstractPackageTest extends AbstractModuleTest {
 
         PpgPeakDetector.Class = FakePpgDetector
         FakePpgDetector.resetTestDouble()
+
+        setSpeaker(FakeSpeaker)
+        FakeSpeaker.resetTestDouble()
     }
 
     private static giveJsdomTheTextCodingBrowsersHave() {

@@ -1,6 +1,7 @@
-import React, { useId } from 'react'
+import React, { useEffect, useId, useState } from 'react'
 
 import PlannedEvents, {
+    CueVoice,
     kebabCaseOf,
     msFromSeconds,
     newEvent,
@@ -9,20 +10,23 @@ import PlannedEvents, {
     PlannedEventRow,
     plannedEventsFrom,
     startingAfterRenamed,
+    speaker,
     startingWithParentInsteadOf,
 } from './PlannedEvents'
 import ScheduleSummary from './ScheduleSummary'
 
 export interface ProtocolPhasesProps {
     phases: Phase[]
+    voice: string
     isLocked?: boolean
     onChange: (phases: Phase[]) => void
+    onVoiceChange: (voice: string) => void
 }
 
 const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
     props: ProtocolPhasesProps
 ) => {
-    const { phases, isLocked = false, onChange } = props
+    const { phases, voice, isLocked = false, onChange, onVoiceChange } = props
 
     const headingId = useId()
 
@@ -34,13 +38,14 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
         )
 
     return (
-        <>
+        <CueVoice.Provider value={voice}>
             <ScheduleSummary phases={phases} />
             <section className="phases" aria-labelledby={headingId}>
                 <h3 id={headingId} className="event-markers__heading">
                     Phases
                 </h3>
                 <fieldset className="phases__fieldset" disabled={isLocked}>
+                    <VoiceChooser voice={voice} onChange={onVoiceChange} />
                     {phases.length > 0 && (
                         <ol className="phases__list">
                             {phases.map((phase, index) => (
@@ -111,11 +116,49 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
                     </div>
                 </fieldset>
             </section>
-        </>
+        </CueVoice.Provider>
     )
 }
 
 export default ProtocolPhases
+
+const VoiceChooser: React.FC<VoiceChooserProps> = ({ voice, onChange }) => {
+    const [browserVoices, setBrowserVoices] = useState(() =>
+        speaker.voiceNames()
+    )
+
+    useEffect(
+        () =>
+            speaker.onVoicesChanged(() =>
+                setBrowserVoices(speaker.voiceNames())
+            ),
+        []
+    )
+
+    const voices = [...new Set([...browserVoices, voice])].sort()
+
+    return (
+        <label className="event-markers__wait phases__voice">
+            cue voice
+            <select
+                aria-label="Cue voice"
+                value={voice}
+                onChange={(change) => onChange(change.target.value)}
+            >
+                {voices.map((name) => (
+                    <option key={name} value={name}>
+                        {name}
+                    </option>
+                ))}
+            </select>
+        </label>
+    )
+}
+
+interface VoiceChooserProps {
+    voice: string
+    onChange: (voice: string) => void
+}
 
 export interface Phase {
     name: string

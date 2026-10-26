@@ -6,7 +6,7 @@ import sendToOrchestrator, {
 import AddBiosensorButton from '../components/AddBiosensorButton'
 import BiosensorsSection from '../components/BiosensorsSection'
 import DevicePanel from '../components/DevicePanel'
-import { objectsIn } from '../components/PlannedEvents'
+import { defaultCueVoice, objectsIn } from '../components/PlannedEvents'
 import ProtocolForm from '../components/ProtocolForm'
 import ProtocolPhases, { Phase, phasesFrom } from '../components/ProtocolPhases'
 import { deviceLabelFor } from '../components/StreamMonitor'
@@ -380,8 +380,14 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                             />
                             <ProtocolPhases
                                 phases={selected.protocol.phases ?? []}
+                                voice={
+                                    selected.protocol.voice || defaultCueVoice
+                                }
                                 onChange={(phases) =>
                                     changeSelectedProtocol({ phases })
+                                }
+                                onVoiceChange={(voice) =>
+                                    changeSelectedProtocol({ voice })
                                 }
                             />
                         </ProtocolForm>
@@ -406,6 +412,7 @@ export interface Protocol {
     recordXdf?: boolean
     recordDirectory?: string
     recordFileStub?: string
+    voice?: string
     phases?: Phase[]
 }
 
@@ -591,7 +598,10 @@ export function fileContentsOf(protocol: Protocol) {
         name,
         devices: devices.map(requestOf),
         ...recordDefaultsOf(protocol),
-        ...(protocol.phases?.length && { phases: protocol.phases }),
+        ...(protocol.phases?.length && {
+            voice: protocol.voice || defaultCueVoice,
+            phases: protocol.phases,
+        }),
     }
 }
 
@@ -668,6 +678,7 @@ export function protocolFrom(contents: ProtocolContents): Protocol {
         recordXdf: contents.recordXdf === true,
         recordDirectory: textOr(contents.recordDirectory),
         recordFileStub: textOr(contents.recordFileStub),
+        voice: textOr(contents.voice) || defaultCueVoice,
         phases: Array.isArray(contents.phases)
             ? phasesFrom(contents.phases)
             : phasesFromEventMarkersIn(contents),
@@ -680,6 +691,7 @@ export interface ProtocolContents {
     recordXdf?: unknown
     recordDirectory?: unknown
     recordFileStub?: unknown
+    voice?: unknown
     eventMarkers?: unknown
     phases?: unknown
 }

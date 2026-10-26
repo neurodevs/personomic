@@ -18,6 +18,7 @@ import {
     recordFileSuffixFor,
 } from '../components/RecordPathFields'
 import ProtocolForm from '../components/ProtocolForm'
+import { defaultCueVoice } from '../components/PlannedEvents'
 import ProtocolPhases, { Phase } from '../components/ProtocolPhases'
 import RecordXdfControls, {
     RecordXdfControlsProps,
@@ -134,6 +135,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [protocolName, setProtocolName] = useState('')
     const [protocolSavedTo, setProtocolSavedTo] = useState<string>()
     const [phases, setPhases] = useState<Phase[]>([])
+    const [voice, setVoice] = useState(defaultCueVoice)
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -160,6 +162,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         recordXdf: isRecordEnabled,
         recordDirectory,
         recordFileStub: recordName,
+        voice,
         phases,
     })
 
@@ -220,6 +223,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         } else {
             setRecordDirectory(rememberedRecordDirectory())
             setPhases([])
+            setVoice(defaultCueVoice)
         }
     }
 
@@ -228,6 +232,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
         setDevices(devices)
         setPhases(protocol.phases ?? [])
+        setVoice(protocol.voice || defaultCueVoice)
         setIsRecordEnabled(recordXdf ?? false)
 
         setRecordDirectory(recordDirectory || recordDirectoryFor(protocol))
@@ -727,7 +732,9 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         <ProtocolPhases
                             phases={phases}
                             isLocked={!isEditingProtocol}
+                            voice={voice}
                             onChange={setPhases}
+                            onVoiceChange={setVoice}
                         />
                     )}
                 </ProtocolForm>

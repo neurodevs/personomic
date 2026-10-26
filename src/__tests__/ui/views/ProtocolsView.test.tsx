@@ -1,6 +1,7 @@
 import { test, assert } from '@neurodevs/node-tdd'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 
+import FakeSpeaker from '../../../testDoubles/Speaker/FakeSpeaker'
 import FakeStreamMonitor from '../../../testDoubles/StreamMonitor/FakeStreamMonitor'
 import FakeWebSocket from '../../../testDoubles/WebSocket/FakeWebSocket'
 import App from '../../../ui/App'
@@ -1500,6 +1501,52 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             ],
             'Did not save the phases of the protocol!'
         )
+    }
+
+    @test()
+    protected static async savesCueVoiceWithPhases() {
+        FakeSpeaker.availableVoices = ['Alex', 'Tara']
+        this.answerListing()
+        this.clickNewProtocol()
+        fireEvent.click(screen.getByRole('button', { name: 'Add phase' }))
+        const defaultVoice = this.chosenVoice
+        this.typeInto('Cue voice', 'Alex')
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            { defaultVoice, saved: this.lastSentMessage.protocol.voice },
+            { defaultVoice: 'Tara', saved: 'Alex' },
+            'Did not save the cue voice with the phases!'
+        )
+    }
+
+    @test()
+    protected static async showsCueVoiceOfListedProtocol() {
+        this.answerListing([
+            {
+                fileName: 'tilt.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt',
+                    voice: 'Rishi',
+                    phases: [{ name: 'pre-baseline', durationMs: 300000 }],
+                },
+            },
+        ])
+
+        fireEvent.click(screen.getByRole('button', { name: 'Tilt' }))
+
+        assert.isEqual(
+            this.chosenVoice,
+            'Rishi',
+            'Did not show the cue voice of the listed protocol!'
+        )
+    }
+
+    private static get chosenVoice() {
+        return (screen.getByLabelText('Cue voice') as HTMLSelectElement).value
     }
 
     @test()

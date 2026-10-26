@@ -468,6 +468,10 @@ input.event-markers__name,
   cursor: default;
 }
 
+.phases__voice {
+  margin-bottom: 14px;
+}
+
 .phases__add {
   display: flex;
   flex-wrap: wrap;
@@ -535,6 +539,32 @@ input.event-markers__name,
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.planned-events__play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.planned-events__play:hover:not(:disabled),
+.planned-events__play:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.planned-events__play:disabled {
+  color: var(--text-muted);
+  cursor: default;
 }
 
 .planned-events__audio:hover,

@@ -1,7 +1,8 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 
+import FakeSpeaker from '../../../testDoubles/Speaker/FakeSpeaker'
 import ProtocolPhases, {
     Block,
     Phase,
@@ -12,10 +13,89 @@ import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class ProtocolPhasesTest extends AbstractPackageTest {
     private static changed: Phase[]
+    private static changedVoice?: string
 
     protected static async beforeEach() {
         await super.beforeEach()
         this.changed = []
+        this.changedVoice = undefined
+    }
+
+    @test()
+    protected static async offersEachVoiceTheBrowserHas() {
+        FakeSpeaker.availableVoices = ['Alex', 'Tara']
+
+        this.render()
+
+        assert.isEqualDeep(
+            { voices: this.voiceOptions, chosen: this.chosenVoice },
+            { voices: ['Alex', 'Tara'], chosen: 'Tara' },
+            'Did not offer each voice the browser has!'
+        )
+    }
+
+    @test()
+    protected static async offersChosenVoiceEvenWhenBrowserLacksIt() {
+        FakeSpeaker.availableVoices = ['Alex']
+
+        this.render([], 'Rishi')
+
+        assert.isEqualDeep(
+            { voices: this.voiceOptions, chosen: this.chosenVoice },
+            { voices: ['Alex', 'Rishi'], chosen: 'Rishi' },
+            'Did not offer the chosen voice when the browser lacked it!'
+        )
+    }
+
+    @test()
+    protected static async offersVoicesOnceBrowserLoadsThem() {
+        this.render()
+
+        act(() => FakeSpeaker.loadVoices(['Alex', 'Tara']))
+
+        assert.isEqualDeep(
+            this.voiceOptions,
+            ['Alex', 'Tara'],
+            'Did not offer the voices once the browser loaded them!'
+        )
+    }
+
+    @test()
+    protected static async playsCuesInChosenVoice() {
+        FakeSpeaker.availableVoices = ['Alex', 'Tara']
+        this.render([
+            this.phase('pre-baseline', [
+                {
+                    event: {
+                        name: 'close-eyes',
+                        action: { kind: 'cue', text: 'Close your eyes' },
+                        start: { delay: { ms: 0 }, from: 'parentStart' },
+                        end: { kind: 'actionFinishes' },
+                    },
+                },
+            ]),
+        ])
+
+        this.type('Cue voice', 'Alex')
+        this.click('Play phase event 1 cue')
+
+        assert.isEqualDeep(
+            {
+                changedVoice: this.changedVoice,
+                spoken: FakeSpeaker.spokenVoices,
+            },
+            { changedVoice: 'Alex', spoken: ['Alex'] },
+            'Did not play the cues in the chosen voice!'
+        )
+    }
+
+    private static get voiceOptions() {
+        const select = screen.getByLabelText('Cue voice') as HTMLSelectElement
+        return [...select.options].map((option) => option.value)
+    }
+
+    private static get chosenVoice() {
+        return (screen.getByLabelText('Cue voice') as HTMLSelectElement).value
     }
 
     @test()
@@ -460,8 +540,10 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
         render(
             <ProtocolPhases
                 phases={[this.phaseWithBlock()]}
+                voice="Tara"
                 isLocked
                 onChange={() => {}}
+                onVoiceChange={() => {}}
             />
         )
 
@@ -560,16 +642,22 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
         )
     }
 
-    private static render(phases: Phase[] = []) {
+    private static render(phases: Phase[] = [], voice = 'Tara') {
         const Harness = () => {
             const [current, setCurrent] = useState(phases)
+            const [currentVoice, setCurrentVoice] = useState(voice)
 
             return (
                 <ProtocolPhases
                     phases={current}
+                    voice={currentVoice}
                     onChange={(next) => {
                         setCurrent(next)
                         this.changed = next
+                    }}
+                    onVoiceChange={(next) => {
+                        setCurrentVoice(next)
+                        this.changedVoice = next
                     }}
                 />
             )
