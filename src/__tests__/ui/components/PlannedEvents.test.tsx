@@ -91,6 +91,17 @@ export default class PlannedEventsTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersEachActionByWhatItDoes() {
+        this.render([this.event('tilt-cue')])
+
+        assert.isEqualDeep(
+            this.optionTextsOf('Trial event 1 action'),
+            ['Marker only', 'Spoken cue', 'Robotic arm', 'Play audio'],
+            'Did not offer each action by what it does!'
+        )
+    }
+
+    @test()
     protected static async givesCueItsText() {
         this.render([this.event('tilt-cue')])
 

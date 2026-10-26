@@ -150,7 +150,7 @@ export const PlannedEventRow: React.FC<PlannedEventRowProps> = ({
                         }
                     >
                         <option value="marker">Marker only</option>
-                        <option value="cue">Cue</option>
+                        <option value="cue">Spoken cue</option>
                         <option value="arm">Robotic arm</option>
                         <option value="audio">Play audio</option>
                     </select>
