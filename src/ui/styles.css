@@ -578,11 +578,16 @@ input.event-markers__name,
   cursor: pointer;
 }
 
-.schedule__expand-all:hover,
+.schedule__expand-all:hover:not(:disabled),
 .schedule__expand-all:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
   color: var(--text-primary);
   outline: none;
+}
+
+.schedule__expand-all:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .schedule__list ol {

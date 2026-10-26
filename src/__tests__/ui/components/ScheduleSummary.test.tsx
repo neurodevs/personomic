@@ -175,6 +175,122 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async expandsOneLevelAtATime() {
+        this.render([
+            this.phase('interventions', { blocks: [this.reversibleTilt] }),
+        ])
+
+        const before = this.levelButtonsState
+        fireEvent.click(this.expandLevelButton)
+        const afterOne = this.levelButtonsState
+        fireEvent.click(this.expandLevelButton)
+
+        assert.isEqualDeep(
+            { before, afterOne, afterTwo: this.levelButtonsState },
+            {
+                before: {
+                    rows: ['interventions', 'end'],
+                    canExpand: true,
+                    canCollapse: false,
+                },
+                afterOne: {
+                    rows: ['interventions', 'reversible-tilt', 'end'],
+                    canExpand: true,
+                    canCollapse: true,
+                },
+                afterTwo: {
+                    rows: [
+                        'interventions',
+                        'reversible-tilt',
+                        'before trials',
+                        'position-check',
+                        'each trial',
+                        'tilt-cue',
+                        'stroke',
+                        'upright-cue',
+                        'response-window',
+                        'end',
+                    ],
+                    canExpand: false,
+                    canCollapse: true,
+                },
+            },
+            'Did not expand one level at a time!'
+        )
+    }
+
+    @test()
+    protected static async collapsesOneLevelAtATime() {
+        this.render([
+            this.phase('interventions', { blocks: [this.reversibleTilt] }),
+        ])
+
+        fireEvent.click(this.expandAllButton)
+        fireEvent.click(this.collapseLevelButton)
+        const afterOne = this.levelButtonsState
+        fireEvent.click(this.collapseLevelButton)
+
+        assert.isEqualDeep(
+            { afterOne, afterTwo: this.levelButtonsState },
+            {
+                afterOne: {
+                    rows: ['interventions', 'reversible-tilt', 'end'],
+                    canExpand: true,
+                    canCollapse: true,
+                },
+                afterTwo: {
+                    rows: ['interventions', 'end'],
+                    canExpand: true,
+                    canCollapse: false,
+                },
+            },
+            'Did not collapse one level at a time!'
+        )
+    }
+
+    @test()
+    protected static async expandsTheShallowestLevelNotYetOpen() {
+        this.render([
+            this.phase('pre-baseline', {
+                events: [this.event('rest')],
+            }),
+            this.phase('interventions', { blocks: [this.reversibleTilt] }),
+        ])
+
+        this.open('interventions')
+        this.open('reversible-tilt')
+        fireEvent.click(this.collapseLevelButton)
+        fireEvent.click(this.expandLevelButton)
+
+        assert.isEqualDeep(
+            this.rows.map(([, what]) => what),
+            ['pre-baseline', 'rest', 'interventions', 'reversible-tilt', 'end'],
+            'Did not expand the shallowest level not yet open!'
+        )
+    }
+
+    private static get levelButtonsState() {
+        return {
+            rows: this.rows.map(([, what]) => what),
+            canExpand: !(this.expandLevelButton as HTMLButtonElement).disabled,
+            canCollapse: !(this.collapseLevelButton as HTMLButtonElement)
+                .disabled,
+        }
+    }
+
+    private static get expandLevelButton() {
+        return within(this.summary).getByRole('button', {
+            name: 'Expand one level',
+        })
+    }
+
+    private static get collapseLevelButton() {
+        return within(this.summary).getByRole('button', {
+            name: 'Collapse one level',
+        })
+    }
+
     private static get expandAllButton() {
         return within(this.summary).getByRole('button', {
             name: /^(Expand|Collapse) all$/,

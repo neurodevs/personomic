@@ -18,18 +18,30 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
     const [showsTags, setShowsTags] = useState(false)
 
     const { phaseRows, endRow } = scheduleOf(phases)
-    const allKeys = phaseRows.flatMap(({ children }, index) =>
-        children.length === 0
-            ? []
-            : [
-                  phaseKeyOf(index),
-                  ...children.flatMap((child, childIndex) =>
-                      'contents' in child ? [blockKeyOf(index, childIndex)] : []
-                  ),
-              ]
-    )
+    const levels = levelsOf(phaseRows)
+    const allKeys = levels.flat()
     const isAllOpen =
         allKeys.length > 0 && allKeys.every((key) => openKeys.has(key))
+
+    const nextLevelToExpand = levels.findIndex(
+        (level) => !level.every((key) => openKeys.has(key))
+    )
+    const nextLevelToCollapse = levels.findLastIndex((level) =>
+        level.some((key) => isShownOpen(key, openKeys))
+    )
+
+    const expandLevel = () =>
+        setOpenKeys(
+            new Set([
+                ...openKeys,
+                ...levels.slice(0, nextLevelToExpand + 1).flat(),
+            ])
+        )
+
+    const collapseLevel = () => {
+        const closing = new Set(levels.slice(nextLevelToCollapse).flat())
+        setOpenKeys(new Set([...openKeys].filter((key) => !closing.has(key))))
+    }
 
     const toggleOf = (key: string) => ({
         isOpen: openKeys.has(key),
@@ -70,17 +82,41 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
                                 {showsMarkers ? 'Hide markers' : 'Show markers'}
                             </button>
                             {allKeys.length > 0 && (
-                                <button
-                                    type="button"
-                                    className="schedule__expand-all"
-                                    onClick={() =>
-                                        setOpenKeys(
-                                            new Set(isAllOpen ? [] : allKeys)
-                                        )
-                                    }
-                                >
-                                    {isAllOpen ? 'Collapse all' : 'Expand all'}
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        className="schedule__expand-all"
+                                        aria-label="Collapse one level"
+                                        disabled={nextLevelToCollapse === -1}
+                                        onClick={collapseLevel}
+                                    >
+                                        −
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="schedule__expand-all"
+                                        onClick={() =>
+                                            setOpenKeys(
+                                                new Set(
+                                                    isAllOpen ? [] : allKeys
+                                                )
+                                            )
+                                        }
+                                    >
+                                        {isAllOpen
+                                            ? 'Collapse all'
+                                            : 'Expand all'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="schedule__expand-all"
+                                        aria-label="Expand one level"
+                                        disabled={nextLevelToExpand === -1}
+                                        onClick={expandLevel}
+                                    >
+                                        +
+                                    </button>
+                                </>
                             )}
                         </div>
                     )}
@@ -171,6 +207,28 @@ const BlockGroupItem: React.FC<BlockGroupItemProps> = ({ group, toggle }) => (
 interface BlockGroupItemProps {
     group: BlockGroup
     toggle: Toggle
+}
+
+function levelsOf(phaseRows: ReturnType<typeof scheduleOf>['phaseRows']) {
+    const withChildren = phaseRows
+        .map(({ children }, index) => ({ children, index }))
+        .filter(({ children }) => children.length > 0)
+
+    return [
+        withChildren.map(({ index }) => phaseKeyOf(index)),
+        withChildren.flatMap(({ children, index }) =>
+            children.flatMap((child, childIndex) =>
+                'contents' in child ? [blockKeyOf(index, childIndex)] : []
+            )
+        ),
+    ].filter((level) => level.length > 0)
+}
+
+function isShownOpen(key: string, openKeys: Set<string>) {
+    const parts = key.split('/')
+    return parts.every((_, depth) =>
+        openKeys.has(parts.slice(0, depth + 1).join('/'))
+    )
 }
 
 function phaseKeyOf(phaseIndex: number) {
