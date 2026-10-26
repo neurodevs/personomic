@@ -149,6 +149,24 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async namesColumnsVariablesAndRowsConditions() {
+        this.render([this.phaseWithBlock()])
+
+        this.click('Add column to block 1 conditions')
+
+        assert.isEqualDeep(
+            ['Add column to', 'Add row to'].map(
+                (action) =>
+                    screen.getByRole('button', {
+                        name: `${action} block 1 conditions`,
+                    }).textContent
+            ),
+            ['+ Column / Variable', '+ Row / Condition'],
+            'Did not name the columns variables and the rows conditions!'
+        )
+    }
+
+    @test()
     protected static async letsTrialEventsUseConditionColumns() {
         this.render([
             this.phaseWithBlock({

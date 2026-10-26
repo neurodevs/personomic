@@ -657,7 +657,7 @@ const ConditionsTable: React.FC<ConditionsTableProps> = ({
                         })
                     }
                 >
-                    + Column
+                    + Column / Variable
                 </button>
                 {columns.length > 0 && (
                     <button
@@ -671,7 +671,7 @@ const ConditionsTable: React.FC<ConditionsTableProps> = ({
                             })
                         }
                     >
-                        + Row
+                        + Row / Condition
                     </button>
                 )}
             </div>
