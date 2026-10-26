@@ -238,9 +238,11 @@ body {
 .biosensors__heading,
 .event-markers__heading {
   margin: 0 0 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 12px;
-  font-weight: 400;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .biosensors__empty {
