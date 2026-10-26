@@ -737,10 +737,10 @@ const baselines = [
 function baselinePhase(name: string): Phase {
     const events: PlannedEvent[] = [
         {
-            name: `${name}-start`,
+            name: `${name}-before`,
             action: {
                 kind: 'cue',
-                text: `Please close your eyes for a 5-minute ${name}`,
+                text: 'Please close your eyes for the next 5 minutes',
             },
             start: { delay: { ms: 0 }, from: 'parentStart' },
             end: { kind: 'actionFinishes' },
@@ -750,13 +750,13 @@ function baselinePhase(name: string): Phase {
             action: { kind: 'marker' },
             start: {
                 delay: { ms: 0 },
-                from: { event: `${name}-start`, edge: 'end' },
+                from: { event: `${name}-before`, edge: 'end' },
             },
             end: { kind: 'duration', length: { ms: 5 * 60 * 1000 } },
         },
         {
-            name: `${name}-end`,
-            action: { kind: 'cue', text: 'You can open your eyes now' },
+            name: `${name}-after`,
+            action: { kind: 'cue', text: 'Please open your eyes now' },
             start: {
                 delay: { ms: 0 },
                 from: { event: `${name}-rest`, edge: 'end' },

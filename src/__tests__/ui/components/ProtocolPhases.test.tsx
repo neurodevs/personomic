@@ -359,10 +359,10 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
                 durationMs: 0,
                 events: [
                     {
-                        ...this.event('pre-baseline-start'),
+                        ...this.event('pre-baseline-before'),
                         action: {
                             kind: 'cue',
-                            text: 'Please close your eyes for a 5-minute pre-baseline',
+                            text: 'Please close your eyes for the next 5 minutes',
                         },
                         end: { kind: 'actionFinishes' },
                     },
@@ -370,15 +370,15 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
                         ...this.event('pre-baseline-rest'),
                         start: {
                             delay: { ms: 0 },
-                            from: { event: 'pre-baseline-start', edge: 'end' },
+                            from: { event: 'pre-baseline-before', edge: 'end' },
                         },
                         end: { kind: 'duration', length: { ms: 300000 } },
                     },
                     {
-                        ...this.event('pre-baseline-end'),
+                        ...this.event('pre-baseline-after'),
                         action: {
                             kind: 'cue',
-                            text: 'You can open your eyes now',
+                            text: 'Please open your eyes now',
                         },
                         start: {
                             delay: { ms: 0 },
@@ -404,12 +404,12 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
                 this.eventsOf(phase).map(({ name }) => name)
             ),
             [
-                'pre-baseline-start',
+                'pre-baseline-before',
                 'pre-baseline-rest',
-                'pre-baseline-end',
-                'post-baseline-start',
+                'pre-baseline-after',
+                'post-baseline-before',
                 'post-baseline-rest',
-                'post-baseline-end',
+                'post-baseline-after',
             ],
             "Did not name each baseline's events uniquely!"
         )
