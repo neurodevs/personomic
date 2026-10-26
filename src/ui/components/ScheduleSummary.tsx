@@ -755,6 +755,8 @@ function actionTextOf({ action, end }: PlannedEvent) {
     switch (action.kind) {
         case 'arm':
             return `arm: ${action.command}`
+        case 'audio':
+            return `play ${action.file || 'audio'}`
         default:
             return end.kind === 'duration' ? 'interval' : 'marker'
     }

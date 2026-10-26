@@ -523,6 +523,35 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async namesTheAudioToPlay() {
+        this.render([
+            this.phase('baseline', {
+                events: [
+                    this.event('tone', {
+                        action: { kind: 'audio', file: 'tone.wav' },
+                        end: { kind: 'actionFinishes' },
+                    }),
+                    this.event('noise', {
+                        action: { kind: 'audio', file: 'pink-noise.mp3' },
+                        end: { kind: 'duration', length: { ms: 5000 } },
+                    }),
+                ],
+            }),
+        ])
+
+        this.open('baseline')
+
+        assert.isEqualDeep(
+            this.rows.slice(1, 3).map(([time, , detail]) => [time, detail]),
+            [
+                ['+0:00 – ≥0:00', 'play tone.wav'],
+                ['0:00 – 0:05', 'play pink-noise.mp3 for 5 s'],
+            ],
+            'Did not name the audio to play!'
+        )
+    }
+
+    @test()
     protected static async givesLongLengthsInMinutesAndSeconds() {
         this.render([
             this.phase('baseline', {

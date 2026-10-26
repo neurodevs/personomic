@@ -520,6 +520,30 @@ input.event-markers__name,
   width: 64px;
 }
 
+.planned-events__audio {
+  flex: 2;
+  min-width: 160px;
+  overflow: hidden;
+  padding: 6px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.planned-events__audio:hover,
+.planned-events__audio:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+  outline: none;
+}
+
 .phases__count {
   color: var(--text-secondary);
   font-size: 12px;

@@ -119,6 +119,47 @@ export default class PlannedEventsTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async givesAudioItsFile() {
+        this.render([this.event('tone')])
+
+        this.choose('Trial event 1 action', 'audio')
+        const before = this.audioButtonText
+        fireEvent.change(screen.getByLabelText('Trial event 1 audio file'), {
+            target: { files: [new File([''], 'tone.wav')] },
+        })
+
+        assert.isEqualDeep(
+            {
+                before,
+                action: this.changed[0].action,
+                after: this.audioButtonText,
+            },
+            {
+                before: 'Choose audio…',
+                action: { kind: 'audio', file: 'tone.wav' },
+                after: 'tone.wav',
+            },
+            'Did not give the audio its file!'
+        )
+    }
+
+    private static get audioButtonText() {
+        return screen.getByRole('button', { name: /^Trial event 1 audio:/ })
+            .textContent
+    }
+
+    @test()
+    protected static async readsAudioFromProtocol() {
+        assert.isEqualDeep(
+            plannedEventsFrom([
+                { name: 'tone', action: { kind: 'audio', file: 'tone.wav' } },
+            ])[0].action,
+            { kind: 'audio', file: 'tone.wav' },
+            'Did not read the audio from the protocol!'
+        )
+    }
+
+    @test()
     protected static async offersOtherEventsToStartAfter() {
         this.render([this.event('tilt-cue'), this.event('stroke')])
 

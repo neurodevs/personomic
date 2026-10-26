@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 
 export interface PlannedEventsProps {
     scope: EventScope
@@ -85,6 +85,7 @@ export type EventAction =
     | { kind: 'marker' }
     | { kind: 'cue'; text: string }
     | { kind: 'arm'; command: string }
+    | { kind: 'audio'; file: string }
 
 export interface EventStart {
     delay: Amount
@@ -151,6 +152,7 @@ export const PlannedEventRow: React.FC<PlannedEventRowProps> = ({
                         <option value="marker">Marker only</option>
                         <option value="cue">Cue</option>
                         <option value="arm">Robotic arm</option>
+                        <option value="audio">Play audio</option>
                     </select>
                     {action.kind === 'cue' && (
                         <input
@@ -183,6 +185,15 @@ export const PlannedEventRow: React.FC<PlannedEventRowProps> = ({
                                         command: change.target.value,
                                     },
                                 })
+                            }
+                        />
+                    )}
+                    {action.kind === 'audio' && (
+                        <AudioChooser
+                            label={`${label} audio`}
+                            file={action.file}
+                            onChoose={(file) =>
+                                onChange({ action: { kind: 'audio', file } })
                             }
                         />
                     )}
@@ -291,6 +302,52 @@ export interface PlannedEventRowProps {
     onRemove: () => void
 }
 
+const AudioChooser: React.FC<AudioChooserProps> = ({
+    label,
+    file,
+    onChoose,
+}) => {
+    const audioInput = useRef<HTMLInputElement>(null)
+    const shown = file || 'Choose audio…'
+
+    const chooseAudio = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const [chosen] = event.target.files ?? []
+        event.target.value = ''
+
+        if (chosen) {
+            onChoose(chosen.name)
+        }
+    }
+
+    return (
+        <>
+            <button
+                type="button"
+                className="planned-events__audio"
+                aria-label={`${label}: ${shown}`}
+                title={file || undefined}
+                onClick={() => audioInput.current?.click()}
+            >
+                {shown}
+            </button>
+            <input
+                ref={audioInput}
+                type="file"
+                accept="audio/*"
+                hidden
+                aria-label={`${label} file`}
+                onChange={chooseAudio}
+            />
+        </>
+    )
+}
+
+interface AudioChooserProps {
+    label: string
+    file: string
+    onChoose: (file: string) => void
+}
+
 const AmountInput: React.FC<AmountInputProps> = ({
     label,
     amount,
@@ -358,6 +415,8 @@ function actionOfKind(kind: EventAction['kind']): EventAction {
             return { kind, text: '' }
         case 'arm':
             return { kind, command: '' }
+        case 'audio':
+            return { kind, file: '' }
         default:
             return { kind: 'marker' }
     }
@@ -435,6 +494,8 @@ function actionFrom(action?: Record<string, unknown>): EventAction {
             return { kind: 'cue', text: String(action.text ?? '') }
         case 'arm':
             return { kind: 'arm', command: String(action.command ?? '') }
+        case 'audio':
+            return { kind: 'audio', file: String(action.file ?? '') }
         default:
             return { kind: 'marker' }
     }
