@@ -457,17 +457,17 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsScheduleBelowPhaseButtons() {
+    protected static async showsScheduleAbovePhases() {
         this.render([this.phase('pre-baseline')])
 
-        const addPhase = screen.getByRole('button', { name: 'Add phase' })
         const schedule = screen.getByRole('region', { name: 'Schedule' })
+        const phases = screen.getByRole('region', { name: 'Phases' })
 
         assert.isTrue(
-            (addPhase.compareDocumentPosition(schedule) &
+            (schedule.compareDocumentPosition(phases) &
                 Node.DOCUMENT_POSITION_FOLLOWING) !==
-                0,
-            'Did not show the schedule below the phase buttons!'
+                0 && !phases.contains(schedule),
+            'Did not show the schedule above the phases!'
         )
     }
 

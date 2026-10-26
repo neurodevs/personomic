@@ -34,73 +34,84 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
         )
 
     return (
-        <section className="phases" aria-labelledby={headingId}>
-            <h3 id={headingId} className="event-markers__heading">
-                Phases
-            </h3>
-            <fieldset className="phases__fieldset" disabled={isLocked}>
-                {phases.length > 0 && (
-                    <ol className="phases__list">
-                        {phases.map((phase, index) => (
-                            <PhaseCard
-                                key={index}
-                                number={index + 1}
-                                phase={phase}
-                                onChange={(change) => changeAt(index, change)}
-                                onRemove={() =>
-                                    onChange(
-                                        phases.filter(
-                                            (_, other) => other !== index
-                                        )
-                                    )
-                                }
-                            />
-                        ))}
-                    </ol>
-                )}
-                <div className="phases__add">
-                    <button
-                        type="button"
-                        className="add-biosensor__button"
-                        aria-label="Add phase"
-                        onClick={() => onChange(withNewPhase(phases))}
-                    >
-                        + Phase
-                    </button>
-                    {baselines.map(({ name, label, isFirst }) => {
-                        const hasBaseline = phases.some(
-                            (phase) => phase.name === name
-                        )
-
-                        return (
-                            <button
-                                key={name}
-                                type="button"
-                                className="add-biosensor__button"
-                                title={`${hasBaseline ? 'Remove' : 'Add'} 5 min ${name}`}
-                                aria-label={`+ 5m ${label}`}
-                                aria-pressed={hasBaseline}
-                                onClick={() =>
-                                    onChange(
-                                        hasBaseline
-                                            ? phases.filter(
-                                                  (phase) => phase.name !== name
-                                              )
-                                            : isFirst
-                                              ? [baselinePhase(name), ...phases]
-                                              : [...phases, baselinePhase(name)]
-                                    )
-                                }
-                            >
-                                + 5<span className="phases__unit">m</span>{' '}
-                                {label}
-                            </button>
-                        )
-                    })}
-                </div>
-            </fieldset>
+        <>
             <ScheduleSummary phases={phases} />
-        </section>
+            <section className="phases" aria-labelledby={headingId}>
+                <h3 id={headingId} className="event-markers__heading">
+                    Phases
+                </h3>
+                <fieldset className="phases__fieldset" disabled={isLocked}>
+                    {phases.length > 0 && (
+                        <ol className="phases__list">
+                            {phases.map((phase, index) => (
+                                <PhaseCard
+                                    key={index}
+                                    number={index + 1}
+                                    phase={phase}
+                                    onChange={(change) =>
+                                        changeAt(index, change)
+                                    }
+                                    onRemove={() =>
+                                        onChange(
+                                            phases.filter(
+                                                (_, other) => other !== index
+                                            )
+                                        )
+                                    }
+                                />
+                            ))}
+                        </ol>
+                    )}
+                    <div className="phases__add">
+                        <button
+                            type="button"
+                            className="add-biosensor__button"
+                            aria-label="Add phase"
+                            onClick={() => onChange(withNewPhase(phases))}
+                        >
+                            + Phase
+                        </button>
+                        {baselines.map(({ name, label, isFirst }) => {
+                            const hasBaseline = phases.some(
+                                (phase) => phase.name === name
+                            )
+
+                            return (
+                                <button
+                                    key={name}
+                                    type="button"
+                                    className="add-biosensor__button"
+                                    title={`${hasBaseline ? 'Remove' : 'Add'} 5 min ${name}`}
+                                    aria-label={`+ 5m ${label}`}
+                                    aria-pressed={hasBaseline}
+                                    onClick={() =>
+                                        onChange(
+                                            hasBaseline
+                                                ? phases.filter(
+                                                      (phase) =>
+                                                          phase.name !== name
+                                                  )
+                                                : isFirst
+                                                  ? [
+                                                        baselinePhase(name),
+                                                        ...phases,
+                                                    ]
+                                                  : [
+                                                        ...phases,
+                                                        baselinePhase(name),
+                                                    ]
+                                        )
+                                    }
+                                >
+                                    + 5<span className="phases__unit">m</span>{' '}
+                                    {label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </fieldset>
+            </section>
+        </>
     )
 }
 

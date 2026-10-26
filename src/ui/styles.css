@@ -319,7 +319,7 @@ input.event-markers__name,
   color: var(--text-primary);
 }
 
-.biosensors + .phases {
+.schedule + .phases {
   margin-top: 20px;
 }
 
