@@ -15,6 +15,7 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
     const headingId = useId()
     const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
     const [showsMarkers, setShowsMarkers] = useState(false)
+    const [showsTags, setShowsTags] = useState(false)
 
     const { phaseRows, endRow } = scheduleOf(phases)
     const allKeys = phaseRows.flatMap(({ children }, index) =>
@@ -41,14 +42,25 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
     })
 
     return (
-        <section className="schedule" aria-labelledby={headingId}>
+        <section
+            className={showsTags ? 'schedule' : 'schedule schedule--tagless'}
+            aria-labelledby={headingId}
+        >
             <h4 id={headingId} className="phases__subheading">
                 Schedule
             </h4>
-            <MarkersShown.Provider value={showsMarkers}>
+            <Shown.Provider value={{ markers: showsMarkers, tags: showsTags }}>
                 <div className="schedule__card">
                     {phases.length > 0 && (
                         <div className="schedule__controls">
+                            <button
+                                type="button"
+                                className="schedule__expand-all"
+                                aria-pressed={showsTags}
+                                onClick={() => setShowsTags(!showsTags)}
+                            >
+                                {showsTags ? 'Hide tags' : 'Show tags'}
+                            </button>
                             <button
                                 type="button"
                                 className="schedule__expand-all"
@@ -124,14 +136,14 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
                         </li>
                     </ol>
                 </div>
-            </MarkersShown.Provider>
+            </Shown.Provider>
         </section>
     )
 }
 
 export default ScheduleSummary
 
-const MarkersShown = createContext(false)
+const Shown = createContext({ markers: false, tags: false })
 
 const startRow: ScheduleRow = {
     time: '0:00',
@@ -172,7 +184,7 @@ function blockKeyOf(phaseIndex: number, itemIndex: number) {
 const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
     const { time, what, kind, number, cueText, detail, depth, markers } = row
     const label = <span className="schedule__name">{what}</span>
-    const showsMarkers = useContext(MarkersShown)
+    const shows = useContext(Shown)
 
     return (
         <div
@@ -186,7 +198,7 @@ const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
         >
             <span className="schedule__time">{time}</span>
             <span className="schedule__what">
-                {kind && (
+                {shows.tags && kind && (
                     <span className="kind-tag" aria-hidden="true">
                         {kind} #{number}
                     </span>
@@ -217,7 +229,7 @@ const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
                     </span>
                 </span>
             )}
-            {showsMarkers && markers && (
+            {shows.markers && markers && (
                 <span className="schedule__markers">{markers}</span>
             )}
         </div>

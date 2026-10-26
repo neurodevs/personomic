@@ -532,8 +532,19 @@ input.event-markers__name,
   --names-left: 156px;
   --phase-indent: calc(var(--tag-width) + var(--arrow-width) + var(--tag-gap));
   --block-indent: calc(2 * var(--phase-indent));
+  --trial-event-indent: calc(
+    var(--block-indent) + var(--tag-width) + var(--tag-gap)
+  );
+  --name-width: calc(146px + var(--trial-event-indent));
 
   margin-top: 6px;
+}
+
+.schedule--tagless {
+  --tag-width: 0px;
+  --tag-gap: 0px;
+  --block-indent: calc(3 * var(--arrow-width));
+  --trial-event-indent: calc(var(--block-indent) + var(--arrow-width));
 }
 
 .schedule__card {
@@ -582,7 +593,7 @@ input.event-markers__name,
 
 .schedule__row {
   display: grid;
-  grid-template-columns: 142px 420px 1fr;
+  grid-template-columns: 142px var(--name-width) 1fr;
   gap: 14px;
   padding: 3px 0;
 }
@@ -822,7 +833,7 @@ input.event-markers__name,
 
 .schedule__row--depth-3 .schedule__what,
 .schedule__row--depth-3 .schedule__markers {
-  padding-left: calc(var(--block-indent) + var(--tag-width) + var(--tag-gap));
+  padding-left: var(--trial-event-indent);
 }
 
 .conditions__scroll {

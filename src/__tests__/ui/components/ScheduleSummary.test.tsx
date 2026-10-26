@@ -188,6 +188,8 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
             this.phase('interventions', { blocks: [this.reversibleTilt] }),
         ])
 
+        fireEvent.click(this.tagsButton)
+
         assert.isEqualDeep(
             [...this.summary.querySelectorAll('.schedule__phase')].map(
                 (phase) => phase.querySelector('.kind-tag')?.textContent
@@ -198,11 +200,61 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesTagsUntilAskedToShowThem() {
+        this.render([this.phase('pre-baseline', { durationMs: 300000 })])
+
+        const before = {
+            tags: this.summary.querySelectorAll('.kind-tag').length,
+            button: this.tagsButton.textContent,
+        }
+        fireEvent.click(this.tagsButton)
+
+        assert.isEqualDeep(
+            {
+                before,
+                after: {
+                    tags: this.summary.querySelectorAll('.kind-tag').length,
+                    button: this.tagsButton.textContent,
+                },
+            },
+            {
+                before: { tags: 0, button: 'Show tags' },
+                after: { tags: 1, button: 'Hide tags' },
+            },
+            'Did not hide the tags until asked to show them!'
+        )
+    }
+
+    @test()
+    protected static async widensTheIndentsForTags() {
+        this.render([this.phase('pre-baseline', { durationMs: 300000 })])
+
+        const before = this.summary.classList.contains('schedule--tagless')
+        fireEvent.click(this.tagsButton)
+
+        assert.isEqualDeep(
+            {
+                before,
+                after: this.summary.classList.contains('schedule--tagless'),
+            },
+            { before: true, after: false },
+            'Did not widen the indents for tags!'
+        )
+    }
+
+    private static get tagsButton() {
+        return within(this.summary).getByRole('button', {
+            name: /^(Show|Hide) tags$/,
+        })
+    }
+
+    @test()
     protected static async tagsBlocksAndGroupsWhatTheyContain() {
         this.render([
             this.phase('interventions', { blocks: [this.reversibleTilt] }),
         ])
 
+        fireEvent.click(this.tagsButton)
         this.open('interventions')
         this.open('reversible-tilt')
         const block = this.summary.querySelector('.schedule__block')!
@@ -451,6 +503,7 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
             }),
         ])
 
+        fireEvent.click(this.tagsButton)
         fireEvent.click(this.expandAllButton)
 
         assert.isEqualDeep(
