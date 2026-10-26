@@ -243,8 +243,7 @@ body {
   font-weight: 400;
 }
 
-.biosensors__empty,
-.event-markers__empty {
+.biosensors__empty {
   display: flex;
   align-items: center;
   min-height: 58px;
@@ -289,38 +288,6 @@ body {
   margin-top: 10px;
 }
 
-.biosensors + .event-markers {
-  margin-top: 20px;
-}
-
-.event-markers__box {
-  padding: 14px 8px 0 20px;
-  border: 1px solid var(--border-strong);
-  border-radius: 20px;
-}
-
-.event-markers__list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.event-markers__row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 36px;
-  font-size: 14px;
-}
-
-.event-markers__time {
-  min-width: 44px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .event-markers__name {
   flex: 1;
   min-width: 0;
@@ -350,79 +317,477 @@ input.event-markers__name,
   color: var(--text-primary);
 }
 
-.event-markers__footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  margin-top: 16px;
-  padding: 10px 12px 12px 0;
-  border-top: 1px solid var(--border-strong);
-  color: var(--text-muted);
-  font-size: 12px;
+.biosensors + .phases {
+  margin-top: 20px;
 }
 
-.event-markers__advanced {
+.phases__list,
+.phases__blocks,
+.planned-events__list {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
 }
 
-.event-markers__emitted {
+.phases__phase,
+.phases__block {
+  padding: 14px 12px 14px 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+}
+
+.phases__block {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.phases__header,
+.planned-events__what,
+.planned-events__when,
+.phases__trials {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 6px;
-  padding: 0 0 0 58px;
-  list-style: none;
-  color: var(--text-muted);
-  font-size: 12px;
+  align-items: center;
+  gap: 10px 14px;
+  font-size: 14px;
 }
 
-.event-markers__emitted li + li::before {
-  content: '→';
-  margin-right: 8px;
+.phases__header {
+  margin-bottom: 10px;
 }
 
-.event-markers__list > li:last-child .event-markers__emitted {
-  margin-bottom: 0;
-}
-
-.event-markers__add {
+.phases__kind {
   display: flex;
+  margin-bottom: 8px;
+}
+
+.planned-events__list {
+  gap: 0;
+}
+
+.phases__items {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-top: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
 }
 
-.event-markers__add .add-biosensor__button {
-  text-align: center;
-  white-space: nowrap;
+.phases__items > .planned-events__row {
+  padding: 10px 0;
+  border-top: none;
 }
 
-.event-markers__unit {
+.phases__items > .planned-events__row + .planned-events__row {
+  padding-top: 20px;
+  border-top: 1px solid var(--border-strong);
+}
+
+.planned-events__row {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  column-gap: 10px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border-strong);
+}
+
+.planned-events__number {
+  padding-top: 7px;
+}
+
+.planned-events__number .kind-tag {
+  margin-right: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.planned-events__details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.planned-events__row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.planned-events__what .event-markers__name {
+  flex: 0 0 180px;
+}
+
+.planned-events__what .protocols__remove {
+  margin-left: auto;
+}
+
+.phases__phase {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+
+.phases__phase > * {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.phases__phase > .planned-events:not(:has(li)),
+.phases__phase > .add-biosensor__button {
+  flex: 0 0 auto;
+}
+
+.phases__subheading {
+  margin: 18px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.phases__fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.phases__fieldset:disabled {
+  opacity: 0.55;
+}
+
+.phases__fieldset:disabled .add-biosensor__button {
+  cursor: default;
+}
+
+.phases__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.phases__unit {
   text-transform: none;
 }
 
-.event-markers__add .add-biosensor__button[aria-pressed='true'] {
+.phases__add .add-biosensor__button[aria-pressed='true'] {
   border-style: solid;
   border-color: rgba(255, 255, 255, 0.24);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
 }
 
-.event-markers--locked .event-markers__name,
-.event-markers--locked .event-markers__wait input {
+.planned-events__timing,
+.planned-events__amount {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-muted);
+  font-size: 12px;
 }
 
-.event-markers--locked .add-biosensor__button,
-.event-markers--locked .add-biosensor__button:hover,
-.event-markers--locked .add-biosensor__button[aria-pressed='true'] {
-  border-color: var(--border-strong);
+.phases select,
+.planned-events__text,
+.planned-events__amount input,
+.conditions__table input {
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.planned-events select {
+  field-sizing: content;
+}
+
+.planned-events__text {
+  flex: 2;
+  min-width: 160px;
+}
+
+.planned-events__amount input {
+  width: 64px;
+}
+
+.phases__count {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.schedule {
+  --tag-width: 72px;
+  --arrow-width: 20px;
+  --tag-gap: 6px;
+  --names-left: 156px;
+  --phase-indent: calc(var(--tag-width) + var(--arrow-width) + var(--tag-gap));
+  --block-indent: calc(2 * var(--phase-indent));
+
+  margin-top: 6px;
+}
+
+.schedule__card {
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+}
+
+.schedule__controls {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 18px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.schedule__list {
+  margin: 0;
+  padding: 14px 20px;
+  list-style: none;
+  font-size: 13px;
+}
+
+.schedule__expand-all {
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.schedule__expand-all:hover,
+.schedule__expand-all:focus-visible {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.schedule__list ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schedule__row {
+  display: grid;
+  grid-template-columns: 142px 420px 1fr;
+  gap: 14px;
+  padding: 3px 0;
+}
+
+.schedule__time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule__toggle {
+  padding: 0;
+  border: none;
   background: none;
-  color: rgba(95, 104, 120, 0.5);
-  cursor: default;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.schedule__toggle .schedule__name::before {
+  content: '▶';
+  display: inline-block;
+  width: 20px;
+  margin-left: -20px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  vertical-align: 1px;
+}
+
+.schedule__toggle[aria-expanded='true'] .schedule__name::before {
+  content: '▼';
+}
+
+.schedule__row--depth-0 .schedule__what {
+  padding-left: var(--phase-indent);
+}
+
+.schedule .kind-tag {
+  width: var(--tag-width);
+  margin: 0 calc(var(--arrow-width) + var(--tag-gap)) 0
+    calc(-1 * var(--phase-indent));
+  text-align: center;
+}
+
+.schedule__toggle:hover,
+.schedule__toggle:focus-visible {
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.schedule__what {
+  color: var(--text-primary);
+}
+
+.schedule__detail {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule__detail--cue {
+  display: flex;
+}
+
+.schedule__detail-edge {
+  flex-shrink: 0;
+  white-space: pre;
+}
+
+.schedule__cue-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schedule__row--depth-0 .schedule__what {
+  font-weight: 600;
+}
+
+.schedule__list > li + li {
+  margin-top: 6px;
+}
+
+.kind-tag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.schedule__phase {
+  position: relative;
+}
+
+.schedule__phase:has(.schedule__children)::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: 4px;
+  left: calc(var(--names-left) + var(--phase-indent) - 10px);
+  border-left: 1px solid var(--border-strong);
+}
+
+.schedule__block {
+  position: relative;
+}
+
+.schedule__block:has(ol)::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: 4px;
+  left: calc(var(--names-left) + var(--block-indent) - 10px);
+  border-left: 1px solid var(--border-strong);
+}
+
+.schedule__row--depth-1 .schedule__time {
+  padding-left: 16px;
+}
+
+.schedule__row--depth-2 .schedule__time {
+  padding-left: 32px;
+}
+
+.schedule__row--depth-3 .schedule__time {
+  padding-left: calc(32px + 2ch);
+}
+
+.schedule__row--phase .schedule__time {
+  color: var(--text-secondary);
+}
+
+.schedule__phase:has(.schedule__children)::after,
+.schedule__block:has(ol)::after {
+  content: '';
+  position: absolute;
+  top: 22px;
+  bottom: 4px;
+  left: 6px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.schedule__block:has(ol)::after {
+  left: 22px;
+}
+
+.schedule__row--depth-1 .schedule__what {
+  padding-left: var(--block-indent);
+}
+
+.schedule__row--depth-1.schedule__row--event .schedule__what {
+  padding-left: calc(var(--block-indent) - var(--arrow-width));
+}
+
+.schedule__row--event .kind-tag {
+  margin: 0 var(--tag-gap) 0 calc(-1 * (var(--tag-width) + var(--tag-gap)));
+}
+
+.schedule__row--depth-2 .schedule__what {
+  padding-left: var(--block-indent);
+}
+
+.schedule__row--depth-3 .schedule__what {
+  padding-left: calc(var(--block-indent) + var(--tag-width) + var(--tag-gap));
+}
+
+.conditions__scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.conditions__table {
+  margin-bottom: 8px;
+  border-spacing: 6px 4px;
+}
+
+.conditions__table th {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.conditions__table input {
+  width: 110px;
+}
+
+.conditions__add {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.phases .add-biosensor__button {
+  display: inline-block;
+  width: auto;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 11px;
 }
 
 .protocols__error {

@@ -1391,679 +1391,137 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async saysNewProtocolHasNoEventMarkersYet() {
-        this.answerListing()
-
-        this.clickNewProtocol()
-
-        assert.isEqualDeep(
-            {
-                isNoneSaid:
-                    within(this.eventMarkersSection).queryByText(
-                        'No event markers yet.'
-                    ) !== null,
-                isAdvancedOffered: this.isAdvancedMarkersToggleShown,
-            },
-            { isNoneSaid: true, isAdvancedOffered: false },
-            'Did not say the new protocol has no event markers yet!'
-        )
-    }
-
-    private static get isAdvancedMarkersToggleShown() {
-        return (
-            screen.queryByRole('checkbox', {
-                name: 'Show advanced begin/end markers',
-            }) !== null
-        )
-    }
-
-    @test()
-    protected static async addsSessionMarkersAroundEventMarkers() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddPostBaseline()
-
-        this.clickAddSessionMarkers()
-
-        assert.isEqualDeep(
-            {
-                rows: this.allMarkerRows,
-                toggle: this.toggleStateOf(this.addSessionMarkersButton),
-            },
-            {
-                rows: [
-                    ['0:00', 'session-begin'],
-                    ['0:00', 'pre-baseline'],
-                    ['5:00', 'post-baseline'],
-                    ['10:00', 'session-end'],
-                ],
-                toggle: {
-                    isPressed: 'true',
-                    tooltip: 'Remove session-begin and session-end',
-                },
-            },
-            'Did not add the session markers around the event markers!'
-        )
-    }
-
-    @test()
-    protected static async removesSessionMarkersWhenPressedAgain() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddSessionMarkers()
-        this.clickAddPreBaseline()
-
-        this.clickAddSessionMarkers()
-
-        assert.isEqualDeep(
-            {
-                rows: this.allMarkerRows,
-                toggle: this.toggleStateOf(this.addSessionMarkersButton),
-            },
-            {
-                rows: [['0:00', 'pre-baseline']],
-                toggle: {
-                    isPressed: 'false',
-                    tooltip: 'Add session-begin and session-end',
-                },
-            },
-            'Did not remove the session markers when pressed again!'
-        )
-    }
-
-    private static toggleStateOf(button: HTMLButtonElement) {
-        return {
-            isPressed: button.getAttribute('aria-pressed'),
-            tooltip: button.title,
-        }
-    }
-
-    @test()
-    protected static async savesAddedSessionMarkers() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddSessionMarkers()
-
-        this.clickSave()
-        this.openOrchestratorSocket()
-
-        const { sessionBeginMarker, sessionEndMarker } =
-            this.lastSentMessage.protocol
-
-        assert.isEqualDeep(
-            { sessionBeginMarker, sessionEndMarker },
-            {
-                sessionBeginMarker: { name: 'session-begin', waitAfterMs: 0 },
-                sessionEndMarker: { name: 'session-end', waitAfterMs: 0 },
-            },
-            'Did not save the added session markers!'
-        )
-    }
-
-    @test()
-    protected static async removesBothSessionMarkersTogether() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddSessionMarkers()
-        this.clickAddPreBaseline()
-
-        this.clickRemoveOf('session-end')
-
-        assert.isEqualDeep(
-            {
-                rows: this.allMarkerRows,
-                isPressed:
-                    this.addSessionMarkersButton.getAttribute('aria-pressed'),
-            },
-            { rows: [['0:00', 'pre-baseline']], isPressed: 'false' },
-            'Did not remove both session markers together!'
-        )
-    }
-
-    private static get addSessionMarkersButton() {
-        return screen.getByRole('button', {
-            name: '+ Session markers',
-        }) as HTMLButtonElement
-    }
-
-    private static clickAddSessionMarkers() {
-        fireEvent.click(this.addSessionMarkersButton)
-    }
-
-    @test()
-    protected static async changesNameAndWaitOfSessionMarkers() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddSessionMarkers()
-
-        this.typeInto('Session begin marker name', 'Recording Begin')
-        this.typeInto('Session begin marker wait after (seconds)', '30')
-        this.typeInto('Session end marker wait after (seconds)', '5')
-        this.clickSave()
-        this.openOrchestratorSocket()
-
-        const { sessionBeginMarker, sessionEndMarker } =
-            this.lastSentMessage.protocol
-
-        assert.isEqualDeep(
-            {
-                rows: this.allMarkerRows,
-                saved: { sessionBeginMarker, sessionEndMarker },
-            },
-            {
-                rows: [
-                    ['0:00', 'recording-begin'],
-                    ['0:30', 'pre-baseline'],
-                    ['5:30', 'session-end'],
-                ],
-                saved: {
-                    sessionBeginMarker: {
-                        name: 'recording-begin',
-                        waitAfterMs: 30000,
-                    },
-                    sessionEndMarker: {
-                        name: 'session-end',
-                        waitAfterMs: 5000,
-                    },
-                },
-            },
-            'Did not change the name and wait of the session markers!'
-        )
-    }
-
-    @test()
-    protected static async readsSessionMarkersOfUploadedProtocol() {
-        this.answerListing()
-
-        await this.upload(
-            'i-insula.json',
-            JSON.stringify({
-                schemaVersion: 1,
-                name: 'I-INSULA',
-                devices: [],
-                sessionBeginMarker: { name: 'start', waitAfterMs: 60000 },
-                sessionEndMarker: { name: 'stop' },
-            })
-        )
-
-        assert.isEqualDeep(
-            this.allMarkerRows,
-            [
-                ['0:00', 'start'],
-                ['1:00', 'stop'],
-            ],
-            'Did not read the session markers of an uploaded protocol!'
-        )
-    }
-
-    @test()
-    protected static async showsEventMarkersBelowBiosensors() {
+    protected static async showsPhasesBelowBiosensors() {
         this.answerListing()
 
         this.clickNewProtocol()
 
         const biosensors = screen.getByRole('region', { name: 'Biosensors' })
+        const phases = screen.getByRole('region', { name: 'Phases' })
 
         assert.isTrue(
-            (biosensors.compareDocumentPosition(this.eventMarkersSection) &
+            (biosensors.compareDocumentPosition(phases) &
                 Node.DOCUMENT_POSITION_FOLLOWING) !==
                 0,
-            'Did not show the event markers below the biosensors!'
+            'Did not show the phases below the biosensors!'
         )
     }
 
     @test()
-    protected static async addsFiveMinutePreBaseline() {
+    protected static async readsEventMarkersOfOlderProtocolAsPhases() {
         this.answerListing()
-        this.clickNewProtocol()
 
-        this.clickAddPreBaseline()
+        await this.upload('i-insula.json', this.olderInsulaContents)
 
         assert.isEqualDeep(
-            this.eventMarkerRows,
-            [['0:00', 'pre-baseline']],
-            'Did not add a five minute pre-baseline!'
+            [1, 2].map(
+                (number) =>
+                    (
+                        screen.getByLabelText(
+                            `Phase ${number} name`
+                        ) as HTMLInputElement
+                    ).value
+            ),
+            ['pre-baseline', 'post-baseline'],
+            'Did not read the event markers of an older protocol as phases!'
         )
     }
 
     @test()
-    protected static async keepsPreBaselineFirstAndPostBaselineLast() {
+    protected static async savesOlderProtocolWithPhasesOnly() {
         this.answerListing()
-        this.clickNewProtocol()
+        await this.upload('i-insula.json', this.olderInsulaContents)
 
-        this.clickAddPostBaseline()
-        this.clickAddPreBaseline()
+        this.clickSave()
+        this.openOrchestratorSocket()
 
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [
-                ['0:00', 'pre-baseline'],
-                ['5:00', 'post-baseline'],
-            ],
-            'Did not keep the pre-baseline first and the post-baseline last!'
-        )
-    }
-
-    @test()
-    protected static async pressesEachBaselineButtonOnceAdded() {
-        this.answerListing()
-        this.clickNewProtocol()
-
-        this.clickAddPreBaseline()
+        const { phases, sessionBeginMarker, eventMarkers, sessionEndMarker } =
+            this.lastSentMessage.protocol
 
         assert.isEqualDeep(
             {
-                pre: this.toggleStateOf(this.addPreBaselineButton),
-                post: this.toggleStateOf(this.addPostBaselineButton),
+                phases: phases.map(
+                    ({
+                        name,
+                        durationMs,
+                    }: {
+                        name: string
+                        durationMs: number
+                    }) => ({
+                        name,
+                        durationMs,
+                    })
+                ),
+                markers: [sessionBeginMarker, eventMarkers, sessionEndMarker],
             },
             {
-                pre: {
-                    isPressed: 'true',
-                    tooltip: 'Remove 5 min pre-baseline',
-                },
-                post: {
-                    isPressed: 'false',
-                    tooltip: 'Add 5 min post-baseline',
-                },
+                phases: [
+                    { name: 'pre-baseline', durationMs: 300000 },
+                    { name: 'post-baseline', durationMs: 300000 },
+                ],
+                markers: [undefined, undefined, undefined],
             },
-            'Did not press each baseline button once it was added!'
+            'Did not save the older protocol with phases only!'
         )
     }
 
-    @test()
-    protected static async removesBaselineWhenPressedAgain() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddEventMarker()
-        this.clickAddPostBaseline()
-
-        this.clickAddPreBaseline()
-        this.clickAddPostBaseline()
-
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [['0:00', '']],
-            'Did not remove the baseline when pressed again!'
-        )
-    }
+    private static readonly olderInsulaContents = JSON.stringify({
+        schemaVersion: 1,
+        name: 'I-INSULA',
+        devices: [],
+        sessionBeginMarker: { name: 'session-begin', waitAfterMs: 0 },
+        eventMarkers: [
+            { name: 'pre-baseline', waitAfterMs: 300000 },
+            { name: 'post-baseline', waitAfterMs: 300000 },
+        ],
+        sessionEndMarker: { name: 'session-end', waitAfterMs: 0 },
+    })
 
     @test()
-    protected static async removesBaseline() {
+    protected static async savesPhasesOfProtocol() {
         this.answerListing()
         this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddPostBaseline()
+        fireEvent.click(screen.getByRole('button', { name: 'Add phase' }))
+        this.typeInto('Phase 1 name', 'pre-baseline')
+        this.typeInto('Phase 1 lasts (seconds)', '300')
 
-        this.clickRemoveOf('pre-baseline')
-
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [['0:00', 'post-baseline']],
-            'Did not remove the baseline!'
-        )
-    }
-
-    @test()
-    protected static async changesNameAndWaitOfBaseline() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        const presetWait = this.waitInputOf(1).value
-
-        this.typeInto('Event marker 1 name', 'eyes-closed-baseline')
-        this.typeInto('Event marker 1 wait after (seconds)', '120')
         this.clickSave()
         this.openOrchestratorSocket()
 
         assert.isEqualDeep(
+            this.lastSentMessage.protocol.phases,
+            [
+                {
+                    name: 'pre-baseline',
+                    durationMs: 300000,
+                    items: [],
+                    blockOrder: 'fixed',
+                },
+            ],
+            'Did not save the phases of the protocol!'
+        )
+    }
+
+    @test()
+    protected static async showsPhasesOfListedProtocol() {
+        this.answerListing([
             {
-                presetWait,
-                saved: this.lastSentMessage.protocol.eventMarkers,
+                fileName: 'tilt.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt',
+                    phases: [{ name: 'pre-baseline', durationMs: 300000 }],
+                },
             },
-            {
-                presetWait: '300',
-                saved: [{ name: 'eyes-closed-baseline', waitAfterMs: 120000 }],
-            },
-            'Did not change the name and wait of the baseline!'
-        )
-    }
+        ])
 
-    private static waitInputOf(number: number) {
-        return screen.getByLabelText(
-            `Event marker ${number} wait after (seconds)`
-        ) as HTMLInputElement
-    }
-
-    @test()
-    protected static async addsCustomEventMarkerBetweenBaselines() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddPostBaseline()
-
-        this.clickAddEventMarker()
-
-        assert.isEqualDeep(
-            this.eventMarkerRows.map(([, name]) => name),
-            ['pre-baseline', '', 'post-baseline'],
-            'Did not add the custom event marker between the baselines!'
-        )
-    }
-
-    @test()
-    protected static async kebabCasesCustomEventMarkerName() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddEventMarker()
-
-        this.typeInto('Event marker 1 name', 'Stroke  Left Arm')
-
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [['0:00', 'stroke-left-arm']],
-            'Did not kebab-case the custom event marker name!'
-        )
-    }
-
-    @test()
-    protected static async suggestsKebabCaseMarkerName() {
-        this.answerListing()
-        this.clickNewProtocol()
-
-        this.clickAddEventMarker()
+        fireEvent.click(screen.getByRole('button', { name: 'Tilt' }))
 
         assert.isEqual(
-            screen
-                .getByLabelText('Event marker 1 name')
-                .getAttribute('placeholder'),
-            'marker-name',
-            'Did not suggest a kebab-case marker name!'
+            (screen.getByLabelText('Phase 1 name') as HTMLInputElement).value,
+            'pre-baseline',
+            'Did not show the phases of the listed protocol!'
         )
-    }
-
-    @test()
-    protected static async savesNameAndWaitOfCustomEventMarker() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddEventMarker()
-        this.typeInto('Event marker 1 name', ' stimulus ')
-        this.typeInto('Event marker 1 wait after (seconds)', '10')
-
-        this.clickSave()
-        this.openOrchestratorSocket()
-
-        assert.isEqualDeep(
-            this.lastSentMessage.protocol.eventMarkers,
-            [{ name: 'stimulus', waitAfterMs: 10000 }],
-            'Did not save the name and wait of the custom event marker!'
-        )
-    }
-
-    @test()
-    protected static async timesMarkersAfterWaitOfCustomEventMarker() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddEventMarker()
-        this.typeInto('Event marker 2 wait after (seconds)', '10')
-
-        this.clickAddPostBaseline()
-
-        assert.isEqualDeep(
-            this.eventMarkerRows.map(([time]) => time),
-            ['0:00', '5:00', '5:10'],
-            'Did not time the markers after the wait of the custom event marker!'
-        )
-    }
-
-    @test()
-    protected static async removesOnlyTheCustomEventMarker() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddEventMarker()
-        this.clickAddEventMarker()
-        this.typeInto('Event marker 1 name', 'first')
-        this.typeInto('Event marker 2 name', 'second')
-
-        this.clickRemoveOf('first')
-
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [['0:00', 'second']],
-            'Did not remove only the custom event marker!'
-        )
-    }
-
-    @test()
-    protected static async savesEventMarkersWithProtocol() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-
-        this.clickSave()
-        this.openOrchestratorSocket()
-
-        assert.isEqualDeep(
-            this.lastSentMessage.protocol.eventMarkers,
-            [{ name: 'pre-baseline', waitAfterMs: 300000 }],
-            'Did not save the event markers with the protocol!'
-        )
-    }
-
-    @test()
-    protected static async readsEventMarkersOfUploadedProtocol() {
-        this.answerListing()
-
-        await this.upload(
-            'i-insula.json',
-            JSON.stringify({
-                schemaVersion: 1,
-                name: 'I-INSULA',
-                devices: [],
-                eventMarkers: [
-                    { name: 'session-begin', waitAfterMs: 90000 },
-                    { name: 'session-end' },
-                    { waitAfterMs: 1000 },
-                ],
-            })
-        )
-
-        assert.isEqualDeep(
-            this.eventMarkerRows,
-            [
-                ['0:00', 'session-begin'],
-                ['1:30', 'session-end'],
-            ],
-            'Did not read the event markers of an uploaded protocol!'
-        )
-    }
-
-    @test()
-    protected static async hidesBeginAndEndMarkersByDefault() {
-        this.answerListing()
-        this.clickNewProtocol()
-
-        this.clickAddPreBaseline()
-
-        assert.isFalse(
-            screen.queryByRole('list', {
-                name: 'Event marker 1 begin and end markers',
-            }) !== null,
-            'Showed the begin and end markers by default!'
-        )
-    }
-
-    @test()
-    protected static async showsBeginAndEndMarkersWhenAskedTo() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddPostBaseline()
-
-        this.clickShowAdvancedMarkers()
-
-        assert.isEqualDeep(
-            [this.emittedMarkersOf(1), this.emittedMarkersOf(2)],
-            [
-                ['pre-baseline-begin', 'pre-baseline-end'],
-                ['post-baseline-begin', 'post-baseline-end'],
-            ],
-            'Did not show the begin and end markers when asked to!'
-        )
-    }
-
-    @test()
-    protected static async showsOnlyTheNameOfMarkerWithoutWait() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddEventMarker()
-        this.typeInto('Event marker 1 name', 'stimulus')
-
-        this.clickShowAdvancedMarkers()
-
-        assert.isEqualDeep(
-            this.emittedMarkersOf(1),
-            ['stimulus'],
-            'Did not show only the name of a marker without a wait!'
-        )
-    }
-
-    @test()
-    protected static async endsSessionAfterEveryEventMarker() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.clickAddPreBaseline()
-        this.clickAddEventMarker()
-        this.typeInto('Event marker 2 wait after (seconds)', '10')
-        this.clickAddPostBaseline()
-
-        this.clickAddSessionMarkers()
-
-        assert.isEqualDeep(
-            this.allMarkerRows,
-            [
-                ['0:00', 'session-begin'],
-                ['0:00', 'pre-baseline'],
-                ['5:00', ''],
-                ['5:10', 'post-baseline'],
-                ['10:10', 'session-end'],
-            ],
-            'Did not end the session after every event marker!'
-        )
-    }
-
-    private static clickShowAdvancedMarkers() {
-        fireEvent.click(
-            screen.getByRole('checkbox', {
-                name: 'Show advanced begin/end markers',
-            })
-        )
-    }
-
-    private static emittedMarkersOf(number: number) {
-        return within(
-            screen.getByRole('list', {
-                name: `Event marker ${number} begin and end markers`,
-            })
-        )
-            .getAllByRole('listitem')
-            .map((item) => item.textContent)
-    }
-
-    @test()
-    protected static async offersAddingEventMarkerFirst() {
-        this.answerListing()
-
-        this.clickNewProtocol()
-
-        assert.isEqualDeep(
-            within(this.eventMarkersSection)
-                .getAllByRole('button')
-                .map((button) => [button.textContent, button.title]),
-            [
-                ['+ Event marker', 'Add event marker'],
-                ['+ Session markers', 'Add session-begin and session-end'],
-                ['+ 5m Pre-baseline', 'Add 5 min pre-baseline'],
-                ['+ 5m Post-baseline', 'Add 5 min post-baseline'],
-            ],
-            'Did not offer adding an event marker first!'
-        )
-    }
-
-    @test()
-    protected static async marksSavedProtocolUnsavedOnceEventMarkersChange() {
-        this.answerListing([this.file('beeps.json', 'Beeps')])
-        this.chooseListed('Beeps')
-
-        this.clickAddPostBaseline()
-
-        assert.isEqualDeep(
-            this.unsavedNames,
-            ['Beeps'],
-            'Did not mark a saved protocol unsaved once its event markers changed!'
-        )
-    }
-
-    private static get eventMarkersSection() {
-        return screen.getByRole('region', { name: 'Event markers' })
-    }
-
-    private static get eventMarkerRows() {
-        return this.markerRowsIn(
-            this.markerItems.filter(
-                (item) => !item.classList.contains('event-markers__session')
-            )
-        )
-    }
-
-    private static get allMarkerRows() {
-        return this.markerRowsIn(this.markerItems)
-    }
-
-    private static get markerItems() {
-        return Array.from(
-            screen.getByRole('list', { name: 'Event markers' }).children
-        ) as HTMLElement[]
-    }
-
-    private static markerRowsIn(items: HTMLElement[]) {
-        return items.map((item) => [
-            item.querySelector('.event-markers__time')!.textContent,
-            this.markerNameIn(item),
-        ])
-    }
-
-    private static markerNameIn(item: HTMLElement) {
-        const name = item.querySelector('.event-markers__name')!
-
-        return name instanceof HTMLInputElement ? name.value : name.textContent
-    }
-
-    private static clickAddEventMarker() {
-        fireEvent.click(screen.getByRole('button', { name: '+ Event marker' }))
-    }
-
-    private static get addPreBaselineButton() {
-        return screen.getByRole('button', {
-            name: '+ 5m Pre-baseline',
-        }) as HTMLButtonElement
-    }
-
-    private static get addPostBaselineButton() {
-        return screen.getByRole('button', {
-            name: '+ 5m Post-baseline',
-        }) as HTMLButtonElement
-    }
-
-    private static clickAddPreBaseline() {
-        fireEvent.click(this.addPreBaselineButton)
-    }
-
-    private static clickAddPostBaseline() {
-        fireEvent.click(this.addPostBaselineButton)
     }
 
     private static clickSavedPath(path: string) {
@@ -2220,5 +1678,5 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
 interface ProtocolFileReply {
     fileName: string
-    protocol: { schemaVersion: number; name: string }
+    protocol: { schemaVersion: number; name: string; [field: string]: unknown }
 }

@@ -18,6 +18,7 @@ import {
     recordFileSuffixFor,
 } from '../components/RecordPathFields'
 import ProtocolForm from '../components/ProtocolForm'
+import ProtocolPhases, { Phase } from '../components/ProtocolPhases'
 import RecordXdfControls, {
     RecordXdfControlsProps,
 } from '../components/RecordXdfControls'
@@ -42,7 +43,6 @@ import {
     fileContentsOf,
     hasUnsavedChanges,
     isSameProtocolName,
-    ProtocolEventMarkers,
     recordDirectoryFor,
     revealProtocol,
     Protocol,
@@ -133,7 +133,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const [isEditingProtocol, setIsEditingProtocol] = useState(false)
     const [protocolName, setProtocolName] = useState('')
     const [protocolSavedTo, setProtocolSavedTo] = useState<string>()
-    const [markers, setMarkers] = useState<ProtocolMarkers>(noMarkers)
+    const [phases, setPhases] = useState<Phase[]>([])
 
     const isLocked = session !== 'unlocked'
     const isPlaying = session === 'playing'
@@ -160,7 +160,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         recordXdf: isRecordEnabled,
         recordDirectory,
         recordFileStub: recordName,
-        ...markers,
+        phases,
     })
 
     const isProtocolRenamed =
@@ -219,7 +219,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
             fillFrom(file.protocol)
         } else {
             setRecordDirectory(rememberedRecordDirectory())
-            setMarkers(noMarkers)
+            setPhases([])
         }
     }
 
@@ -227,7 +227,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         const { devices, recordXdf, recordDirectory, recordFileStub } = protocol
 
         setDevices(devices)
-        setMarkers(markersOf(protocol))
+        setPhases(protocol.phases ?? [])
         setIsRecordEnabled(recordXdf ?? false)
 
         setRecordDirectory(recordDirectory || recordDirectoryFor(protocol))
@@ -724,17 +724,10 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         )}
                     </BiosensorsSection>
                     {isLive && chosenProtocolFile && (
-                        <ProtocolEventMarkers
-                            sessionBegin={markers.sessionBeginMarker}
-                            markers={markers.eventMarkers}
-                            sessionEnd={markers.sessionEndMarker}
+                        <ProtocolPhases
+                            phases={phases}
                             isLocked={!isEditingProtocol}
-                            onChange={(change) =>
-                                setMarkers((previous) => ({
-                                    ...previous,
-                                    ...change,
-                                }))
-                            }
+                            onChange={setPhases}
                         />
                     )}
                 </ProtocolForm>
@@ -765,21 +758,6 @@ const ControlGroup: React.FC<ControlGroupProps> = ({
         {children}
     </span>
 )
-
-function markersOf({
-    sessionBeginMarker,
-    eventMarkers = [],
-    sessionEndMarker,
-}: Protocol): ProtocolMarkers {
-    return { sessionBeginMarker, eventMarkers, sessionEndMarker }
-}
-
-const noMarkers: ProtocolMarkers = { eventMarkers: [] }
-
-type ProtocolMarkers = Pick<
-    EditedProtocol,
-    'sessionBeginMarker' | 'eventMarkers' | 'sessionEndMarker'
->
 
 type SessionMode = 'live' | 'playback'
 
@@ -812,10 +790,7 @@ function protocolEditedFrom(edited: EditedProtocol): Protocol {
     }
 }
 
-type EditedProtocol = Required<
-    Omit<Protocol, 'sessionBeginMarker' | 'sessionEndMarker'>
-> &
-    Pick<Protocol, 'sessionBeginMarker' | 'sessionEndMarker'>
+type EditedProtocol = Required<Protocol>
 
 function withoutDefault(value: string, defaultValue: string) {
     return value === defaultValue ? '' : value
