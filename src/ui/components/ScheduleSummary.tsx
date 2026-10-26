@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react'
+import React, { createContext, useContext, useId, useState } from 'react'
 
 import type { Amount, PlannedEvent } from './PlannedEvents'
 import type { Block, Conditions, Phase, PhaseItem } from './ProtocolPhases'
@@ -14,6 +14,7 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
 
     const headingId = useId()
     const [openKeys, setOpenKeys] = useState<Set<string>>(new Set())
+    const [showsMarkers, setShowsMarkers] = useState(false)
 
     const { phaseRows, endRow } = scheduleOf(phases)
     const allKeys = phaseRows.flatMap(({ children }, index) =>
@@ -44,71 +45,101 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
             <h4 id={headingId} className="phases__subheading">
                 Schedule
             </h4>
-            <div className="schedule__card">
-                {allKeys.length > 0 && (
-                    <div className="schedule__controls">
-                        <button
-                            type="button"
-                            className="schedule__expand-all"
-                            onClick={() =>
-                                setOpenKeys(new Set(isAllOpen ? [] : allKeys))
-                            }
-                        >
-                            {isAllOpen ? 'Collapse all' : 'Expand all'}
-                        </button>
-                    </div>
-                )}
-                <ol className="schedule__list">
-                    {phaseRows.map(({ row, children }, index) => {
-                        const phaseToggle = toggleOf(phaseKeyOf(index))
-
-                        return (
-                            <li key={index} className="schedule__phase">
-                                <ScheduleRowItem
-                                    row={row}
-                                    toggle={
-                                        children.length > 0
-                                            ? phaseToggle
-                                            : undefined
+            <MarkersShown.Provider value={showsMarkers}>
+                <div className="schedule__card">
+                    {phases.length > 0 && (
+                        <div className="schedule__controls">
+                            <button
+                                type="button"
+                                className="schedule__expand-all"
+                                aria-pressed={showsMarkers}
+                                onClick={() => setShowsMarkers(!showsMarkers)}
+                            >
+                                {showsMarkers ? 'Hide markers' : 'Show markers'}
+                            </button>
+                            {allKeys.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="schedule__expand-all"
+                                    onClick={() =>
+                                        setOpenKeys(
+                                            new Set(isAllOpen ? [] : allKeys)
+                                        )
                                     }
-                                />
-                                {phaseToggle.isOpen && (
-                                    <ol className="schedule__children">
-                                        {children.map((child, childIndex) =>
-                                            'contents' in child ? (
-                                                <BlockGroupItem
-                                                    key={childIndex}
-                                                    group={child}
-                                                    toggle={toggleOf(
-                                                        blockKeyOf(
-                                                            index,
-                                                            childIndex
-                                                        )
-                                                    )}
-                                                />
-                                            ) : (
-                                                <li key={childIndex}>
-                                                    <ScheduleRowItem
-                                                        row={child}
-                                                    />
-                                                </li>
-                                            )
-                                        )}
-                                    </ol>
-                                )}
+                                >
+                                    {isAllOpen ? 'Collapse all' : 'Expand all'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    <ol className="schedule__list">
+                        {showsMarkers && (
+                            <li>
+                                <ScheduleRowItem row={startRow} />
                             </li>
-                        )
-                    })}
-                    <li>
-                        <ScheduleRowItem row={endRow} />
-                    </li>
-                </ol>
-            </div>
+                        )}
+                        {phaseRows.map(({ row, children }, index) => {
+                            const phaseToggle = toggleOf(phaseKeyOf(index))
+
+                            return (
+                                <li key={index} className="schedule__phase">
+                                    <ScheduleRowItem
+                                        row={row}
+                                        toggle={
+                                            children.length > 0
+                                                ? phaseToggle
+                                                : undefined
+                                        }
+                                    />
+                                    {phaseToggle.isOpen && (
+                                        <ol className="schedule__children">
+                                            {children.map(
+                                                (child, childIndex) =>
+                                                    'contents' in child ? (
+                                                        <BlockGroupItem
+                                                            key={childIndex}
+                                                            group={child}
+                                                            toggle={toggleOf(
+                                                                blockKeyOf(
+                                                                    index,
+                                                                    childIndex
+                                                                )
+                                                            )}
+                                                        />
+                                                    ) : (
+                                                        <li key={childIndex}>
+                                                            <ScheduleRowItem
+                                                                row={child}
+                                                            />
+                                                        </li>
+                                                    )
+                                            )}
+                                        </ol>
+                                    )}
+                                </li>
+                            )
+                        })}
+                        <li>
+                            <ScheduleRowItem row={endRow} />
+                        </li>
+                    </ol>
+                </div>
+            </MarkersShown.Provider>
         </section>
     )
 }
 
 export default ScheduleSummary
+
+const MarkersShown = createContext(false)
+
+const startRow: ScheduleRow = {
+    time: '0:00',
+    what: 'start',
+    detail: '',
+    depth: 0,
+    markers: 'session-begin',
+}
 
 const BlockGroupItem: React.FC<BlockGroupItemProps> = ({ group, toggle }) => (
     <li className="schedule__block">
@@ -139,8 +170,9 @@ function blockKeyOf(phaseIndex: number, itemIndex: number) {
 }
 
 const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
-    const { time, what, kind, number, cueText, detail, depth } = row
+    const { time, what, kind, number, cueText, detail, depth, markers } = row
     const label = <span className="schedule__name">{what}</span>
+    const showsMarkers = useContext(MarkersShown)
 
     return (
         <div
@@ -185,6 +217,9 @@ const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
                     </span>
                 </span>
             )}
+            {showsMarkers && markers && (
+                <span className="schedule__markers">{markers}</span>
+            )}
         </div>
     )
 }
@@ -207,6 +242,7 @@ interface ScheduleRow {
     cueText?: string
     detail: string
     depth: number
+    markers?: string
 }
 
 interface BlockGroup {
@@ -231,6 +267,7 @@ function scheduleOf(phases: Phase[]) {
     let phaseStart: Time = zero
 
     const phaseRows = phases.map((phase, index) => {
+        const code = `p${index + 1}`
         const length = lengthOfPhase(phase)
         const phaseEnd = sumOf(phaseStart, length)
         const row: ScheduleRow = {
@@ -240,11 +277,12 @@ function scheduleOf(phases: Phase[]) {
             number: index + 1,
             detail: '',
             depth: 0,
+            markers: beginAndEndOf(`${code}-${phase.name || 'phase'}`),
         }
 
         phaseStart = phaseEnd
 
-        return { row, children: childRowsOf(phase) }
+        return { row, children: childRowsOf(phase, code) }
     })
 
     const endRow = {
@@ -252,12 +290,16 @@ function scheduleOf(phases: Phase[]) {
         what: 'end',
         detail: '',
         depth: 0,
+        markers: 'session-end',
     }
 
     return { phaseRows, endRow }
 }
 
-function childRowsOf(phase: Phase): (ScheduleRow | BlockGroup)[] {
+function childRowsOf(
+    phase: Phase,
+    phaseCode: string
+): (ScheduleRow | BlockGroup)[] {
     const isShuffled = hasShuffledBlocks(phase)
     const timesOf = itemTimesOf(phase.items, noColumns, isShuffled)
 
@@ -269,10 +311,11 @@ function childRowsOf(phase: Phase): (ScheduleRow | BlockGroup)[] {
             ? blockGroupOf(
                   item.block,
                   isShuffled ? '' : spanOf(timesOf(index)),
-                  ++blockNumber
+                  ++blockNumber,
+                  `${phaseCode}b${blockNumber}`
               )
             : {
-                  ...eventRowOf(item.event, ++eventNumber),
+                  ...eventRowOf(item.event, ++eventNumber, `${phaseCode}-`),
                   time: spanOf(timesOf(index), isInstant(item.event)),
                   depth: 1,
               }
@@ -296,9 +339,15 @@ function hasShuffledBlocks({ items, blockOrder }: Phase) {
     return blockOrder !== 'fixed' && numBlocks > 1
 }
 
-function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
+function blockGroupOf(
+    block: Block,
+    time: string,
+    number: number,
+    code: string
+): BlockGroup {
     const { name, setup, trial, teardown, conditions, trialOrder, gap } = block
     const numTrials = conditionRowsOf(conditions).length * block.repetitions
+    const trialCode = `${code}t${numTrials === 1 ? '1' : `{1–${numTrials}}`}`
 
     const beforeTrials: ScheduleRow[] =
         setup.length > 0
@@ -309,7 +358,7 @@ function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
                       detail: '',
                       depth: 2,
                   },
-                  ...eventRowsOf(setup, noColumns, 3),
+                  ...eventRowsOf(setup, noColumns, 3, `${code}-`),
               ]
             : []
 
@@ -322,7 +371,7 @@ function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
                       detail: '',
                       depth: 2,
                   },
-                  ...eventRowsOf(teardown, noColumns, 3),
+                  ...eventRowsOf(teardown, noColumns, 3, `${code}-`),
               ]
             : []
 
@@ -336,6 +385,7 @@ function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
                 trialOrder === 'shuffled' ? 'shuffled' : 'in order'
             }`,
             depth: 1,
+            markers: beginAndEndOf(`${code}-${name || 'block'}`),
         },
         contents: [
             ...beforeTrials,
@@ -344,8 +394,14 @@ function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
                 what: 'each trial',
                 detail: gapTextOf(gap),
                 depth: 2,
+                markers: beginAndEndOf(trialCode),
             },
-            ...eventRowsOf(trial, smallestValueOf(conditions), 3),
+            ...eventRowsOf(
+                trial,
+                smallestValueOf(conditions),
+                3,
+                `${trialCode}-`
+            ),
             ...afterTrials,
         ],
     }
@@ -354,23 +410,26 @@ function blockGroupOf(block: Block, time: string, number: number): BlockGroup {
 function eventRowsOf(
     events: PlannedEvent[],
     valueOf: ValueOf,
-    depth: number
+    depth: number,
+    markerPrefix: string
 ): ScheduleRow[] {
     const timesOf = eventTimesOf(events, valueOf)
 
     return events.map((event, index) => ({
-        ...eventRowOf(event, index + 1),
+        ...eventRowOf(event, index + 1, markerPrefix),
         time: spanOf(timesOf(index), isInstant(event)),
         depth,
     }))
 }
 
-function eventRowOf(event: PlannedEvent, number: number) {
+function eventRowOf(event: PlannedEvent, number: number, markerPrefix: string) {
     const { action } = event
+    const markerName = `${markerPrefix}${event.name || 'event'}`
     const row = {
         what: event.name || 'unnamed event',
         kind: 'event' as const,
         number,
+        markers: isInstant(event) ? markerName : beginAndEndOf(markerName),
     }
 
     return action.kind === 'cue'
@@ -667,6 +726,10 @@ function gapTextOf({ minMs, meanMs, maxMs }: Block['gap']) {
 
 function spanOf({ start, end }: ItemTimes, isInstant = false) {
     return isInstant ? clockOf(start) : `${clockOf(start)} – ${clockOf(end)}`
+}
+
+function beginAndEndOf(name: string) {
+    return `${name}-begin → ${name}-end`
 }
 
 function isInstant({ action, end }: PlannedEvent) {

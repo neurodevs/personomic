@@ -519,6 +519,119 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesMarkersUntilAskedToShowThem() {
+        this.render([this.phase('pre-baseline', { durationMs: 300000 })])
+
+        assert.isEqualDeep(
+            {
+                markers: this.shownMarkers,
+                button: this.markersButton.textContent,
+            },
+            { markers: [], button: 'Show markers' },
+            'Did not hide the markers until asked to show them!'
+        )
+    }
+
+    @test()
+    protected static async showsSessionPhaseAndEventMarkers() {
+        this.render([
+            this.phase('pre-baseline', {
+                events: [
+                    this.event('start', {
+                        action: { kind: 'cue', text: 'Close your eyes' },
+                        end: { kind: 'actionFinishes' },
+                    }),
+                    this.event('rest', {
+                        end: { kind: 'duration', length: { ms: 300000 } },
+                    }),
+                    this.event('note'),
+                ],
+            }),
+        ])
+
+        fireEvent.click(this.markersButton)
+        fireEvent.click(this.expandAllButton)
+
+        assert.isEqualDeep(
+            {
+                markers: this.shownMarkers,
+                button: this.markersButton.textContent,
+            },
+            {
+                markers: [
+                    'session-begin',
+                    'p1-pre-baseline-begin → p1-pre-baseline-end',
+                    'p1-start-begin → p1-start-end',
+                    'p1-rest-begin → p1-rest-end',
+                    'p1-note',
+                    'session-end',
+                ],
+                button: 'Hide markers',
+            },
+            'Did not show the session, phase and event markers!'
+        )
+    }
+
+    @test()
+    protected static async prefixesBlockAndTrialMarkersWithTheirPosition() {
+        this.render([
+            this.phase('pre-baseline', { durationMs: 300000 }),
+            this.phase('interventions', {
+                blocks: [
+                    this.block('tilt', {
+                        setup: [this.event('check')],
+                        trial: [
+                            this.event('cue', {
+                                end: { kind: 'duration', length: { ms: 3000 } },
+                            }),
+                            this.event('mark'),
+                        ],
+                        teardown: [
+                            this.event('relax', {
+                                end: { kind: 'duration', length: { ms: 5000 } },
+                            }),
+                        ],
+                        conditions: { columns: ['side'], rows: [['l'], ['r']] },
+                        repetitions: 3,
+                    }),
+                ],
+            }),
+        ])
+
+        fireEvent.click(this.markersButton)
+        fireEvent.click(this.expandAllButton)
+
+        assert.isEqualDeep(
+            this.shownMarkers,
+            [
+                'session-begin',
+                'p1-pre-baseline-begin → p1-pre-baseline-end',
+                'p2-interventions-begin → p2-interventions-end',
+                'p2b1-tilt-begin → p2b1-tilt-end',
+                'p2b1-check',
+                'p2b1t{1–6}-begin → p2b1t{1–6}-end',
+                'p2b1t{1–6}-cue-begin → p2b1t{1–6}-cue-end',
+                'p2b1t{1–6}-mark',
+                'p2b1-relax-begin → p2b1-relax-end',
+                'session-end',
+            ],
+            'Did not prefix the block and trial markers with their position!'
+        )
+    }
+
+    private static get markersButton() {
+        return within(this.summary).getByRole('button', {
+            name: /^(Show|Hide) markers$/,
+        })
+    }
+
+    private static get shownMarkers() {
+        return [...this.summary.querySelectorAll('.schedule__markers')].map(
+            (markers) => markers.textContent
+        )
+    }
+
+    @test()
     protected static async leavesShuffledBlocksUntimed() {
         this.render([
             this.phase('interventions', {

@@ -544,6 +544,7 @@ input.event-markers__name,
 .schedule__controls {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   padding: 6px 18px;
   border-bottom: 1px solid var(--border-strong);
 }
@@ -617,8 +618,69 @@ input.event-markers__name,
   content: '▼';
 }
 
-.schedule__row--depth-0 .schedule__what {
+.schedule__row--depth-0 .schedule__what,
+.schedule__row--depth-0 .schedule__markers {
   padding-left: var(--phase-indent);
+}
+
+.schedule__row:has(.schedule__markers) {
+  position: relative;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.schedule__row:has(.schedule__markers)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.schedule__children .schedule__row:has(.schedule__markers)::after,
+.schedule__phase:has(.schedule__children)
+  > .schedule__row:has(.schedule__markers)::after {
+  left: 6px;
+}
+
+.schedule__block:has(ol) > .schedule__row:has(.schedule__markers)::after,
+.schedule__block ol .schedule__row:has(.schedule__markers)::after {
+  left: 22px;
+}
+
+.schedule__block:has(.schedule__markers)::before,
+.schedule__block:has(.schedule__markers)::after {
+  bottom: 0;
+}
+
+.schedule__children
+  > .schedule__block:last-child
+  > ol
+  > li:last-child
+  > .schedule__row::after {
+  left: 6px;
+}
+
+.schedule__phase:has(.schedule__children .schedule__markers)::before,
+.schedule__phase:has(.schedule__children .schedule__markers)::after {
+  bottom: 0;
+}
+
+.schedule__list > li:last-child > .schedule__row {
+  margin-bottom: 0;
+}
+
+.schedule__list > li:last-child > .schedule__row::after {
+  content: none;
+}
+
+.schedule__markers {
+  grid-column: 2 / -1;
+  margin-top: -2px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 .schedule .kind-tag {
@@ -739,11 +801,13 @@ input.event-markers__name,
   left: 22px;
 }
 
-.schedule__row--depth-1 .schedule__what {
+.schedule__row--depth-1 .schedule__what,
+.schedule__row--depth-1 .schedule__markers {
   padding-left: var(--block-indent);
 }
 
-.schedule__row--depth-1.schedule__row--event .schedule__what {
+.schedule__row--depth-1.schedule__row--event .schedule__what,
+.schedule__row--depth-1.schedule__row--event .schedule__markers {
   padding-left: calc(var(--block-indent) - var(--arrow-width));
 }
 
@@ -751,11 +815,13 @@ input.event-markers__name,
   margin: 0 var(--tag-gap) 0 calc(-1 * (var(--tag-width) + var(--tag-gap)));
 }
 
-.schedule__row--depth-2 .schedule__what {
+.schedule__row--depth-2 .schedule__what,
+.schedule__row--depth-2 .schedule__markers {
   padding-left: var(--block-indent);
 }
 
-.schedule__row--depth-3 .schedule__what {
+.schedule__row--depth-3 .schedule__what,
+.schedule__row--depth-3 .schedule__markers {
   padding-left: calc(var(--block-indent) + var(--tag-width) + var(--tag-gap));
 }
 
