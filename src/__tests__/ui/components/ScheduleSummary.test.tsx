@@ -807,13 +807,30 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
                 'p2-interventions-begin → p2-interventions-end',
                 'p2b1-tilt-begin → p2b1-tilt-end',
                 'p2b1-check',
-                'p2b1t{1–6}-begin → p2b1t{1–6}-end',
+                'p2b1t{1–6}-begin-{side} → p2b1t{1–6}-end',
                 'p2b1t{1–6}-cue-begin → p2b1t{1–6}-cue-end',
                 'p2b1t{1–6}-mark',
                 'p2b1-relax-begin → p2b1-relax-end',
                 'session-end',
             ],
             'Did not prefix the block and trial markers with their position!'
+        )
+    }
+
+    @test()
+    protected static async endsTrialBeginMarkersWithValuesInColumnOrder() {
+        this.render([
+            this.phase('interventions', { blocks: [this.reversibleTilt] }),
+        ])
+
+        fireEvent.click(this.markersButton)
+        fireEvent.click(this.expandAllButton)
+
+        assert.isTrue(
+            this.shownMarkers.includes(
+                'p1b1t{1–2}-begin-{tilt-side}-{release-s} → p1b1t{1–2}-end'
+            ),
+            'Did not end trial begin markers with values in column order!'
         )
     }
 

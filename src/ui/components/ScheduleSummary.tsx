@@ -464,7 +464,7 @@ function blockGroupOf(
                 what: 'each trial',
                 detail: gapTextOf(gap),
                 depth: 2,
-                markers: beginAndEndOf(trialCode),
+                markers: beginAndEndOf(trialCode, valuesOf(conditions)),
             },
             ...eventRowsOf(
                 trial,
@@ -800,8 +800,15 @@ function spanOf({ start, end }: ItemTimes, isInstant = false) {
     return isInstant ? clockOf(start) : `${clockOf(start)} – ${clockOf(end)}`
 }
 
-function beginAndEndOf(name: string) {
-    return `${name}-begin → ${name}-end`
+function valuesOf({ columns }: Conditions) {
+    return columns
+        .filter((column) => column.trim())
+        .map((column) => `-{${column}}`)
+        .join('')
+}
+
+function beginAndEndOf(name: string, beginValues = '') {
+    return `${name}-begin${beginValues} → ${name}-end`
 }
 
 function isInstant({ action, end }: PlannedEvent) {
