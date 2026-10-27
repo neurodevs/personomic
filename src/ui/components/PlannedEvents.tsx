@@ -320,19 +320,19 @@ export const CueVoice = createContext(defaultCueVoice)
 
 const CuePlayButton: React.FC<CuePlayButtonProps> = ({ label, text }) => {
     const voice = useContext(CueVoice)
-    const [playback, setPlayback] = useState<CuePlayback>('stopped')
-    const playbackRef = useRef(playback)
-    playbackRef.current = playback
+    const [isPlaying, setIsPlaying] = useState(false)
+    const isPlayingRef = useRef(isPlaying)
+    isPlayingRef.current = isPlaying
 
     useEffect(() => {
-        if (playbackRef.current !== 'stopped') {
+        if (isPlayingRef.current) {
             speaker.cancel()
         }
     }, [text, voice])
 
     useEffect(
         () => () => {
-            if (playbackRef.current !== 'stopped') {
+            if (isPlayingRef.current) {
                 speaker.cancel()
             }
         },
@@ -340,19 +340,16 @@ const CuePlayButton: React.FC<CuePlayButtonProps> = ({ label, text }) => {
     )
 
     const toggle = () => {
-        if (playback === 'playing') {
-            speaker.pause()
-            setPlayback('paused')
-        } else if (playback === 'paused') {
-            speaker.resume()
-            setPlayback('playing')
+        if (isPlaying) {
+            speaker.cancel()
+            setIsPlaying(false)
         } else {
-            speaker.speak(text, voice, () => setPlayback('stopped'))
-            setPlayback('playing')
+            speaker.speak(text, voice, () => setIsPlaying(false))
+            setIsPlaying(true)
         }
     }
 
-    const verb = playback === 'playing' ? 'Pause' : 'Play'
+    const verb = isPlaying ? 'Stop' : 'Play'
 
     return (
         <button
@@ -363,7 +360,7 @@ const CuePlayButton: React.FC<CuePlayButtonProps> = ({ label, text }) => {
             disabled={!text.trim()}
             onClick={toggle}
         >
-            {playback === 'playing' ? <PauseSymbol /> : <PlaySymbol />}
+            {isPlaying ? <StopSymbol /> : <PlaySymbol />}
         </button>
     )
 }
@@ -381,17 +378,16 @@ const PlaySymbol: React.FC = () => (
     </svg>
 )
 
-const PauseSymbol: React.FC = () => (
+const StopSymbol: React.FC = () => (
     <svg
         width="12"
         height="12"
         viewBox="0 0 24 24"
         fill="currentColor"
         aria-hidden="true"
-        data-symbol="pause"
+        data-symbol="stop"
     >
-        <rect x="5" y="3" width="5" height="18" rx="1" />
-        <rect x="14" y="3" width="5" height="18" rx="1" />
+        <rect x="4" y="4" width="16" height="16" rx="2" />
     </svg>
 )
 
@@ -399,8 +395,6 @@ interface CuePlayButtonProps {
     label: string
     text: string
 }
-
-type CuePlayback = 'stopped' | 'playing' | 'paused'
 
 const AudioChooser: React.FC<AudioChooserProps> = ({
     label,
@@ -680,7 +674,6 @@ export let speaker: Speaker = {
         const isBusy = speechSynthesis.speaking || speechSynthesis.pending
         speakingUtterance = utterance
         speechSynthesis.cancel()
-        speechSynthesis.resume()
 
         if (isBusy) {
             setTimeout(() => speechSynthesis.speak(utterance), 100)
@@ -688,8 +681,6 @@ export let speaker: Speaker = {
             speechSynthesis.speak(utterance)
         }
     },
-    pause: () => speechSynthesis.pause(),
-    resume: () => speechSynthesis.resume(),
     cancel: () => speechSynthesis.cancel(),
     voiceNames: () => speechSynthesis.getVoices().map(({ name }) => name),
     onVoicesChanged(listener) {
@@ -713,8 +704,6 @@ export function setSpeaker(nextSpeaker: Speaker) {
 
 export interface Speaker {
     speak(text: string, voice: string, onEnd: () => void): void
-    pause(): void
-    resume(): void
     cancel(): void
     voiceNames(): string[]
     onVoicesChanged(listener: () => void): () => void

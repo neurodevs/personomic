@@ -14,14 +14,6 @@ export default class FakeSpeaker {
         this.onEnd = onEnd
     }
 
-    public static pause() {
-        this.calls.push('pause')
-    }
-
-    public static resume() {
-        this.calls.push('resume')
-    }
-
     public static cancel() {
         this.calls.push('cancel')
         this.finish()

@@ -125,32 +125,24 @@ export default class PlannedEventsTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             { spoken: FakeSpeaker.spoken, button: this.cueButtonVerb },
-            { spoken: ['Head {tilt-side}'], button: 'Pause' },
+            { spoken: ['Head {tilt-side}'], button: 'Stop' },
             'Did not play the cue aloud!'
         )
     }
 
     @test()
-    protected static async pausesAndResumesCue() {
+    protected static async stopsCueAndPlaysItFromStartAgain() {
         this.render([this.cue('tilt-cue', 'Tilt head left')])
 
         this.clickCueButton('Play')
-        this.clickCueButton('Pause')
-        const whilePaused = this.cueButtonVerb
+        this.clickCueButton('Stop')
+        const afterStopping = this.cueButtonVerb
         this.clickCueButton('Play')
 
         assert.isEqualDeep(
-            {
-                calls: FakeSpeaker.calls,
-                whilePaused,
-                afterResuming: this.cueButtonVerb,
-            },
-            {
-                calls: ['speak', 'pause', 'resume'],
-                whilePaused: 'Play',
-                afterResuming: 'Pause',
-            },
-            'Did not pause and resume the cue!'
+            { calls: FakeSpeaker.calls, afterStopping },
+            { calls: ['speak', 'cancel', 'speak'], afterStopping: 'Play' },
+            'Did not stop the cue and play it from the start again!'
         )
     }
 
@@ -171,21 +163,26 @@ export default class PlannedEventsTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async playsEditedCueInsteadOfResumingOldOne() {
+    protected static async stopsCueOnceItsTextIsEdited() {
         this.render([this.cue('tilt-cue', 'Tilt head left')])
 
         this.clickCueButton('Play')
-        this.clickCueButton('Pause')
         this.type('Trial event 1 cue', 'Tilt head right')
+        const afterEditing = this.cueButtonVerb
         this.clickCueButton('Play')
 
         assert.isEqualDeep(
-            { calls: FakeSpeaker.calls, spoken: FakeSpeaker.spoken },
             {
-                calls: ['speak', 'pause', 'cancel', 'speak'],
-                spoken: ['Tilt head left', 'Tilt head right'],
+                calls: FakeSpeaker.calls,
+                spoken: FakeSpeaker.spoken,
+                afterEditing,
             },
-            'Did not play the edited cue instead of resuming the old one!'
+            {
+                calls: ['speak', 'cancel', 'speak'],
+                spoken: ['Tilt head left', 'Tilt head right'],
+                afterEditing: 'Play',
+            },
+            'Did not stop the cue once its text was edited!'
         )
     }
 
@@ -204,10 +201,10 @@ export default class PlannedEventsTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsPlayAndPauseAsSymbols() {
+    protected static async showsPlayAndStopAsSymbols() {
         this.render([this.cue('tilt-cue', 'Tilt head left')])
 
-        const symbolOf = (verb: 'Play' | 'Pause') => ({
+        const symbolOf = (verb: CueVerb) => ({
             text: this.cueButton(verb).textContent,
             symbol: this.cueButton(verb).querySelector('svg')?.dataset.symbol,
         })
@@ -215,12 +212,12 @@ export default class PlannedEventsTest extends AbstractPackageTest {
         this.clickCueButton('Play')
 
         assert.isEqualDeep(
-            { beforePlaying, whilePlaying: symbolOf('Pause') },
+            { beforePlaying, whilePlaying: symbolOf('Stop') },
             {
                 beforePlaying: { text: '', symbol: 'play' },
-                whilePlaying: { text: '', symbol: 'pause' },
+                whilePlaying: { text: '', symbol: 'stop' },
             },
-            'Did not show Play and Pause as symbols!'
+            'Did not show Play and Stop as symbols!'
         )
     }
 
@@ -265,11 +262,11 @@ export default class PlannedEventsTest extends AbstractPackageTest {
         )
     }
 
-    private static clickCueButton(verb: 'Play' | 'Pause') {
+    private static clickCueButton(verb: CueVerb) {
         fireEvent.click(this.cueButton(verb))
     }
 
-    private static cueButton(verb: 'Play' | 'Pause') {
+    private static cueButton(verb: CueVerb) {
         return screen.getByRole('button', { name: `${verb} trial event 1 cue` })
     }
 
@@ -548,3 +545,5 @@ export default class PlannedEventsTest extends AbstractPackageTest {
         return [...select.options].map((option) => option.textContent)
     }
 }
+
+type CueVerb = 'Play' | 'Stop'
