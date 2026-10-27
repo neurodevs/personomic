@@ -6,10 +6,10 @@ import {
 import PpgPeakDetector from '@neurodevs/node-biosignal-processing/build/impl/PpgPeakDetector.js'
 import AbstractModuleTest from '@neurodevs/node-tdd'
 
+import { setSpeaker } from '../functions/cueSpeaker'
 import FakePpgDetector from '../testDoubles/PpgDetector/FakePpgDetector'
 import FakeResizeObserver from '../testDoubles/ResizeObserver/FakeResizeObserver'
 import FakeSpeaker from '../testDoubles/Speaker/FakeSpeaker'
-import { setSpeaker } from '../ui/components/PlannedEvents'
 import { setResizeObserverComponent } from '../ui/components/StreamPlot'
 
 export default class AbstractPackageTest extends AbstractModuleTest {

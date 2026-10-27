@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useState } from 'react'
 
+import { speaker } from '../../functions/cueSpeaker'
+
 import PlannedEvents, {
     CueVoice,
     kebabCaseOf,
@@ -10,7 +12,6 @@ import PlannedEvents, {
     PlannedEventRow,
     plannedEventsFrom,
     startingAfterRenamed,
-    speaker,
     startingWithParentInsteadOf,
 } from './PlannedEvents'
 import ScheduleSummary from './ScheduleSummary'
@@ -123,19 +124,19 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
 export default ProtocolPhases
 
 const VoiceChooser: React.FC<VoiceChooserProps> = ({ voice, onChange }) => {
-    const [browserVoices, setBrowserVoices] = useState(() =>
-        speaker.voiceNames()
-    )
+    const [browserVoices, setBrowserVoices] = useState(downloadedVoiceNames)
 
     useEffect(
         () =>
             speaker.onVoicesChanged(() =>
-                setBrowserVoices(speaker.voiceNames())
+                setBrowserVoices(downloadedVoiceNames())
             ),
         []
     )
 
-    const voices = [...new Set([...browserVoices, voice])].sort()
+    const voices = [
+        ...new Set([...browserVoices.filter(isNaturalVoice), voice]),
+    ].sort()
 
     return (
         <label className="event-markers__wait phases__voice">
@@ -159,6 +160,52 @@ interface VoiceChooserProps {
     voice: string
     onChange: (voice: string) => void
 }
+
+function downloadedVoiceNames() {
+    return speaker
+        .voices()
+        .filter(({ isDownloaded }) => isDownloaded)
+        .map(({ name }) => name)
+}
+
+function isNaturalVoice(name: string) {
+    const baseName = name.replace(/\s*\(.*\)$/, '')
+    return !unnaturalVoiceNames.has(baseName)
+}
+
+const noveltyVoiceNames = [
+    'Albert',
+    'Bad News',
+    'Bahh',
+    'Bells',
+    'Boing',
+    'Bubbles',
+    'Cellos',
+    'Good News',
+    'Jester',
+    'Organ',
+    'Superstar',
+    'Trinoids',
+    'Whisper',
+    'Wobble',
+    'Zarvox',
+]
+
+const eloquenceVoiceNames = [
+    'Eddy',
+    'Flo',
+    'Grandma',
+    'Grandpa',
+    'Reed',
+    'Rocko',
+    'Sandy',
+    'Shelley',
+]
+
+const unnaturalVoiceNames = new Set([
+    ...noveltyVoiceNames,
+    ...eloquenceVoiceNames,
+])
 
 export interface Phase {
     name: string

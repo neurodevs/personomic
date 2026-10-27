@@ -1,3 +1,4 @@
+import { speaker } from '../../functions/cueSpeaker'
 import React, {
     createContext,
     useContext,
@@ -647,64 +648,4 @@ export function objectsIn(value: unknown): Record<string, unknown>[] {
                   !Array.isArray(item)
           )
         : []
-}
-
-// Test doubles
-
-let speakingUtterance: SpeechSynthesisUtterance | undefined
-
-export let speaker: Speaker = {
-    speak(text, voice, onEnd) {
-        const utterance = new SpeechSynthesisUtterance(text)
-        utterance.voice = browserVoiceNamed(voice) ?? null
-        const finish = () => {
-            if (speakingUtterance === utterance) {
-                speakingUtterance = undefined
-            }
-            onEnd()
-        }
-        utterance.onend = finish
-        utterance.onerror = (event) => {
-            if (!isStoppedOnPurpose(event)) {
-                console.warn(`Could not speak the cue: ${event.error}`)
-            }
-            finish()
-        }
-
-        const isBusy = speechSynthesis.speaking || speechSynthesis.pending
-        speakingUtterance = utterance
-        speechSynthesis.cancel()
-
-        if (isBusy) {
-            setTimeout(() => speechSynthesis.speak(utterance), 100)
-        } else {
-            speechSynthesis.speak(utterance)
-        }
-    },
-    cancel: () => speechSynthesis.cancel(),
-    voiceNames: () => speechSynthesis.getVoices().map(({ name }) => name),
-    onVoicesChanged(listener) {
-        speechSynthesis.addEventListener('voiceschanged', listener)
-        return () =>
-            speechSynthesis.removeEventListener('voiceschanged', listener)
-    },
-}
-
-function browserVoiceNamed(name: string) {
-    return speechSynthesis.getVoices().find((voice) => voice.name === name)
-}
-
-function isStoppedOnPurpose(event: SpeechSynthesisErrorEvent) {
-    return event.error === 'canceled' || event.error === 'interrupted'
-}
-
-export function setSpeaker(nextSpeaker: Speaker) {
-    speaker = nextSpeaker
-}
-
-export interface Speaker {
-    speak(text: string, voice: string, onEnd: () => void): void
-    cancel(): void
-    voiceNames(): string[]
-    onVoicesChanged(listener: () => void): () => void
 }

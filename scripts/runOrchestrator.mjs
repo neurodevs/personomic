@@ -49,6 +49,8 @@ const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
 
 const BLE_SCAN_MS = 5000
 
+const SAY_VOICE_LINE = /^(.+?)\s+[a-z]{2,3}_[A-Za-z0-9]+\s+#/
+
 const PROTOCOLS_DIRECTORY = '~/Personomic/Protocols'
 const UNTITLED_PROTOCOL_FILE_STEM = 'untitled-protocol'
 const REMOVED_PROTOCOLS_FOLDER = 'Removed'
@@ -63,6 +65,7 @@ let orchestrator
 let sessionRequest
 let commandInFlight
 let directoryChoiceInFlight
+let cueSpeech
 
 function specificationFor({
     deviceName,
@@ -171,6 +174,52 @@ async function revealRecording() {
         : [path.dirname(xdfRecordPath)]
 
     await promisify(execFile)('open', args)
+}
+
+async function listVoices() {
+    const { stdout } = await promisify(execFile)('say', ['-v', '?'])
+    const names = [
+        ...new Set(stdout.split('\n').map(voiceNameIn).filter(Boolean)),
+    ]
+
+    return {
+        voices: names.map((name) =>
+            names.filter(
+                (other) => baseVoiceNameOf(other) === baseVoiceNameOf(name)
+            ).length === 1
+                ? baseVoiceNameOf(name)
+                : name
+        ),
+    }
+}
+
+function voiceNameIn(sayVoiceLine) {
+    return sayVoiceLine.match(SAY_VOICE_LINE)?.[1]
+}
+
+function baseVoiceNameOf(name) {
+    return name.replace(/\s*\(.*\)$/, '')
+}
+
+function speakCue({ text, voice }) {
+    stopCue()
+
+    return new Promise((resolve) => {
+        const speech = execFile('say', ['-v', voice, '--', text], (err) => {
+            if (cueSpeech === speech) {
+                cueSpeech = undefined
+            }
+
+            resolve(err && !speech.killed ? { error: err.message } : {})
+        })
+
+        cueSpeech = speech
+    })
+}
+
+function stopCue() {
+    cueSpeech?.kill()
+    cueSpeech = undefined
 }
 
 async function listProtocols() {
@@ -492,6 +541,19 @@ async function handle(message) {
 
     if (command === 'revealRecording') {
         await revealRecording()
+        return {}
+    }
+
+    if (command === 'listVoices') {
+        return await listVoices()
+    }
+
+    if (command === 'speakCue') {
+        return await speakCue(request)
+    }
+
+    if (command === 'stopCue') {
+        stopCue()
         return {}
     }
 

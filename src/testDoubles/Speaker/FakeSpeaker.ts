@@ -3,6 +3,7 @@ export default class FakeSpeaker {
     public static spoken: string[] = []
     public static spokenVoices: string[] = []
     public static availableVoices: string[] = []
+    public static onlineVoices: string[] = []
 
     private static onEnd?: () => void
     private static voicesListener?: () => void
@@ -19,8 +20,17 @@ export default class FakeSpeaker {
         this.finish()
     }
 
-    public static voiceNames() {
-        return this.availableVoices
+    public static voices() {
+        return [
+            ...this.availableVoices.map((name) => ({
+                name,
+                isDownloaded: true,
+            })),
+            ...this.onlineVoices.map((name) => ({
+                name,
+                isDownloaded: false,
+            })),
+        ]
     }
 
     public static onVoicesChanged(listener: () => void) {
@@ -49,6 +59,7 @@ export default class FakeSpeaker {
         this.spoken = []
         this.spokenVoices = []
         this.availableVoices = []
+        this.onlineVoices = []
         this.onEnd = undefined
         this.voicesListener = undefined
     }

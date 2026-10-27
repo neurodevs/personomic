@@ -48,6 +48,53 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async hidesNoveltyAndEloquenceVoices() {
+        FakeSpeaker.availableVoices = [
+            'Bad News',
+            'Eddy (English (US))',
+            'Grandma (English (UK))',
+            'Samantha',
+            'Tara',
+            'Zarvox',
+        ]
+
+        this.render()
+
+        assert.isEqualDeep(
+            this.voiceOptions,
+            ['Samantha', 'Tara'],
+            'Did not hide the novelty and Eloquence voices!'
+        )
+    }
+
+    @test()
+    protected static async offersOnlyDownloadedVoices() {
+        FakeSpeaker.availableVoices = ['Samantha', 'Tara']
+        FakeSpeaker.onlineVoices = ['Google US English']
+
+        this.render()
+
+        assert.isEqualDeep(
+            this.voiceOptions,
+            ['Samantha', 'Tara'],
+            'Did not offer only the downloaded voices!'
+        )
+    }
+
+    @test()
+    protected static async keepsOfferingHiddenVoiceOnceChosen() {
+        FakeSpeaker.availableVoices = ['Tara', 'Zarvox']
+
+        this.render([], 'Zarvox')
+
+        assert.isEqualDeep(
+            this.voiceOptions,
+            ['Tara', 'Zarvox'],
+            'Did not keep offering the hidden voice once chosen!'
+        )
+    }
+
+    @test()
     protected static async offersVoicesOnceBrowserLoadsThem() {
         this.render()
 
