@@ -292,6 +292,99 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async fillsInAllCombinationsWithTheFirstColumnSlowest() {
+        this.render([
+            this.phaseWithBlock({
+                conditions: {
+                    columns: ['tilt-side', 'stroke-side'],
+                    rows: [
+                        ['left', 'left'],
+                        ['right', 'right'],
+                        ['neutral', ''],
+                        ['left', 'right'],
+                    ],
+                },
+            }),
+        ])
+
+        this.click(this.allCombinationsLabel)
+
+        assert.isEqualDeep(
+            this.changedBlock.conditions.rows,
+            [
+                ['left', 'left'],
+                ['left', 'right'],
+                ['right', 'left'],
+                ['right', 'right'],
+                ['neutral', 'left'],
+                ['neutral', 'right'],
+            ],
+            'Did not fill in all combinations with the first column slowest!'
+        )
+    }
+
+    @test()
+    protected static async countsTheCombinationsBeforeFillingThemIn() {
+        this.render([
+            this.phaseWithBlock({
+                conditions: {
+                    columns: ['side', 'release-s'],
+                    rows: [
+                        ['left', '10'],
+                        ['right', '30'],
+                        ['', '60'],
+                    ],
+                },
+            }),
+        ])
+
+        assert.isEqual(
+            this.allCombinationsButton.textContent,
+            'All combinations (6)',
+            'Did not count the combinations before filling them in!'
+        )
+    }
+
+    @test()
+    protected static async disablesAllCombinationsWhenThereIsNothingToChange() {
+        this.render([
+            this.phaseWithBlock({
+                conditions: {
+                    columns: ['side', 'release-s'],
+                    rows: [
+                        ['left', '10'],
+                        ['right', '10'],
+                    ],
+                },
+            }),
+            this.phaseWithBlock({
+                conditions: {
+                    columns: ['side', 'release-s'],
+                    rows: [
+                        ['left', ''],
+                        ['right', ''],
+                    ],
+                },
+            }),
+        ])
+
+        assert.isEqualDeep(
+            screen
+                .getAllByRole('button', { name: this.allCombinationsLabel })
+                .map((button) => (button as HTMLButtonElement).disabled),
+            [true, true],
+            'Did not disable All combinations when there was nothing to change!'
+        )
+    }
+
+    private static readonly allCombinationsLabel =
+        'Fill in all combinations of block 1 conditions'
+
+    private static get allCombinationsButton() {
+        return screen.getByRole('button', { name: this.allCombinationsLabel })
+    }
+
+    @test()
     protected static async namesColumnsVariablesAndRowsConditions() {
         this.render([this.phaseWithBlock()])
 

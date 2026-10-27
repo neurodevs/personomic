@@ -631,6 +631,8 @@ const ConditionsTable: React.FC<ConditionsTableProps> = ({
     const columnLabelOf = (index: number) =>
         columns[index] || `column ${index + 1}`
 
+    const combinations = allCombinationsOf(columns, rows)
+
     return (
         <div className="conditions">
             {columns.length > 0 && (
@@ -767,6 +769,22 @@ const ConditionsTable: React.FC<ConditionsTableProps> = ({
                         + Row / Condition
                     </button>
                 )}
+                {columns.length > 0 && (
+                    <button
+                        type="button"
+                        className="add-biosensor__button"
+                        aria-label={`Fill in all combinations of ${what}`}
+                        disabled={
+                            combinations.length === 0 ||
+                            isSameRows(rows, combinations)
+                        }
+                        onClick={() =>
+                            onChange({ columns, rows: combinations })
+                        }
+                    >
+                        All combinations ({combinations.length})
+                    </button>
+                )}
             </div>
         </div>
     )
@@ -776,6 +794,28 @@ interface ConditionsTableProps {
     label: string
     conditions: Conditions
     onChange: (conditions: Conditions) => void
+}
+
+function allCombinationsOf(columns: string[], rows: string[][]) {
+    const levels = columns.map((_, index) => [
+        ...new Set(rows.map((row) => row[index].trim()).filter(Boolean)),
+    ])
+
+    if (levels.some((values) => values.length === 0)) {
+        return []
+    }
+
+    return levels.reduce<string[][]>(
+        (combinations, values) =>
+            combinations.flatMap((combination) =>
+                values.map((value) => [...combination, value])
+            ),
+        [[]]
+    )
+}
+
+function isSameRows(rows: string[][], others: string[][]) {
+    return JSON.stringify(rows) === JSON.stringify(others)
 }
 
 function withCell(
