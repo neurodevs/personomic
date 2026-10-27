@@ -703,7 +703,10 @@ const ConditionsTable: React.FC<ConditionsTableProps> = ({
                                                             rows,
                                                             rowIndex,
                                                             columnIndex,
-                                                            change.target.value
+                                                            kebabCaseOf(
+                                                                change.target
+                                                                    .value
+                                                            )
                                                         ),
                                                     })
                                                 }

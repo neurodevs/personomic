@@ -276,6 +276,22 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async kebabCasesConditionValues() {
+        this.render([this.phaseWithBlock()])
+
+        this.click('Add column to block 1 conditions')
+        this.type('Block 1 column 1 name', 'side')
+        this.click('Add row to block 1 conditions')
+        this.type('Block 1 row 1 side', 'Head  Left')
+
+        assert.isEqualDeep(
+            this.changedBlock.conditions.rows,
+            [['head-left']],
+            'Did not kebab-case the condition values!'
+        )
+    }
+
+    @test()
     protected static async namesColumnsVariablesAndRowsConditions() {
         this.render([this.phaseWithBlock()])
 
