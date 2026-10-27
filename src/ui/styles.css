@@ -583,7 +583,8 @@ input.event-markers__name,
   --tag-width: 72px;
   --arrow-width: 20px;
   --tag-gap: 6px;
-  --names-left: 156px;
+  --time-width: 170px;
+  --names-left: calc(var(--time-width) + 14px);
   --phase-indent: calc(var(--tag-width) + var(--arrow-width) + var(--tag-gap));
   --block-indent: calc(2 * var(--phase-indent));
   --trial-event-indent: calc(
@@ -652,13 +653,14 @@ input.event-markers__name,
 
 .schedule__row {
   display: grid;
-  grid-template-columns: 142px var(--name-width) 1fr;
+  grid-template-columns: var(--time-width) var(--name-width) 1fr;
   gap: 14px;
   padding: 3px 0;
 }
 
 .schedule__time {
   color: var(--text-muted);
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;

@@ -1,5 +1,11 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import {
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+    within,
+} from '@testing-library/react'
 
 import { PlannedEvent } from '../../../ui/components/PlannedEvents'
 import { Block, Phase } from '../../../ui/components/ProtocolPhases'
@@ -41,8 +47,8 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
             },
             {
                 rows: [
-                    ['0:00 – ≥1:47', 'interventions', ''],
-                    ['≥1:47', 'end', ''],
+                    ['0:00 – ≥~1:57', 'interventions', ''],
+                    ['≥~1:57', 'end', ''],
                 ],
                 expanded: 'false',
             },
@@ -90,7 +96,7 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async givesEarliestTimesWhenTrialsVary() {
+    protected static async givesAverageTimesWhenTrialsVary() {
         this.render([
             this.phase('interventions', {
                 blocks: [this.reversibleTilt],
@@ -103,10 +109,10 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.rows,
             [
-                ['0:00 – ≥1:47', 'interventions', ''],
-                ['+0:00 – ≥1:47', 'reversible-tilt', '2 trials, shuffled'],
+                ['0:00 – ≥~1:57', 'interventions', ''],
+                ['+0:00 – ≥~1:57', 'reversible-tilt', '2 trials, shuffled'],
                 ['before trials:', 'before trials', ''],
-                ['0:00 – ≥0:01', 'position-check', 'cue "Head upright"'],
+                ['0:00 – ≥~0:01', 'position-check', 'cue "Head upright"'],
                 ['each trial:', 'each trial', 'gaps 10–60 s, 20 s on average'],
                 [
                     '0:00 – 0:03',
@@ -114,11 +120,79 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
                     'cue "Tilt head {tilt-side}" for 3 s',
                 ],
                 ['0:03 – ≥0:03', 'stroke', 'arm: stroke {stroke-side}-forearm'],
-                ['≥0:13 – ≥0:14', 'upright-cue', 'cue "Return head upright"'],
-                ['≥0:13 – ≥0:43', 'response-window', 'interval for 30 s'],
-                ['≥1:47', 'end', ''],
+                ['≥~0:18 – ≥~0:19', 'upright-cue', 'cue "Return head upright"'],
+                ['≥~0:18 – ≥~0:48', 'response-window', 'interval for 30 s'],
+                ['≥~1:57', 'end', ''],
             ],
-            'Did not give the earliest times when trials varied!'
+            'Did not give the average times when trials varied!'
+        )
+    }
+
+    @test()
+    protected static async marksTimesThatVaryAsAverages() {
+        this.render([this.phase('interventions', { blocks: [this.holds] })])
+
+        this.open('interventions')
+        this.open('holds')
+
+        assert.isEqualDeep(
+            this.rows,
+            [
+                ['0:00 – ~0:55', 'interventions', ''],
+                ['+0:00 – ~0:55', 'holds', '2 trials, in order'],
+                ['each trial:', 'each trial', 'gaps 10–30 s, 15 s on average'],
+                ['0:00 – ~0:20', 'hold', 'interval for {hold-s} s'],
+                ['~0:55', 'end', ''],
+            ],
+            'Did not mark the times that vary as averages!'
+        )
+    }
+
+    @test()
+    protected static async marksFirstRowsAsRelativeAfterAnyPrefix() {
+        this.render([
+            this.phase('eyes-closed', {
+                events: [
+                    this.event('settled', {
+                        start: {
+                            delay: { ms: 0 },
+                            from: { event: 'close-eyes', edge: 'end' },
+                        },
+                    }),
+                    this.event('close-eyes', {
+                        action: { kind: 'cue', text: 'Close your eyes' },
+                        end: { kind: 'experimenter' },
+                    }),
+                ],
+            }),
+        ])
+
+        this.open('eyes-closed')
+
+        assert.isEqual(
+            this.rows.find(([, what]) => what === 'settled')?.[0],
+            '≥~+0:01',
+            'Did not mark the first row as relative after its prefix!'
+        )
+    }
+
+    @test()
+    protected static async givesShortestAverageAndLongestOnHover() {
+        this.render([this.phase('interventions', { blocks: [this.holds] })])
+        const bounded = this.endTimeTitle
+
+        cleanup()
+        this.render([
+            this.phase('interventions', { blocks: [this.reversibleTilt] }),
+        ])
+
+        assert.isEqualDeep(
+            [bounded, this.endTimeTitle],
+            [
+                'shortest 0:50 · average 0:55 · longest 1:10',
+                'shortest 1:47 · average 1:57 · longest open-ended',
+            ],
+            'Did not give the shortest, average and longest times on hover!'
         )
     }
 
@@ -710,7 +784,7 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
             this.rows.slice(1, 3).map(([time, , detail]) => [time, detail]),
             [
                 ['+0:00 – ~0:01', 'cue "Close your eyes"'],
-                ['0:00 – ≥0:01', 'cue "Close your eyes"'],
+                ['0:00 – ≥~0:01', 'cue "Close your eyes"'],
             ],
             'Did not estimate cues that end at once or on confirmation!'
         )
@@ -948,6 +1022,25 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
             ...change,
         }
     }
+
+    private static get endTimeTitle() {
+        const rows = [...this.summary.querySelectorAll('.schedule__row')]
+        const end = rows.find(
+            (row) => row.querySelector('.schedule__name')?.textContent === 'end'
+        )
+        return end?.querySelector('.schedule__time')?.getAttribute('title')
+    }
+
+    private static readonly holds = this.block('holds', {
+        trial: [
+            this.event('hold', {
+                end: { kind: 'duration', length: { column: 'hold-s' } },
+            }),
+        ],
+        conditions: { columns: ['hold-s'], rows: [['10'], ['30']] },
+        trialOrder: 'fixed',
+        gap: { minMs: 10000, meanMs: 15000, maxMs: 30000 },
+    })
 
     private static readonly reversibleTilt = this.block('reversible-tilt', {
         setup: [

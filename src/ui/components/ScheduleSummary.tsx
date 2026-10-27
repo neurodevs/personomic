@@ -240,7 +240,8 @@ function blockKeyOf(phaseIndex: number, itemIndex: number) {
 }
 
 const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
-    const { time, what, kind, number, cueText, detail, depth, markers } = row
+    const { time, range, what, kind, number, cueText, detail, depth, markers } =
+        row
     const label = <span className="schedule__name">{what}</span>
     const shows = useContext(Shown)
 
@@ -254,7 +255,9 @@ const ScheduleRowItem: React.FC<ScheduleRowItemProps> = ({ row, toggle }) => {
                 .filter(Boolean)
                 .join(' ')}
         >
-            <span className="schedule__time">{time}</span>
+            <span className="schedule__time" title={range}>
+                {time}
+            </span>
             <span className="schedule__what">
                 {shows.tags && kind && (
                     <span className="kind-tag" aria-hidden="true">
@@ -306,6 +309,7 @@ interface Toggle {
 
 interface ScheduleRow {
     time: string
+    range?: string
     what: string
     kind?: 'phase' | 'block' | 'event'
     number?: number
@@ -321,8 +325,9 @@ interface BlockGroup {
 }
 
 interface Time {
+    minMs: number
     ms: number
-    isExact: boolean
+    maxMs: number
     isEstimate?: boolean
 }
 
@@ -341,7 +346,7 @@ function scheduleOf(phases: Phase[]) {
         const length = lengthOfPhase(phase)
         const phaseEnd = sumOf(phaseStart, length)
         const row: ScheduleRow = {
-            time: spanOf({ start: phaseStart, end: phaseEnd }),
+            ...timedBy({ start: phaseStart, end: phaseEnd }),
             what: phase.name || 'unnamed phase',
             kind: 'phase',
             number: index + 1,
@@ -357,6 +362,7 @@ function scheduleOf(phases: Phase[]) {
 
     const endRow = {
         time: clockOf(phaseStart),
+        range: rangeOf(phaseStart),
         what: 'end',
         detail: '',
         depth: 0,
@@ -380,13 +386,13 @@ function childRowsOf(
         'block' in item
             ? blockGroupOf(
                   item.block,
-                  isShuffled ? '' : spanOf(timesOf(index)),
+                  isShuffled ? untimed : timedBy(timesOf(index)),
                   ++blockNumber,
                   `${phaseCode}b${blockNumber}`
               )
             : {
                   ...eventRowOf(item.event, ++eventNumber, `${phaseCode}-`),
-                  time: spanOf(timesOf(index), isInstant(item.event)),
+                  ...timedBy(timesOf(index), isInstant(item.event)),
                   depth: 1,
               }
     )
@@ -397,7 +403,7 @@ function childRowsOf(
 function markedAsRelative(
     row: ScheduleRow | BlockGroup
 ): ScheduleRow | BlockGroup {
-    const withPlus = (time: string) => time.replace(/^([~≥]?)(?=\d)/, '$1+')
+    const withPlus = (time: string) => time.replace(/^([~≥]*)(?=\d)/, '$1+')
 
     return 'contents' in row
         ? { ...row, row: { ...row.row, time: withPlus(row.row.time) } }
@@ -411,7 +417,7 @@ function hasShuffledBlocks({ items, blockOrder }: Phase) {
 
 function blockGroupOf(
     block: Block,
-    time: string,
+    timing: { time: string; range?: string },
     number: number,
     code: string
 ): BlockGroup {
@@ -447,7 +453,7 @@ function blockGroupOf(
 
     return {
         row: {
-            time,
+            ...timing,
             what: name || 'unnamed block',
             kind: 'block',
             number,
@@ -468,7 +474,7 @@ function blockGroupOf(
             },
             ...eventRowsOf(
                 trial,
-                smallestValueOf(conditions),
+                averageValueOf(conditions),
                 3,
                 `${trialCode}-`
             ),
@@ -487,7 +493,7 @@ function eventRowsOf(
 
     return events.map((event, index) => ({
         ...eventRowOf(event, index + 1, markerPrefix),
-        time: spanOf(timesOf(index), isInstant(event)),
+        ...timedBy(timesOf(index), isInstant(event)),
         depth,
     }))
 }
@@ -514,7 +520,7 @@ function eventRowOf(event: PlannedEvent, number: number, markerPrefix: string) {
 
 function lengthOfPhase(phase: Phase): Time {
     if (phase.durationMs > 0) {
-        return { ms: phase.durationMs, isExact: true }
+        return exactly(phase.durationMs)
     }
 
     const { items } = phase
@@ -535,10 +541,7 @@ function lengthOfBlock(block: Block): Time {
         )
     )
     const allTrials = Array(repetitions).fill(trialLengths).flat() as Time[]
-    const gaps: Time = {
-        ms: Math.max(0, numTrials - 1) * gap.minMs,
-        isExact: numTrials <= 1 || isFixedGap(gap),
-    }
+    const gaps = repeated(Math.max(0, numTrials - 1), lengthOfGap(gap))
 
     return [
         lengthOfEvents(setup, noColumns),
@@ -558,8 +561,9 @@ function latestEndOf(timesOf: (index: number) => ItemTimes, count: number) {
         (_, index) => timesOf(index).end
     ).reduce(
         (latest, end) => ({
+            minMs: Math.max(latest.minMs, end.minMs),
             ms: Math.max(latest.ms, end.ms),
-            isExact: latest.isExact && end.isExact,
+            maxMs: Math.max(latest.maxMs, end.maxMs),
             isEstimate: latest.isEstimate || end.isEstimate,
         }),
         zero
@@ -617,8 +621,8 @@ function itemTimesOf(
 
         return isShuffled
             ? {
-                  start: { ...start, isExact: false },
-                  end: { ...end, isExact: false },
+                  start: { ...start, maxMs: Infinity },
+                  end: { ...end, maxMs: Infinity },
               }
             : { start, end }
     }
@@ -663,14 +667,17 @@ function endTimeOf(
     }
 
     if (action.kind === 'cue') {
+        const spokenMs = spokenMsOf(action.text)
+
         return sumOf(start, {
-            ms: spokenMsOf(action.text),
-            isExact: end.kind !== 'experimenter',
+            minMs: spokenMs,
+            ms: spokenMs,
+            maxMs: end.kind === 'experimenter' ? Infinity : spokenMs,
             isEstimate: true,
         })
     }
 
-    return end.kind === 'instant' ? start : { ...start, isExact: false }
+    return end.kind === 'instant' ? start : sumOf(start, unknown)
 }
 
 function spokenMsOf(text: string) {
@@ -704,24 +711,20 @@ const syllablesPerSecond = 4.4
 const pauseSeconds = 0.3
 
 function amountOf(amount: Amount, valueOf: ValueOf): Time {
-    return 'ms' in amount
-        ? { ms: amount.ms, isExact: true }
-        : valueOf(amount.column)
+    return 'ms' in amount ? exactly(amount.ms) : valueOf(amount.column)
 }
 
-function smallestValueOf(conditions: Conditions): ValueOf {
+function averageValueOf(conditions: Conditions): ValueOf {
     return (column) => {
         const index = conditions.columns.indexOf(column)
         const values = conditionRowsOf(conditions).map((row) =>
             secondsIn(row[index])
         )
-        const smallest = Math.min(...values.map(({ ms }) => ms))
 
         return {
-            ms: smallest,
-            isExact: values.every(
-                ({ ms, isExact }) => isExact && ms === smallest
-            ),
+            minMs: Math.min(...values.map(({ minMs }) => minMs)),
+            ms: values.reduce((total, { ms }) => total + ms, 0) / values.length,
+            maxMs: Math.max(...values.map(({ maxMs }) => maxMs)),
         }
     }
 }
@@ -735,18 +738,34 @@ function secondsIn(cell = ''): Time {
     const seconds = Number(cell)
 
     return cell.trim() && Number.isFinite(seconds)
-        ? { ms: seconds * 1000, isExact: true }
+        ? exactly(seconds * 1000)
         : unknown
 }
 
-function isFixedGap({ minMs, meanMs, maxMs }: Block['gap']) {
-    return maxMs === minMs || (maxMs === 0 && meanMs <= minMs)
+function lengthOfGap({ minMs, meanMs, maxMs }: Block['gap']): Time {
+    const hasNoMax = maxMs === 0 && meanMs > minMs
+    const longestMs = hasNoMax ? Infinity : Math.max(minMs, maxMs)
+
+    return {
+        minMs,
+        ms: meanMs > minMs ? meanMs : (minMs + Math.max(minMs, maxMs)) / 2,
+        maxMs: longestMs,
+    }
+}
+
+function repeated(count: number, { minMs, ms, maxMs }: Time): Time {
+    return {
+        minMs: count * minMs,
+        ms: count * ms,
+        maxMs: count === 0 ? 0 : count * maxMs,
+    }
 }
 
 function sumOf(time: Time, other: Time): Time {
     return {
+        minMs: time.minMs + other.minMs,
         ms: time.ms + other.ms,
-        isExact: time.isExact && other.isExact,
+        maxMs: time.maxMs + other.maxMs,
         isEstimate: time.isEstimate || other.isEstimate,
     }
 }
@@ -796,8 +815,22 @@ function gapTextOf({ minMs, meanMs, maxMs }: Block['gap']) {
     return `gaps ${range}${average}`
 }
 
-function spanOf({ start, end }: ItemTimes, isInstant = false) {
-    return isInstant ? clockOf(start) : `${clockOf(start)} – ${clockOf(end)}`
+function timedBy({ start, end }: ItemTimes, isInstant = false) {
+    return isInstant
+        ? { time: clockOf(start), range: rangeOf(start) }
+        : { time: `${clockOf(start)} – ${clockOf(end)}`, range: rangeOf(end) }
+}
+
+function rangeOf({ minMs, ms, maxMs }: Time) {
+    if (minMs === maxMs) {
+        return undefined
+    }
+
+    const longest = maxMs === Infinity ? 'open-ended' : clockOf(exactly(maxMs))
+
+    return `shortest ${clockOf(exactly(minMs))} · average ${clockOf(
+        exactly(ms)
+    )} · longest ${longest}`
 }
 
 function valuesOf({ columns }: Conditions) {
@@ -815,7 +848,7 @@ function isInstant({ action, end }: PlannedEvent) {
     return end.kind === 'instant' && action.kind !== 'cue'
 }
 
-function clockOf({ ms, isExact, isEstimate }: Time) {
+function clockOf({ minMs, ms, maxMs, isEstimate }: Time) {
     const totalSeconds = Math.round(ms / 1000)
     const hours = Math.floor(totalSeconds / 3600)
     const minutes = Math.floor((totalSeconds % 3600) / 60)
@@ -825,11 +858,18 @@ function clockOf({ ms, isExact, isEstimate }: Time) {
             ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
             : `${minutes}:${seconds}`
 
-    const prefix = isExact ? (isEstimate ? '~' : '') : '≥'
+    const isOpenEnded = maxMs === Infinity
+    const isAbout = isEstimate || minMs !== (isOpenEnded ? ms : maxMs)
+    const prefix = `${isOpenEnded ? '≥' : ''}${isAbout ? '~' : ''}`
 
     return `${prefix}${clock}`
 }
 
-const zero: Time = { ms: 0, isExact: true }
-const unknown: Time = { ms: 0, isExact: false }
+function exactly(ms: number): Time {
+    return { minMs: ms, ms, maxMs: ms }
+}
+
+const zero = exactly(0)
+const unknown: Time = { minMs: 0, ms: 0, maxMs: Infinity }
+const untimed = { time: '', range: undefined }
 const noColumns: ValueOf = () => unknown
