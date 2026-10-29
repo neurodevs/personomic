@@ -1470,7 +1470,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsFieldsSharedByAllStreamsOnceAtTop() {
+    protected static async showsFieldsSharedByAllStreamsInBoxAtTop() {
         await this.showLiveStreamsDescribedBy([
             [
                 { name: 'manufacturer', value: 'Interaxon Inc.' },
@@ -1489,16 +1489,15 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.shownDescription,
             {
-                headings: [this.streams[0].name, this.streams[1].name],
-                fields: [
-                    'manufacturer (all streams)',
-                    'nickname (all streams)',
-                    'units',
-                    'units',
+                headings: [
+                    'All streams',
+                    this.streams[0].name,
+                    this.streams[1].name,
                 ],
+                fields: ['manufacturer', 'nickname', 'units', 'units'],
                 values: ['Interaxon Inc.', 'Alice', 'microvolt', 'g'],
             },
-            'Did not show fields shared by all streams once at top!'
+            'Did not show fields shared by all streams in box at top!'
         )
     }
 
@@ -1514,8 +1513,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.shownDescription,
             {
-                headings: [],
-                fields: ['manufacturer (all streams)'],
+                headings: ['All streams'],
+                fields: ['manufacturer'],
                 values: ['Interaxon Inc.'],
             },
             'Did not leave out streams with nothing of their own!'

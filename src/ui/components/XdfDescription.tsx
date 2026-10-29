@@ -50,12 +50,12 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({
                 </div>
             )}
             {isExpanded && sharedByStreams.length > 0 && (
-                <DescElements
-                    elements={sharedByStreams.map((field) => ({
-                        ...field,
-                        sharedBy: 'streams',
-                    }))}
-                />
+                <div className="xdf-description__stream">
+                    <h3 className="xdf-description__stream-name">
+                        All streams
+                    </h3>
+                    <DescElements elements={sharedByStreams} />
+                </div>
             )}
             {isExpanded &&
                 ownByStream.map(({ name, elements }) => (
