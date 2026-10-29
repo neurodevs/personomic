@@ -272,7 +272,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             renderBatches(batches)
             setNowMs(frameMs)
 
-            if (isAnyDataStillOnScreen(frameMs) || playback?.isUnfinished()) {
+            if (
+                playback
+                    ? playback.isUnfinished()
+                    : isAnyDataStillOnScreen(frameMs)
+            ) {
                 scheduleNextFrame()
             }
 

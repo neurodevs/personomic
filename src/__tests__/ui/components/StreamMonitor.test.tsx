@@ -3604,6 +3604,27 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async stopsPlotsOfReopenedDeviceMovingOncePlaybackEnds() {
+        await this.play()
+
+        this.nowMs = 3000
+        await this.runFrame()
+        const nowAtEnd = this.latestPlotPropsFor(
+            this.streams[0].name
+        )?.nowTimestamp
+
+        this.nowMs = 4000
+        await this.runFrame()
+        this.clickDeviceCard(this.deviceName)
+
+        assert.isEqual(
+            this.latestPlotPropsFor(this.streams[0].name)?.nowTimestamp,
+            nowAtEnd,
+            'Did not stop plots of reopened device moving once playback ended!'
+        )
+    }
+
+    @test()
     protected static async showsDeviceAsDisconnectedOnceItsDataRunsOut() {
         await this.playTwoDevicesUntilFirstRunsOut()
 
@@ -3622,6 +3643,24 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.twoDevices.map((device) => this.shownPlotsOf(device.name)),
             [[], this.plotIdsFor(this.twoDevices[1].streams)],
             'Did not collapse device once its data ran out!'
+        )
+    }
+
+    @test()
+    protected static async keepsXdfDescriptionOfDeviceOnceItsDataRunsOut() {
+        await this.play({
+            ...this.recordingOfTwoDevices,
+            header: [{ name: 'protocol-sha256', value: 'abc123' }],
+        })
+
+        this.nowMs = 1000
+        await this.runFrame()
+
+        assert.isTruthy(
+            screen
+                .getByTestId(`device-${this.twoDevices[0].name}`)
+                .querySelector('.xdf-description'),
+            'Did not keep XDF description of device once its data ran out!'
         )
     }
 

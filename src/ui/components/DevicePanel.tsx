@@ -176,7 +176,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     }
                 />
             )}
-            {hasStreams && !arePlotsHidden && (
+            {hasStreams && (isDescribed || !arePlotsHidden) && (
                 <div className={deviceStreamsClassName}>
                     {isDescribed && (
                         <XdfDescription
@@ -184,7 +184,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                             streams={device.describedStreams}
                         />
                     )}
-                    {children}
+                    {!arePlotsHidden && children}
                 </div>
             )}
         </section>
