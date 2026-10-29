@@ -1199,6 +1199,58 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async startsOrchestratorWithChosenProtocolAsSaved() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        const start = FakeWebSocket.callsToSend
+            .map(({ data }) => JSON.parse(data as string))
+            .find(({ command }) => command === 'start')
+
+        assert.isEqualDeep(
+            start?.protocol,
+            {
+                schemaVersion: 1,
+                name: 'Tilt series',
+                devices: [
+                    {
+                        deviceName: 'Muse S Gen 2',
+                        identifier: 'muse-uuid',
+                        nickname: 'Head',
+                        disableStreams: ['PPG'],
+                    },
+                    { deviceName: 'Zephyr BioHarness 3' },
+                ],
+            },
+            'Did not start the orchestrator with the chosen protocol as saved!'
+        )
+    }
+
+    @test()
+    protected static async startsOrchestratorWithProtocolAsEdited() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+        this.clickEditProtocol()
+        this.typeProtocolName('Tilt series 2')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        const start = FakeWebSocket.callsToSend
+            .map(({ data }) => JSON.parse(data as string))
+            .find(({ command }) => command === 'start')
+
+        assert.isEqual(
+            start?.protocol?.name,
+            'Tilt series 2',
+            'Did not start the orchestrator with the protocol as edited!'
+        )
+    }
+
+    @test()
     protected static async showsConnectingUntilOrchestratorReplies() {
         this.renderWithMuse()
 

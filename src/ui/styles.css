@@ -2180,6 +2180,39 @@ input.event-markers__name,
   margin: 0;
   color: var(--text-primary);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.xdf-description__value-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.xdf-description__value-toggle::before {
+  display: inline-block;
+  margin-right: 6px;
+  content: '▸';
+  transition: transform 0.15s ease;
+}
+
+.xdf-description__value-toggle[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+
+.xdf-description__value-toggle:hover,
+.xdf-description__value-toggle:focus-visible,
+.xdf-description__value-toggle[aria-expanded='true'] {
+  color: var(--text-secondary);
+  outline: none;
+}
+
+.xdf-description__json {
+  display: block;
+  margin-top: 4px;
 }
 
 .xdf-description__scope {

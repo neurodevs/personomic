@@ -2,7 +2,10 @@ import React, { useState } from 'react'
 
 import { DescElement } from '../../functions/readXdfRecording'
 
-const XdfDescription: React.FC<XdfDescriptionProps> = ({ streams }) => {
+const XdfDescription: React.FC<XdfDescriptionProps> = ({
+    header = [],
+    streams,
+}) => {
     const [isExpanded, setIsExpanded] = useState(false)
 
     const described = streams
@@ -12,7 +15,7 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({ streams }) => {
         }))
         .filter(({ elements }) => elements.length > 0)
 
-    if (described.length === 0) {
+    if (header.length === 0 && described.length === 0) {
         return null
     }
 
@@ -38,6 +41,14 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({ streams }) => {
             >
                 XDF description
             </button>
+            {isExpanded && header.length > 0 && (
+                <div className="xdf-description__stream">
+                    <h3 className="xdf-description__stream-name">
+                        File header
+                    </h3>
+                    <DescElements elements={withJsonLast(header)} />
+                </div>
+            )}
             {isExpanded && sharedByStreams.length > 0 && (
                 <DescElements
                     elements={sharedByStreams.map((field) => ({
@@ -73,12 +84,66 @@ const DescElements: React.FC<{ elements: ShownElement[] }> = ({ elements }) => (
                     )}
                 </dt>
                 <dd className="xdf-description__value">
-                    {children ? <DescElements elements={children} /> : value}
+                    {children ? (
+                        <DescElements elements={children} />
+                    ) : (
+                        <DescValue name={name} value={value} />
+                    )}
                 </dd>
             </React.Fragment>
         ))}
     </dl>
 )
+
+const DescValue: React.FC<{ name: string; value?: string }> = ({
+    name,
+    value = '',
+}) => {
+    const [isExpanded, setIsExpanded] = useState(false)
+    const json = prettyJsonOf(value)
+
+    if (json === undefined) {
+        return value
+    }
+
+    return (
+        <>
+            <button
+                type="button"
+                className="xdf-description__value-toggle"
+                aria-label={`${name} JSON`}
+                aria-expanded={isExpanded}
+                onClick={() => setIsExpanded((wasExpanded) => !wasExpanded)}
+            >
+                JSON
+            </button>
+            {isExpanded && (
+                <span className="xdf-description__json">{json}</span>
+            )}
+        </>
+    )
+}
+
+function prettyJsonOf(value: string) {
+    try {
+        const parsed: unknown = JSON.parse(value)
+        return typeof parsed === 'object' && parsed !== null
+            ? JSON.stringify(parsed, null, 2)
+            : undefined
+    } catch {
+        return undefined
+    }
+}
+
+function withJsonLast(elements: DescElement[]) {
+    return elements.toSorted(
+        (first, second) => Number(isJson(first)) - Number(isJson(second))
+    )
+}
+
+function isJson(element: DescElement) {
+    return prettyJsonOf(element.value ?? '') !== undefined
+}
 
 function withSharedFieldsHoisted(elements: DescElement[]): ShownElement[] {
     return inDisplayOrder(
@@ -180,6 +245,7 @@ interface ShownElement extends DescElement {
 }
 
 interface XdfDescriptionProps {
+    header?: DescElement[]
     streams: readonly DescribedStream[]
 }
 

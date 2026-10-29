@@ -7,6 +7,7 @@ export default function readXdfRecording(file: ArrayBuffer): Recording {
     }
 
     const streamsById = new Map<number, XdfStream>()
+    let header: DescElement[] | undefined
     let offset = xdfMagic.length
 
     while (offset < bytes.length) {
@@ -22,7 +23,11 @@ export default function readXdfRecording(file: ArrayBuffer): Recording {
         const contentStart = length.end + numBytesBeforeContent
         const stream = streamsById.get(streamId)
 
-        if (tag === streamHeaderTag) {
+        if (tag === fileHeaderTag) {
+            header = infoIn(
+                textIn(bytes, length.end + numBytesOfTag, contentEnd)
+            )
+        } else if (tag === streamHeaderTag) {
             streamsById.set(
                 streamId,
                 streamFrom(textIn(bytes, contentStart, contentEnd))
@@ -34,13 +39,18 @@ export default function readXdfRecording(file: ArrayBuffer): Recording {
         offset = contentEnd
     }
 
-    return { devices: devicesFrom([...streamsById.values()]) }
+    return {
+        ...(header && { header }),
+        devices: devicesFrom([...streamsById.values()]),
+    }
 }
 
 const xdfMagic = 'XDF:'
+const fileHeaderTag = 1
 const streamHeaderTag = 2
 const samplesTag = 3
-const numBytesBeforeContent = 6
+const numBytesOfTag = 2
+const numBytesBeforeContent = numBytesOfTag + 4
 
 function textIn(bytes: Uint8Array, start: number, end: number) {
     return new TextDecoder().decode(bytes.subarray(start, end))
@@ -104,11 +114,19 @@ function streamFrom(headerXml: string): XdfStream {
 }
 
 function descIn(headerXml: string) {
-    const desc = new DOMParser()
-        .parseFromString(headerXml, 'application/xml')
-        .querySelector('info > desc')
-
+    const desc = elementIn(headerXml, 'info > desc')
     return desc ? descElementsIn(desc) : []
+}
+
+function infoIn(headerXml: string) {
+    const info = elementIn(headerXml, 'info')
+    return info ? descElementsIn(info) : undefined
+}
+
+function elementIn(xml: string, selector: string) {
+    return new DOMParser()
+        .parseFromString(xml, 'application/xml')
+        .querySelector(selector)
 }
 
 function descElementsIn(parent: Element): DescElement[] {
@@ -271,6 +289,7 @@ const deviceNamesByFamily = new Map([
 ])
 
 export interface Recording {
+    header?: DescElement[]
     devices: RecordedDevice[]
 }
 

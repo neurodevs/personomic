@@ -359,6 +359,14 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 xdfRecordPath: isRecordEnabled
                     ? recordPathFor(recordDirectory, recordName, startedAt)
                     : undefined,
+                ...(chosenProtocolFile && {
+                    protocol: fileContentsOf({
+                        ...editedProtocol,
+                        name: isEditingProtocol
+                            ? editedProtocol.name
+                            : chosenProtocolFile.protocol.name,
+                    }),
+                }),
             },
             {
                 onReply: ({ error, devices, xdfRecordPath }) => {

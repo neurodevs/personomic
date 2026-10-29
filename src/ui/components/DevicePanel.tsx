@@ -6,6 +6,7 @@ import IdentifierInput, {
     DeviceIdentifier,
     ScannedIdentifier,
 } from './IdentifierInput'
+import { DescElement } from '../../functions/readXdfRecording'
 import XdfDescription from './XdfDescription'
 
 const DevicePanel: React.FC<DevicePanelProps> = ({
@@ -25,6 +26,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     disabledStreams = [],
     onDisabledStreamsChange,
     isDescribed = false,
+    xdfHeader,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -177,7 +179,10 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
             {hasStreams && !arePlotsHidden && (
                 <div className={deviceStreamsClassName}>
                     {isDescribed && (
-                        <XdfDescription streams={device.describedStreams} />
+                        <XdfDescription
+                            header={xdfHeader}
+                            streams={device.describedStreams}
+                        />
                     )}
                     {children}
                 </div>
@@ -247,6 +252,7 @@ export interface DevicePanelProps {
     disabledStreams?: readonly string[]
     onDisabledStreamsChange?: (name: string, streams: string[]) => void
     isDescribed?: boolean
+    xdfHeader?: DescElement[]
     children?: React.ReactNode
 }
 

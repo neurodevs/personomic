@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import {
     mkdir,
@@ -80,6 +81,19 @@ function specificationFor({
         ...(identifier && option && { [option]: identifier }),
         ...(nickname && { nickname }),
         ...(disableStreams?.length > 0 && { disableStreams }),
+    }
+}
+
+function describedBy(protocol) {
+    if (!protocol) {
+        return undefined
+    }
+
+    const json = JSON.stringify(protocol)
+
+    return {
+        protocol: json,
+        'protocol-sha256': createHash('sha256').update(json).digest('hex'),
     }
 }
 
@@ -453,6 +467,7 @@ async function start(request) {
         devices: specifications,
         xdfRecordPath,
         webSocketPortStart: WEB_SOCKET_PORT_START,
+        xdfHeaderInfo: describedBy(request.protocol),
     })
     sessionRequest = { devices, xdfRecordPath }
 

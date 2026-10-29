@@ -606,6 +606,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
                         isDescribed={recording !== undefined || isRecording}
+                        xdfHeader={recording?.header}
                         nickname={nicknames[device.key] ?? ''}
                         onNicknameChange={onNicknameChange}
                         disabledStreams={disabledStreams[device.key]}

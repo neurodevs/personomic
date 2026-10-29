@@ -1587,6 +1587,100 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsXdfHeaderOfRecordingBeforeItsStreams() {
+        const [first, second] = this.recording.devices[0].streams
+
+        await this.play({
+            header: [{ name: 'protocol-sha256', value: 'abc123' }],
+            devices: [
+                {
+                    deviceName: this.deviceName,
+                    streams: [
+                        {
+                            ...first,
+                            desc: [{ name: 'nickname', value: 'Alice' }],
+                        },
+                        second,
+                    ],
+                },
+            ],
+        })
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: ['File header', first.type],
+                fields: ['protocol-sha256', 'nickname'],
+                values: ['abc123', 'Alice'],
+            },
+            'Did not show XDF header of recording before its streams!'
+        )
+    }
+
+    @test()
+    protected static async collapsesJsonValuesAfterOtherFieldsByDefault() {
+        await this.playWithProtocolInHeader()
+
+        assert.isEqualDeep(
+            {
+                fields: this.shownDescription.fields,
+                isExpanded: this.protocolToggle?.getAttribute('aria-expanded'),
+                isJsonShown: screen.queryByText(/"a": 1/) !== null,
+            },
+            {
+                fields: ['protocol-sha256', 'protocol'],
+                isExpanded: 'false',
+                isJsonShown: false,
+            },
+            'Did not collapse JSON values after other fields by default!'
+        )
+    }
+
+    @test()
+    protected static async prettyPrintsJsonValuesWhenExpanded() {
+        await this.playWithProtocolInHeader()
+
+        fireEvent.click(this.protocolToggle!)
+
+        assert.isEqual(
+            screen.getByText(/"a": 1/).textContent,
+            '{\n  "a": 1,\n  "b": [\n    2\n  ]\n}',
+            'Did not pretty print JSON values when expanded!'
+        )
+    }
+
+    private static async playWithProtocolInHeader() {
+        await this.play({
+            ...this.recording,
+            header: [
+                { name: 'protocol', value: '{"a":1,"b":[2]}' },
+                { name: 'protocol-sha256', value: 'abc123' },
+            ],
+        })
+
+        fireEvent.click(this.descriptionToggle!)
+    }
+
+    private static get protocolToggle() {
+        return screen.queryByRole('button', { name: 'protocol JSON' })
+    }
+
+    @test()
+    protected static async offersXdfDescriptionOfRecordingWithOnlyAHeader() {
+        await this.play({
+            ...this.recording,
+            header: [{ name: 'protocol', value: '{"a":1}' }],
+        })
+
+        assert.isTruthy(
+            this.descriptionToggle,
+            'Did not offer XDF description of recording with only a header!'
+        )
+    }
+
+    @test()
     protected static async offersNoXdfDescriptionOfLiveSessionNotRecording() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName])

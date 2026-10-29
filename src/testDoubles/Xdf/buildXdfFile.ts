@@ -1,5 +1,12 @@
-export default function buildXdfFile(streams: XdfTestStream[]): ArrayBuffer {
+export default function buildXdfFile(
+    streams: XdfTestStream[],
+    headerInfoXml?: string
+): ArrayBuffer {
     const bytes: number[] = [...utf8BytesOf('XDF:')]
+
+    if (headerInfoXml !== undefined) {
+        bytes.push(...fileHeaderChunkOf(headerInfoXml))
+    }
 
     streams.forEach((stream, index) => {
         const streamId = index + 1
@@ -22,6 +29,19 @@ function chunkOf(tag: number, streamId: number, content: number[]) {
         ...littleEndianBytesOf(content.length + 6, 'Uint32'),
         ...littleEndianBytesOf(tag, 'Uint16'),
         ...littleEndianBytesOf(streamId, 'Uint32'),
+        ...content,
+    ]
+}
+
+function fileHeaderChunkOf(infoXml: string) {
+    const content = utf8BytesOf(
+        `<?xml version="1.0"?>\n<info>${infoXml}</info>`
+    )
+
+    return [
+        4,
+        ...littleEndianBytesOf(content.length + 2, 'Uint32'),
+        ...littleEndianBytesOf(1, 'Uint16'),
         ...content,
     ]
 }

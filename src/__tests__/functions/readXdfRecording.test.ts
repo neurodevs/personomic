@@ -297,6 +297,36 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsFileHeaderInfo() {
+        const file = buildXdfFile(
+            [{ channelNames: ['A'], chunks: this.oneSample }],
+            '\n  <version>1.0</version>\n  <datetime>2026-10-28T22:00:00</datetime>\n    <protocol>{&quot;a&quot;:1}</protocol>\n  '
+        )
+
+        assert.isEqualDeep(
+            readXdfRecording(file).header,
+            [
+                { name: 'version', value: '1.0' },
+                { name: 'datetime', value: '2026-10-28T22:00:00' },
+                { name: 'protocol', value: '{"a":1}' },
+            ],
+            'Did not read the file header info!'
+        )
+    }
+
+    @test()
+    protected static async leavesHeaderOutWhenFileHasNone() {
+        const file = buildXdfFile([
+            { channelNames: ['A'], chunks: this.oneSample },
+        ])
+
+        assert.isFalse(
+            'header' in readXdfRecording(file),
+            'Should have left the header out!'
+        )
+    }
+
+    @test()
     protected static async leavesNicknameOutWhenNoneWasRecorded() {
         const nicknames = this.nicknamesReadFrom([
             { sourceId: 'muse-eeg-Device-1' },
