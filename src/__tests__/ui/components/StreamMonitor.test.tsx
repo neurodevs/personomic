@@ -3819,6 +3819,25 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsOnlyCurrentLoopOfAllData() {
+        await this.play(this.recording, {
+            isPlaybackLooping: true,
+            windowSeconds: Infinity,
+        })
+
+        this.nowMs = 1000
+        await this.runFrame()
+        this.nowMs = 5000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk.timestamps,
+            [103.5, 104, 104.5],
+            'Did not show only current loop of all data!'
+        )
+    }
+
+    @test()
     protected static async detectsPeaksAsTheyPlayWhileLooping() {
         await this.play(this.recording, {
             ...this.peakDetectionOnFirstStream,

@@ -265,6 +265,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                 seekInPlace(playback, frameMs)
             }
 
+            if (playback) {
+                clearShownDataOf(
+                    playback.startNewLoopIfDue(frameMs, showsAllDataOf)
+                )
+            }
+
             const batches = playback?.takeSamplesDueBy(frameMs) ?? pendingByPort
             pendingByPort = {}
 
@@ -298,6 +304,26 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             clearShownData()
             hasPlaybackEnded = false
             reportedElapsedSeconds = playback.progressAt(frameMs).elapsedSeconds
+        }
+
+        const clearShownDataOf = (ports: number[]) => {
+            if (ports.length === 0) {
+                return
+            }
+
+            for (const port of ports) {
+                delete sessionByPortRef.current[port]
+                delete latestArrivalByPort[port]
+            }
+
+            setDataByPort((previous) =>
+                Object.fromEntries(
+                    Object.entries(previous).filter(
+                        ([port]) => !ports.includes(Number(port))
+                    )
+                )
+            )
+            setArrivalsByPort({ ...latestArrivalByPort })
         }
 
         const clearShownData = () => {
@@ -368,6 +394,9 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
         const windowSecondsFor = (port: number) =>
             windowSecondsByPortRef.current[port] ?? windowSeconds
+
+        const showsAllDataOf = (port: number) =>
+            !Number.isFinite(windowSecondsFor(port))
 
         const isAnyDataStillOnScreen = (frameMs: number) =>
             Object.entries(latestArrivalByPort).some(
@@ -1100,6 +1129,7 @@ function playbackOf(
     let startedAtMs = clockMs
     let lastClockMs = clockMs
     let pacedMs = clockMs
+    let shownLoop = 0
 
     const pacedClockAt = (clockMs: number, speed: number) => {
         pacedMs += (clockMs - lastClockMs) * speed
@@ -1112,12 +1142,43 @@ function playbackOf(
         retainedSecondsOfPort: (port: number) => number
     ) => {
         startedAtMs = pacedMs - seconds * 1000
+        shownLoop = 0
         const position = recordingStart + seconds
 
         streams.forEach((stream, index) => {
             const firstShown =
                 position - retainedSecondsOfPort(playbackPortOf(index))
             numPlayed[index] = endOfSamplesBefore(firstShown, stream)
+        })
+    }
+
+    const startNewLoopIfDue = (
+        nowMs: number,
+        showsAllDataOfPort: (port: number) => boolean
+    ) => {
+        const loop = isLooping()
+            ? Math.floor((nowMs - startedAtMs) / 1000 / loopSeconds)
+            : 0
+
+        if (loop <= shownLoop) {
+            return []
+        }
+
+        shownLoop = loop
+
+        return streams.flatMap((stream, index) => {
+            const port = playbackPortOf(index)
+
+            if (!showsAllDataOfPort(port)) {
+                return []
+            }
+
+            numPlayed[index] = Math.max(
+                numPlayed[index],
+                loop * stream.timestamps.length
+            )
+
+            return [port]
         })
     }
 
@@ -1226,6 +1287,7 @@ function playbackOf(
 
     return {
         pacedClockAt,
+        startNewLoopIfDue,
         takeSamplesDueBy,
         progressAt,
         isUnfinished,
