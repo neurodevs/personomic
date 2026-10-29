@@ -5,7 +5,7 @@ import RecordPathFields, { RecordPathFieldsProps } from './RecordPathFields'
 export interface RecordXdfControlsProps extends RecordPathFieldsProps {
     isOn: boolean
     onIsOnChange: (isOn: boolean) => void
-    recordingPath?: string
+    xdfRecordPath?: string
     onRevealRecording?: () => void
 }
 
@@ -15,7 +15,7 @@ const RecordXdfControls: React.FC<RecordXdfControlsProps> = (
     const {
         isOn,
         onIsOnChange,
-        recordingPath,
+        xdfRecordPath,
         onRevealRecording,
         ...pathFieldsProps
     } = props
@@ -31,10 +31,10 @@ const RecordXdfControls: React.FC<RecordXdfControlsProps> = (
                 />
                 Record XDF
             </label>
-            {isOn && !recordingPath && (
+            {isOn && !xdfRecordPath && (
                 <RecordPathFields {...pathFieldsProps} />
             )}
-            {recordingPath && (
+            {xdfRecordPath && (
                 <span className="connect-devices__recording">
                     Recording to{' '}
                     <button
@@ -43,7 +43,7 @@ const RecordXdfControls: React.FC<RecordXdfControlsProps> = (
                         title="Show in Finder"
                         onClick={onRevealRecording}
                     >
-                        {recordingPath}
+                        {xdfRecordPath}
                     </button>
                 </span>
             )}

@@ -463,13 +463,15 @@ async function start(request) {
         xdfRecordPath ? `recording to ${xdfRecordPath}` : 'without recording'
     )
 
+    const xdfHeaderInfo = describedBy(request.protocol)
+
     orchestrator = await BiosensorStreamingOrchestrator.Create({
         devices: specifications,
         xdfRecordPath,
         webSocketPortStart: WEB_SOCKET_PORT_START,
-        xdfHeaderInfo: describedBy(request.protocol),
+        xdfHeaderInfo,
     })
-    sessionRequest = { devices, xdfRecordPath }
+    sessionRequest = { devices, xdfRecordPath, xdfHeaderInfo }
 
     try {
         await orchestrator.start()
@@ -485,6 +487,7 @@ async function start(request) {
     return {
         devices,
         xdfRecordPath: xdfRecordPath && shownPathFor(xdfRecordPath),
+        xdfHeaderInfo,
     }
 }
 
@@ -514,11 +517,12 @@ async function statusOnceIdle() {
         return {}
     }
 
-    const { devices, xdfRecordPath } = sessionRequest
+    const { devices, xdfRecordPath, xdfHeaderInfo } = sessionRequest
 
     return {
         devices,
         xdfRecordPath: xdfRecordPath && shownPathFor(xdfRecordPath),
+        xdfHeaderInfo,
     }
 }
 

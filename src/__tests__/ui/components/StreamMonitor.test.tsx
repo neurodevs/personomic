@@ -1681,6 +1681,31 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsXdfHeaderOfLiveRecording() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], {
+            isRecording: true,
+            xdfHeader: [{ name: 'protocol-sha256', value: 'abc123' }],
+        })
+
+        this.receiveGatewayDevices([
+            this.describedGatewayDeviceFor(this.streams[0], []),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: ['File header'],
+                fields: ['protocol-sha256'],
+                values: ['abc123'],
+            },
+            'Did not show XDF header of live recording!'
+        )
+    }
+
+    @test()
     protected static async offersNoXdfDescriptionOfLiveSessionNotRecording() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName])

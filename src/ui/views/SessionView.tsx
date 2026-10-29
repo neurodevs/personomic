@@ -110,7 +110,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     )
     const [recordName, setRecordName] = useState(defaultRecordName)
     const [recordStartedAt, setRecordStartedAt] = useState<Date>()
-    const [recordingPath, setRecordingPath] = useState<string>()
+    const [xdfRecordPath, setXdfRecordPath] = useState<string>()
+    const [xdfHeaderInfo, setXdfHeaderInfo] = useState<XdfHeaderInfo>()
     const [session, setSession] = useState<SessionState>('unlocked')
     const [sessionError, setSessionError] = useState<string>()
     const [numMonitorResets, setNumMonitorResets] = useState(0)
@@ -311,11 +312,12 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     }
 
     const restoreRunningSession = (running: RunningSession) => {
-        const { devices, xdfRecordPath } = running
+        const { devices, xdfRecordPath, xdfHeaderInfo } = running
 
         setDevices(selectedFrom(devices))
         setIsRecordEnabled(xdfRecordPath !== undefined)
-        setRecordingPath(xdfRecordPath)
+        setXdfRecordPath(xdfRecordPath)
+        setXdfHeaderInfo(xdfHeaderInfo)
         setSession('locked')
     }
 
@@ -323,9 +325,13 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         sendToOrchestrator<OrchestratorReply>(
             { command: 'status' },
             {
-                onReply: ({ devices, xdfRecordPath }) => {
+                onReply: ({ devices, xdfRecordPath, xdfHeaderInfo }) => {
                     if (devices) {
-                        restoreRunningSession({ devices, xdfRecordPath })
+                        restoreRunningSession({
+                            devices,
+                            xdfRecordPath,
+                            xdfHeaderInfo,
+                        })
                     }
                 },
                 onUnreachable: () => {},
@@ -369,13 +375,14 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 }),
             },
             {
-                onReply: ({ error, devices, xdfRecordPath }) => {
+                onReply: ({ error, devices, xdfRecordPath, xdfHeaderInfo }) => {
                     if (devices) {
                         setDevices(selectedFrom(devices))
                     }
 
                     setSessionError(error)
-                    setRecordingPath(xdfRecordPath)
+                    setXdfRecordPath(xdfRecordPath)
+                    setXdfHeaderInfo(xdfHeaderInfo)
                     setSession(error ? 'unlocked' : 'locked')
 
                     if (error) {
@@ -399,13 +406,15 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
             {
                 onReply: ({ error }) => {
                     setSessionError(error)
-                    setRecordingPath(undefined)
+                    setXdfRecordPath(undefined)
+                    setXdfHeaderInfo(undefined)
                     setSession('unlocked')
                     resetMonitor()
                 },
                 onUnreachable: () => {
                     setSessionError(orchestratorUnreachableMessage)
-                    setRecordingPath(undefined)
+                    setXdfRecordPath(undefined)
+                    setXdfHeaderInfo(undefined)
                     setSession('unlocked')
                     resetMonitor()
                 },
@@ -495,7 +504,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const recordControls: RecordXdfControlsProps = {
         isOn: isRecordEnabled,
         onIsOnChange: setIsRecordEnabled,
-        recordingPath,
+        xdfRecordPath,
         onRevealRecording: revealRecording,
         directory: recordDirectory,
         directoryPlaceholder: isEditingProtocol
@@ -643,7 +652,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 {isLive && !isEditingProtocol && (
                     <ControlGroup
                         isOnOwnLine={
-                            isRecordEnabled || recordingPath !== undefined
+                            isRecordEnabled || xdfRecordPath !== undefined
                         }
                     >
                         <RecordXdfControls {...recordControls} />
@@ -703,6 +712,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             windowSecondsByDevice={windowSecondsByDevice}
                             isConnecting={session === 'connecting'}
                             isRecording={isRecordEnabled}
+                            xdfHeader={headerOf(xdfHeaderInfo)}
                             identifiers={identifiers}
                             reportedIdentifiers={reportedIdentifiers}
                             onIdentifierReported={rememberReportedIdentifier}
@@ -873,6 +883,15 @@ type OrchestratorReply = Partial<RunningSession> & {
 interface RunningSession {
     devices: DeviceRequest[]
     xdfRecordPath?: string
+    xdfHeaderInfo?: XdfHeaderInfo
+}
+
+type XdfHeaderInfo = Record<string, string>
+
+function headerOf(info?: XdfHeaderInfo) {
+    return (
+        info && Object.entries(info).map(([name, value]) => ({ name, value }))
+    )
 }
 
 // Test doubles

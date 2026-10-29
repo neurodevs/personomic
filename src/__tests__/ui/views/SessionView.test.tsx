@@ -2057,6 +2057,45 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesXdfHeaderReportedOnStartToMonitor() {
+        this.renderWithMuse()
+
+        this.turnRecordOn()
+        this.clickConnect()
+        act(() =>
+            this.orchestratorSocket.receive({
+                xdfRecordPath: '/data/a.xdf',
+                xdfHeaderInfo: { 'protocol-sha256': 'abc123' },
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.xdfHeader,
+            [{ name: 'protocol-sha256', value: 'abc123' }],
+            'Did not pass XDF header reported on start to monitor!'
+        )
+    }
+
+    @test()
+    protected static async restoresXdfHeaderOfSessionRunningOnLoad() {
+        render(<SessionView />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [{ deviceName: 'Muse S Gen 2' }],
+                xdfRecordPath: '/data/a.xdf',
+                xdfHeaderInfo: { 'protocol-sha256': 'abc123' },
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.xdfHeader,
+            [{ name: 'protocol-sha256', value: 'abc123' }],
+            'Did not restore XDF header of session running on load!'
+        )
+    }
+
+    @test()
     protected static async offersRecordingsFolderAgainAfterStop() {
         this.renderWithMuse()
 

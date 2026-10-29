@@ -46,6 +46,7 @@ export interface StreamMonitorProps {
     downsampling?: Downsampling
     isConnecting?: boolean
     isRecording?: boolean
+    xdfHeader?: DescElement[]
     identifiers?: Record<string, DeviceIdentifier>
     reportedIdentifiers?: Record<string, string>
     onIdentifierReported?: (key: string, identifier: string) => void
@@ -82,6 +83,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         onRemoveDevice,
         isConnecting = false,
         isRecording = false,
+        xdfHeader,
         identifiers = {},
         reportedIdentifiers = {},
         onIdentifierReported,
@@ -606,7 +608,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
                         isDescribed={recording !== undefined || isRecording}
-                        xdfHeader={recording?.header}
+                        xdfHeader={recording?.header ?? xdfHeader}
                         nickname={nicknames[device.key] ?? ''}
                         onNicknameChange={onNicknameChange}
                         disabledStreams={disabledStreams[device.key]}
