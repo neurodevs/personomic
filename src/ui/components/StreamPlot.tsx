@@ -426,6 +426,29 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     const hasBandPowers = (channel: number) =>
         !channelsLeftOut?.includes(labelFor(channel))
 
+    const labelledBandPowerChannel =
+        bandPowerWindowSeconds !== undefined
+            ? shownChannels.find(hasBandPowers)
+            : undefined
+
+    const bandPowerWindowForRef = useRef<
+        (channel: number) => BandPowerWindow | undefined
+    >(() => undefined)
+
+    bandPowerWindowForRef.current = (channel) =>
+        bandPowerWindowSeconds !== undefined &&
+        bandPowerWindowEnd !== undefined &&
+        hasBandPowers(channel)
+            ? {
+                  start: bandPowerWindowEnd - bandPowerWindowSeconds,
+                  end: bandPowerWindowEnd,
+                  label:
+                      channel === labelledBandPowerChannel
+                          ? `Band power window (${durationLabelFor(bandPowerWindowSeconds)})`
+                          : undefined,
+              }
+            : undefined
+
     const averageBandPowers =
         bandPowersByChannel &&
         averageBandPowersOf(
@@ -455,6 +478,8 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         width: plotWidth,
                         height,
                         labelsTime: channel === lastShownChannel,
+                        labelsBandPowerWindow:
+                            channel === labelledBandPowerChannel,
                         color,
                         hasPeakMarkers,
                         yLimits: { min: yMinLimit, max: yMaxLimit },
@@ -463,6 +488,8 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
                         markedTimestampOf: () => markedTimestampRef.current,
                         sessionStartTimestampOf: () =>
                             sessionStartTimestampRef.current,
+                        bandPowerWindowOf: () =>
+                            bandPowerWindowForRef.current(channel),
                     }),
                     hasPeakMarkers ? [[], [], []] : [[], []],
                     containerRefs.current[channel]!
@@ -475,6 +502,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
     }, [
         plottedChannelCount,
         lastShownChannel,
+        labelledBandPowerChannel,
         color,
         hasPeakMarkers,
         yMinLimit,
@@ -490,10 +518,19 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotsRef.current.forEach((plot, channel) =>
             plot.setSize({
                 width: plotWidth,
-                height: heightWithXAxis(height, channel === lastShownChannel),
+                height: plotHeightFor(height, {
+                    labelsTime: channel === lastShownChannel,
+                    labelsBandPowerWindow: channel === labelledBandPowerChannel,
+                }),
             })
         )
-    }, [plotWidth, height, plottedChannelCount, lastShownChannel])
+    }, [
+        plotWidth,
+        height,
+        plottedChannelCount,
+        lastShownChannel,
+        labelledBandPowerChannel,
+    ])
 
     useEffect(() => {
         const rightEdgeTimestamp =
@@ -812,6 +849,7 @@ interface PlotAppearance {
     width: number
     height: number
     labelsTime: boolean
+    labelsBandPowerWindow: boolean
     color: string
     hasPeakMarkers: boolean
     yLimits: YLimits
@@ -819,6 +857,13 @@ interface PlotAppearance {
     occurrencesOf: () => ValueOccurrences | undefined
     markedTimestampOf: () => number | undefined
     sessionStartTimestampOf: () => number
+    bandPowerWindowOf: () => BandPowerWindow | undefined
+}
+
+interface BandPowerWindow {
+    start: number
+    end: number
+    label?: string
 }
 
 function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
@@ -826,6 +871,7 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
         width,
         height,
         labelsTime,
+        labelsBandPowerWindow,
         color,
         hasPeakMarkers,
         yLimits,
@@ -833,12 +879,20 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
         occurrencesOf,
         markedTimestampOf,
         sessionStartTimestampOf,
+        bandPowerWindowOf,
     } = appearance
 
     return {
         width,
-        height: heightWithXAxis(height, labelsTime),
-        padding: [yPadding, 0, yPadding, 0],
+        height: plotHeightFor(height, { labelsTime, labelsBandPowerWindow }),
+        padding: [
+            labelsBandPowerWindow
+                ? yPadding + bandPowerWindowLabelHeight
+                : yPadding,
+            0,
+            yPadding,
+            0,
+        ],
         legend: { show: false },
         cursor: { show: false },
         scales: {
@@ -860,6 +914,7 @@ function channelPlotOptionsFor(appearance: PlotAppearance): uPlot.Options {
                         labelsTime,
                         sessionStartTimestamp: sessionStartTimestampOf(),
                     }),
+                (plot) => drawBandPowerWindow(plot, bandPowerWindowOf()),
             ],
         },
         series: [
@@ -934,8 +989,15 @@ function shownUnitOf(unit: string | undefined) {
     return trimmed === 'N/A' ? '' : trimmed
 }
 
-function heightWithXAxis(height: number, labelsTime: boolean) {
-    return labelsTime ? height + xAxisHeight : height
+function plotHeightFor(
+    height: number,
+    labeling: { labelsTime: boolean; labelsBandPowerWindow: boolean }
+) {
+    return (
+        height +
+        (labeling.labelsTime ? xAxisHeight : 0) +
+        (labeling.labelsBandPowerWindow ? bandPowerWindowLabelHeight : 0)
+    )
 }
 
 function roundXTicksBackFrom(latest: number, earliest: number) {
@@ -1197,6 +1259,62 @@ function drawTimeMarkerLabel(plot: uPlot, x: number, label: string) {
 
 function timeMarkerLabelFor(secondsSinceSessionStart: number) {
     return `${secondsSinceSessionStart.toFixed(3)}s`
+}
+
+const bandPowerWindowShade = 'rgba(255, 255, 255, 0.05)'
+const bandPowerWindowEdgeColor = 'rgba(255, 255, 255, 0.35)'
+const bandPowerWindowLabelColor = '#8b93a7'
+const bandPowerWindowLabelPadding = 4
+const bandPowerWindowLabelHeight = 14
+
+function drawBandPowerWindow(plot: uPlot, window: BandPowerWindow | undefined) {
+    if (!window) {
+        return
+    }
+
+    const { ctx, bbox } = plot
+    const shownRight = bbox.left + bbox.width
+    const startX = plot.valToPos(window.start, 'x', true)
+    const left = Math.max(startX, bbox.left)
+    const right = Math.min(plot.valToPos(window.end, 'x', true), shownRight)
+
+    if (!(right > left)) {
+        return
+    }
+
+    ctx.save()
+
+    ctx.fillStyle = bandPowerWindowShade
+    ctx.fillRect(left, bbox.top, right - left, bbox.height)
+
+    if (startX >= bbox.left) {
+        ctx.strokeStyle = bandPowerWindowEdgeColor
+        ctx.lineWidth = uPlot.pxRatio
+        ctx.setLineDash([4 * uPlot.pxRatio, 3 * uPlot.pxRatio])
+        ctx.beginPath()
+        ctx.moveTo(startX, bbox.top)
+        ctx.lineTo(startX, bbox.top + bbox.height)
+        ctx.stroke()
+    }
+
+    if (window.label) {
+        const padding = bandPowerWindowLabelPadding * uPlot.pxRatio
+
+        ctx.font = axisLabelFontAt(uPlot.pxRatio)
+        ctx.fillStyle = bandPowerWindowLabelColor
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'bottom'
+
+        const labelWidth = ctx.measureText(window.label).width
+        const x = Math.max(
+            bbox.left,
+            Math.min(left + padding, shownRight - labelWidth)
+        )
+
+        ctx.fillText(window.label, x, bbox.top - padding)
+    }
+
+    ctx.restore()
 }
 
 const faintestOccurrenceOpacity = 0.15

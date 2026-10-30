@@ -1443,6 +1443,170 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async shadesBandPowerWindowOnEveryChannel() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: { sampleRate: 256, windowSeconds: 1 },
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map(
+                (plot) => this.drawBandPowerWindow(plot).shades
+            ),
+            [
+                [{ x: 200, y: 10, width: 100, height: 40 }],
+                [{ x: 200, y: 10, width: 100, height: 40 }],
+            ],
+            'Did not shade the band power window on every channel!'
+        )
+    }
+
+    @test()
+    protected static async edgesBandPowerWindowAtItsStart() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: { sampleRate: 256, windowSeconds: 1 },
+        })
+
+        assert.isEqualDeep(
+            this.drawBandPowerWindow().edges,
+            [{ from: [200, 10], to: [200, 50] }],
+            'Did not edge the band power window at its start!'
+        )
+    }
+
+    @test()
+    protected static async labelsBandPowerWindowOnFirstChannelOnly() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: { sampleRate: 256, windowSeconds: 1 },
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) =>
+                this.drawBandPowerWindow(plot).labels.map(({ text }) => text)
+            ),
+            [['Band power window (1s)'], []],
+            'Did not label the band power window on the first channel only!'
+        )
+    }
+
+    @test()
+    protected static async labelsBandPowerWindowAboveGraphFromItsStart() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: { sampleRate: 256, windowSeconds: 1.5 },
+        })
+
+        const [label] = this.drawBandPowerWindow(FakeUPlot.instances[0]).labels
+
+        assert.isEqualDeep(
+            { isAboveGraph: label.y < 10, isFromStart: label.x >= 150 },
+            { isAboveGraph: true, isFromStart: true },
+            'Did not label the band power window above the graph from its start!'
+        )
+    }
+
+    @test()
+    protected static async keepsBandPowerWindowLabelWithinGraphWhenWindowIsNarrow() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: { sampleRate: 256, windowSeconds: 0.1 },
+        })
+
+        const [label] = this.drawBandPowerWindow(FakeUPlot.instances[0]).labels
+        const labelWidth = label.text.length * 6
+
+        assert.isTrue(
+            label.x + labelWidth <= 300,
+            'Did not keep the band power window label within the graph!'
+        )
+    }
+
+    @test()
+    protected static async makesRoomAboveFirstChannelForBandPowerWindowLabel() {
+        await this.render({
+            ...this.twoChannels,
+            width: 100,
+            height: 50,
+            bandPowers: { sampleRate: 256, windowSeconds: 1 },
+        })
+
+        const [first, second] = FakeUPlot.instances
+        const room = (first.options.height as number) - 50
+        const topPaddingOf = (plot: FakeUPlot) =>
+            plot.options.padding![0] as number
+
+        assert.isEqualDeep(
+            {
+                hasRoom: room > 0,
+                paddingGrowth: topPaddingOf(first) - topPaddingOf(second),
+                resized: first.size?.height,
+                otherHeight: second.options.height,
+            },
+            {
+                hasRoom: true,
+                paddingGrowth: room,
+                resized: 50 + room,
+                otherHeight: 50 + this.xAxisHeight,
+            },
+            'Did not make room above the first channel for the band power window label!'
+        )
+    }
+
+    @test()
+    protected static async clipsBandPowerWindowToShownTimes() {
+        await this.render({
+            ...this.twoChannels,
+            bandPowers: this.bandPowersOverFourSeconds,
+        })
+
+        const { shades, edges } = this.drawBandPowerWindow()
+
+        assert.isEqualDeep(
+            { shades, edges },
+            { shades: [{ x: 100, y: 10, width: 200, height: 40 }], edges: [] },
+            'Did not clip the band power window to the shown times!'
+        )
+    }
+
+    @test()
+    protected static async marksNoBandPowerWindowWithoutBandPowerOptions() {
+        await this.render(this.twoChannels)
+
+        assert.isEqualDeep(
+            this.drawBandPowerWindow(),
+            { shades: [], edges: [], labels: [] },
+            'Marked a band power window without band power options!'
+        )
+    }
+
+    @test()
+    protected static async marksNoBandPowerWindowOnChannelsLeftOut() {
+        await this.render({
+            ...this.twoChannels,
+            channelNames: ['AUX', 'TP9'],
+            bandPowers: {
+                sampleRate: 256,
+                windowSeconds: 1,
+                channelsLeftOut: ['AUX'],
+            },
+        })
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.map((plot) => {
+                const { shades, labels } = this.drawBandPowerWindow(plot)
+                return { numShades: shades.length, numLabels: labels.length }
+            }),
+            [
+                { numShades: 0, numLabels: 0 },
+                { numShades: 1, numLabels: 1 },
+            ],
+            'Did not leave the band power window off channels left out!'
+        )
+    }
+
+    @test()
     protected static async leavesChannelWithNoBandPowersOutOfAverage() {
         const alpha = this.oscillationAt([10])
 
@@ -3073,6 +3237,50 @@ export default class StreamPlotTest extends AbstractPackageTest {
         return { lines, labels }
     }
 
+    private static drawBandPowerWindow(
+        plot = FakeUPlot.latest,
+        xScale = { min: 0, max: 2 }
+    ) {
+        const bbox = { left: 100, top: 10, width: 200, height: 40 }
+        const shades: ShadeRect[] = []
+        const edges: MarkerLine[] = []
+        const labels: WindowLabel[] = []
+        let start: [number, number] = [0, 0]
+
+        const ctx = {
+            save() {},
+            restore() {},
+            beginPath() {},
+            stroke() {},
+            setLineDash() {},
+            fillRect(x: number, y: number, width: number, height: number) {
+                shades.push({ x, y, width, height })
+            },
+            moveTo(x: number, y: number) {
+                start = [x, y]
+            },
+            lineTo(x: number, y: number) {
+                edges.push({ from: start, to: [x, y] })
+            },
+            measureText: (text: string) => ({ width: text.length * 6 }),
+            fillText(text: string, x: number, y: number) {
+                labels.push({ text, x, y })
+            },
+        }
+
+        const valToPos = (value: number) =>
+            bbox.left +
+            (bbox.width * (value - xScale.min)) / (xScale.max - xScale.min)
+
+        const draw = plot.options.hooks?.draw?.[2] as unknown as (
+            plot: unknown
+        ) => void
+
+        draw({ ctx, bbox, valToPos })
+
+        return { shades, edges, labels }
+    }
+
     private static async renderThenDragGraph(
         drag: { from: number; to: number },
         props: Partial<StreamPlotProps> = {}
@@ -3201,9 +3409,22 @@ interface StripRect {
     opacity: number
 }
 
+interface ShadeRect {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 interface MarkerLine {
     from: [number, number]
     to: [number, number]
+}
+
+interface WindowLabel {
+    text: string
+    x: number
+    y: number
 }
 
 interface MarkerLabel {
