@@ -5,7 +5,9 @@ import React, { useState } from 'react'
 
 import FakeFrameScheduler from '../../../testDoubles/FrameScheduler/FakeFrameScheduler'
 import FakeSpeaker from '../../../testDoubles/Speaker/FakeSpeaker'
-import FakeStreamPlot from '../../../testDoubles/StreamPlot/FakeStreamPlot'
+import FakeStreamPlot, {
+    passedStreamPlotProps,
+} from '../../../testDoubles/StreamPlot/FakeStreamPlot'
 import FakeStreamMonitor, {
     lastStreamMonitorProps,
     numStreamMonitorMounts,
@@ -3086,10 +3088,16 @@ export default class SessionViewTest extends AbstractPackageTest {
                 isSameRecording:
                     lastStreamMonitorProps?.recording === recording,
                 numNewMounts: numStreamMonitorMounts - numMountsBefore,
+                seekSeconds: lastStreamMonitorProps?.playbackSeek?.seconds,
                 isPlayingShown:
                     screen.queryByText('Playing morning.xdf') !== null,
             },
-            { isSameRecording: true, numNewMounts: 1, isPlayingShown: true },
+            {
+                isSameRecording: true,
+                numNewMounts: 0,
+                seekSeconds: 0,
+                isPlayingShown: true,
+            },
             'Did not replay recording from start when replay was clicked!'
         )
     }
@@ -3316,8 +3324,9 @@ export default class SessionViewTest extends AbstractPackageTest {
         this.endPlayback()
         fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
 
-        assert.isUndefined(
-            lastStreamMonitorProps?.playbackSeek,
+        assert.isEqual(
+            lastStreamMonitorProps?.playbackSeek?.seconds,
+            0,
             'Did not replay from start after seeking!'
         )
     }
@@ -3400,8 +3409,40 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     @test()
     protected static async keepsShowingPlotsOfFinishedRecordingThroughReplay() {
-        let nowMs = 0
-        setClock(() => nowMs)
+        await this.playRecordingThroughRealMonitor()
+
+        await this.finishPlayback()
+        const onceFinished = this.numShownPlots
+        await this.replay()
+
+        assert.isEqualDeep(
+            { onceFinished, onReplay: this.numShownPlots },
+            { onceFinished: 1, onReplay: 1 },
+            'Did not keep showing plots of finished recording through replay!'
+        )
+    }
+
+    @test()
+    protected static async keepsChosenTimeWindowOnReplay() {
+        await this.playRecordingThroughRealMonitor()
+
+        fireEvent.click(screen.getByTitle('Change time window of all graphs'))
+        fireEvent.click(screen.getByRole('menuitemradio', { name: '30s' }))
+        await this.finishPlayback()
+        await this.replay()
+
+        assert.isEqual(
+            passedStreamPlotProps.at(-1)?.windowSeconds,
+            30,
+            'Did not keep chosen time window on replay!'
+        )
+    }
+
+    private static nowMs = 0
+
+    private static async playRecordingThroughRealMonitor() {
+        this.nowMs = 0
+        setClock(() => this.nowMs)
         setFrameScheduler(FakeFrameScheduler.schedule)
         FakeFrameScheduler.resetTestDouble()
         setStreamPlotComponent(FakeStreamPlot)
@@ -3414,17 +3455,16 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         await this.chooseRecording()
         await act(() => FakeFrameScheduler.runFrame())
-        nowMs = 5000
+    }
+
+    private static async finishPlayback() {
+        this.nowMs = 5000
         await act(() => FakeFrameScheduler.runFrame())
-        const onceFinished = this.numShownPlots
+    }
+
+    private static async replay() {
         fireEvent.click(screen.getByRole('button', { name: 'Replay' }))
         await act(() => FakeFrameScheduler.runFrame())
-
-        assert.isEqualDeep(
-            { onceFinished, onReplay: this.numShownPlots },
-            { onceFinished: 1, onReplay: 1 },
-            'Did not keep showing plots of finished recording through replay!'
-        )
     }
 
     @test()

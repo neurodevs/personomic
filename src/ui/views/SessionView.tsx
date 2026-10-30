@@ -476,16 +476,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
     const replay = () => {
         setIsPaused(false)
-        setPlaying(
-            (previous) =>
-                previous && {
-                    ...previous,
-                    hasEnded: false,
-                    seek: undefined,
-                    progress: undefined,
-                }
-        )
-        resetMonitor()
+        seek(0)
     }
 
     const seek = (seconds: number) => {
