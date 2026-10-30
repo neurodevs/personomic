@@ -18,8 +18,11 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
 
     const offered = offeredFrom(scanned, remembered, deviceName)
 
+    const change = (value: string) =>
+        onChange?.(formattedFor(identifier, value))
+
     const choose = (value: string) => {
-        onChange?.(value)
+        change(value)
         setIsOpen(false)
     }
 
@@ -48,7 +51,7 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                 title={tooltipFor(identifier)}
                 value={shownValue}
                 readOnly={isLocked}
-                onChange={(event) => onChange?.(event.target.value)}
+                onChange={(event) => change(event.target.value)}
                 onFocus={() => setIsOpen(true)}
                 onClick={() => setIsOpen(true)}
                 onBlur={() => setIsOpen(false)}
@@ -146,6 +149,19 @@ function offeredFrom(
     }
 
     return offered
+}
+
+function formattedFor(identifier: DeviceIdentifier, value: string) {
+    return identifier.label === 'Address' ? formattedAddress(value) : value
+}
+
+function formattedAddress(value: string) {
+    const digits = value
+        .toUpperCase()
+        .replace(/[^0-9A-F]/g, '')
+        .slice(0, 12)
+
+    return digits.match(/.{1,2}/g)?.join(':') ?? ''
 }
 
 function tooltipFor(identifier: DeviceIdentifier) {

@@ -145,6 +145,99 @@ export default class IdentifierInputTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async formatsTypedAddressAsUppercaseWithColons() {
+        assert.isEqual(
+            this.typeAddress('a0e6f8'),
+            'A0:E6:F8',
+            'Did not format the typed address as uppercase with colons!'
+        )
+    }
+
+    @test()
+    protected static async replacesOtherSeparatorsInTypedAddress() {
+        assert.isEqual(
+            this.typeAddress('a0-e6-f8-a5-60-bf'),
+            'A0:E6:F8:A5:60:BF',
+            'Did not replace other separators in the typed address!'
+        )
+    }
+
+    @test()
+    protected static async addsNoTrailingColonToTypedAddress() {
+        assert.isEqual(
+            this.typeAddress('A0:E6:'),
+            'A0:E6',
+            'Added a trailing colon to the typed address!'
+        )
+    }
+
+    @test()
+    protected static async dropsNonHexAndExtraDigitsFromTypedAddress() {
+        assert.isEqual(
+            this.typeAddress('a0e6f8a560bfzz12'),
+            'A0:E6:F8:A5:60:BF',
+            'Did not drop non-hex and extra digits from the typed address!'
+        )
+    }
+
+    @test()
+    protected static async formatsChosenAddress() {
+        const changes: string[] = []
+        render(
+            <IdentifierInput
+                deviceLabel="Zephyr BioHarness 3"
+                identifier={{ label: 'Address', value: '' }}
+                scanned={[{ value: 'a0-e6-f8-a5-60-bf', source: 'Bluetooth' }]}
+                onChange={(value) => changes.push(value)}
+            />
+        )
+
+        fireEvent.focus(this.field)
+        fireEvent.click(screen.getByRole('option'))
+
+        assert.isEqualDeep(
+            changes,
+            ['A0:E6:F8:A5:60:BF'],
+            'Did not format the chosen address!'
+        )
+    }
+
+    @test()
+    protected static async leavesTypedUuidUnformatted() {
+        const changes: string[] = []
+        render(
+            <IdentifierInput
+                deviceLabel="Muse S Gen 2"
+                identifier={{ label: 'UUID', value: '' }}
+                onChange={(value) => changes.push(value)}
+            />
+        )
+
+        fireEvent.change(this.field, { target: { value: 'muse-uuid' } })
+
+        assert.isEqualDeep(
+            changes,
+            ['muse-uuid'],
+            'Did not leave the typed UUID unformatted!'
+        )
+    }
+
+    private static typeAddress(typed: string) {
+        const changes: string[] = []
+        render(
+            <IdentifierInput
+                deviceLabel="Zephyr BioHarness 3"
+                identifier={{ label: 'Address', value: '' }}
+                onChange={(value) => changes.push(value)}
+            />
+        )
+
+        fireEvent.change(this.field, { target: { value: typed } })
+
+        return changes[0]
+    }
+
     private static get field() {
         return screen.getByRole('textbox') as HTMLInputElement
     }
