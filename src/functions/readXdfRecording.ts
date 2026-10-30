@@ -39,23 +39,23 @@ export default function readXdfRecording(file: ArrayBuffer): Recording {
                 children: xmlTreeOf(xml),
             })
         } else if (tag === samplesTag) {
-            if (stream) {
-                appendSamples(stream, view, contentStart)
-            }
-            chunks.push(samplesChunkFor(stream, view, contentStart, attributes))
+            const numSamples = variableLengthAt(contentStart, view).value ?? 0
+            const appended = stream && appendSamples(stream, view, contentStart)
+            chunks.push(
+                samplesChunkFor(stream, appended, {
+                    ...attributes,
+                    NumSamples: String(numSamples),
+                })
+            )
         } else if (tag === clockOffsetTag) {
+            const collectionTime = view.getFloat64(contentStart, true)
+            const offsetValue = view.getFloat64(contentStart + 8, true)
             chunks.push({
                 name: 'ClockOffset',
                 attributes,
                 loadChildren: () => [
-                    textNode(
-                        'CollectionTime',
-                        view.getFloat64(contentStart, true)
-                    ),
-                    textNode(
-                        'OffsetValue',
-                        view.getFloat64(contentStart + 8, true)
-                    ),
+                    textNode('CollectionTime', collectionTime),
+                    textNode('OffsetValue', offsetValue),
                 ],
             })
         } else if (tag === boundaryTag) {
@@ -184,28 +184,40 @@ function textNode(name: string, value: number): XmlNode {
 
 function samplesChunkFor(
     stream: XdfStream | undefined,
-    view: DataView,
-    contentStart: number,
+    appended: AppendedSamples | undefined,
     attributes: Record<string, string>
 ): XmlNode {
-    const numSamples = variableLengthAt(contentStart, view).value ?? 0
-
     return {
         name: 'Samples',
-        attributes: { ...attributes, NumSamples: String(numSamples) },
+        attributes,
         loadChildren: () =>
-            stream
-                ? samplesIn(stream, view, contentStart).map(
-                      ({ timestamp, values }) => ({
-                          name: 'sample',
-                          ...(timestamp !== undefined && {
-                              attributes: { timestamp: String(timestamp) },
-                          }),
-                          text: values.join(' '),
-                      })
-                  )
-                : [],
+            stream && appended ? sampleNodesOf(stream, appended) : [],
     }
+}
+
+function sampleNodesOf(
+    stream: XdfStream,
+    { start, count, timestamped }: AppendedSamples
+): XmlNode[] {
+    const { channelCount, samples, timestamps } = stream
+
+    return Array.from({ length: count }, (_, offset) => {
+        const index = start + offset
+        const values = samples.slice(
+            index * channelCount,
+            (index + 1) * channelCount
+        )
+        const hasTimestamp =
+            timestamped === 'all' || timestamped.includes(offset)
+
+        return {
+            name: 'sample',
+            ...(hasTimestamp && {
+                attributes: { timestamp: String(timestamps[index]) },
+            }),
+            text: values.join(' '),
+        }
+    })
 }
 
 function infoIn(headerXml: string) {
@@ -257,46 +269,46 @@ function appendSamples(
     stream: XdfStream,
     view: DataView,
     contentStart: number
-) {
-    const { sampleRateHz, samples, timestamps } = stream
-
-    for (const { timestamp, values } of samplesIn(stream, view, contentStart)) {
-        timestamps.push(
-            timestamp ?? timestamps[timestamps.length - 1] + 1 / sampleRateHz
-        )
-        samples.push(...values)
-    }
-}
-
-function samplesIn(stream: XdfStream, view: DataView, contentStart: number) {
-    const { channelCount, valueReader } = stream
+): AppendedSamples {
+    const { channelCount, sampleRateHz, valueReader, samples, timestamps } =
+        stream
+    const start = timestamps.length
+    const timestamped: number[] = []
 
     if (!valueReader) {
-        return []
+        return { start, count: 0, timestamped }
     }
 
     const numSamples = variableLengthAt(contentStart, view)
-    const read: { timestamp?: number; values: number[] }[] = []
     let offset = numSamples.end
 
     for (let i = 0; i < (numSamples.value ?? 0); i++) {
         const hasTimestamp = view.getUint8(offset++) === 8
-        const timestamp = hasTimestamp
-            ? view.getFloat64(offset, true)
-            : undefined
-        offset += hasTimestamp ? 8 : 0
 
-        const values: number[] = []
-
-        for (let channel = 0; channel < channelCount; channel++) {
-            values.push(valueReader.read(view, offset))
-            offset += valueReader.numBytes
+        if (hasTimestamp) {
+            timestamped.push(i)
         }
 
-        read.push({ timestamp, values })
+        timestamps.push(
+            hasTimestamp
+                ? view.getFloat64(offset, true)
+                : timestamps[timestamps.length - 1] + 1 / sampleRateHz
+        )
+        offset += hasTimestamp ? 8 : 0
+
+        for (let channel = 0; channel < channelCount; channel++) {
+            samples.push(valueReader.read(view, offset))
+            offset += valueReader.numBytes
+        }
     }
 
-    return read
+    const count = timestamps.length - start
+
+    return {
+        start,
+        count,
+        timestamped: timestamped.length === count ? 'all' : timestamped,
+    }
 }
 
 const valueReaders: Record<ChannelFormat, ValueReader> = {
@@ -433,6 +445,12 @@ interface XdfStream extends RecordedStream {
     nickname?: string
     channelCount: number
     valueReader?: ValueReader
+}
+
+interface AppendedSamples {
+    start: number
+    count: number
+    timestamped: 'all' | number[]
 }
 
 interface VariableLength {

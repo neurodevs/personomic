@@ -428,6 +428,49 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async loadsDataChunksWithoutKeepingFileBytes() {
+        const file = buildXdfFile([
+            {
+                channelNames: ['A', 'B'],
+                sampleRateHz: 2,
+                chunks: [
+                    { samples: [[1, 2]], timestamps: [10] },
+                    {
+                        samples: [
+                            [3, 4],
+                            [5, 6],
+                        ],
+                        timestamps: [undefined, 11],
+                    },
+                ],
+                clockOffsets: [[5, -0.25]],
+            },
+        ])
+
+        const { chunks = [] } = readXdfRecording(file)
+        file.transfer()
+
+        assert.isEqualDeep(
+            chunks.slice(2).map((chunk) => chunk.loadChildren?.()),
+            [
+                [
+                    { name: 'sample', text: '3 4' },
+                    {
+                        name: 'sample',
+                        attributes: { timestamp: '11' },
+                        text: '5 6',
+                    },
+                ],
+                [
+                    { name: 'CollectionTime', text: '5' },
+                    { name: 'OffsetValue', text: '-0.25' },
+                ],
+            ],
+            'Did not load data chunks without keeping file bytes!'
+        )
+    }
+
+    @test()
     protected static async readsClockOffsetOnlyWhenLoaded() {
         const file = buildXdfFile([
             { channelNames: ['A'], clockOffsets: [[5, -0.25]] },
@@ -637,5 +680,11 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
         return readXdfRecording(buildXdfFile(separate)).devices.flatMap(
             (device) => device.streams
         )
+    }
+}
+
+declare global {
+    interface ArrayBuffer {
+        transfer(): ArrayBuffer
     }
 }
