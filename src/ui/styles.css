@@ -235,6 +235,114 @@ body {
   font-size: 13px;
 }
 
+.protocols__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.protocols__card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  color: var(--text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.protocols__card:hover,
+.protocols__card:focus-visible {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+  outline: none;
+}
+
+.protocols__card-name {
+  margin-bottom: 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.protocols__card-detail {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.protocols__editor {
+  position: relative;
+}
+
+.protocols__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 18px;
+}
+
+.protocols-welcome {
+  max-width: 640px;
+  margin: 48px auto 0;
+}
+
+.protocols-welcome__card {
+  padding: 36px;
+}
+
+.protocols-welcome__heading {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.protocols-welcome__lead {
+  margin: 0 0 28px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.protocols-welcome__topics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 32px;
+  padding: 0;
+  list-style: none;
+}
+
+.protocols-welcome__topic {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.protocols-welcome__topic-name {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.protocols-welcome__topic p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.protocols-welcome__actions {
+  display: flex;
+  gap: 10px;
+}
+
 .biosensors__heading,
 .event-markers__heading {
   margin: 0 0 10px;
@@ -1061,6 +1169,10 @@ input.event-markers__name,
 
 @media (max-width: 600px) {
   .protocols {
+    grid-template-columns: 1fr;
+  }
+
+  .protocols-welcome__topics {
     grid-template-columns: 1fr;
   }
 }

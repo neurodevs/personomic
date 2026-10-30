@@ -37,12 +37,60 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async saysThereAreNoProtocolsYetWhenFolderIsEmpty() {
+    protected static async welcomesToFirstProtocolWhenFolderIsEmpty() {
         this.answerListing()
 
         assert.isTrue(
-            screen.queryByText('No protocols yet.') !== null,
-            'Did not say there are no protocols yet!'
+            this.isFirstProtocolWelcomeShown,
+            'Did not welcome to a first protocol when the folder was empty!'
+        )
+    }
+
+    @test()
+    protected static async explainsWhatAProtocolHoldsWhenFolderIsEmpty() {
+        this.answerListing()
+
+        assert.isEqualDeep(
+            this.welcomeTopics,
+            ['Biosensors', 'Phases', 'Recording'],
+            'Did not explain what a protocol holds when the folder was empty!'
+        )
+    }
+
+    @test()
+    protected static async saysWhyProtocolsHelpWhenFolderIsEmpty() {
+        this.answerListing()
+
+        assert.isTrue(
+            screen.queryByText(
+                "A protocol saves a session's setup as a JSON file, so you can run it the same way every time and share it with collaborators."
+            ) !== null,
+            'Did not say why protocols help when the folder was empty!'
+        )
+    }
+
+    @test()
+    protected static async describesWhatEachPartOfAProtocolHolds() {
+        this.answerListing()
+
+        assert.isEqualDeep(
+            this.welcomeTopicDescriptions,
+            [
+                'Which devices to connect and which streams to keep.',
+                'A timed sequence of blocks, tasks, and more.',
+                'Where to save each session as an XDF file.',
+            ],
+            'Did not describe what each part of a protocol holds!'
+        )
+    }
+
+    @test()
+    protected static async hidesProtocolListWhenFolderIsEmpty() {
+        this.answerListing()
+
+        assert.isTrue(
+            screen.queryByRole('navigation', { name: 'Protocols' }) === null,
+            'Showed the protocol list when the folder was empty!'
         )
     }
 
@@ -60,14 +108,14 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async stopsSayingThereAreNoProtocolsOnceOneExists() {
+    protected static async stopsWelcomingOnceAProtocolExists() {
         this.answerListing()
 
         this.clickNewProtocol()
 
         assert.isFalse(
-            screen.queryByText('No protocols yet.') !== null,
-            'Kept saying there are no protocols once one existed!'
+            this.isFirstProtocolWelcomeShown,
+            'Kept welcoming to a first protocol once one existed!'
         )
     }
 
@@ -1640,6 +1688,265 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsACardForEachProtocolWhenNoneIsSelected() {
+        this.answerListing([
+            this.file('tilt.json', 'Tilt'),
+            this.file('insula.json', 'I-INSULA'),
+        ])
+
+        assert.isEqualDeep(
+            this.cardNames,
+            ['Tilt', 'I-INSULA'],
+            'Did not show a card for each protocol when none was selected!'
+        )
+    }
+
+    @test()
+    protected static async showsBiosensorsOnEachCard() {
+        this.answerListing([
+            {
+                fileName: 'tilt.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt',
+                    devices: [
+                        { deviceName: 'Cognionics Quick-20r' },
+                        { deviceName: 'OpenBCI Cyton', nickname: 'Heart' },
+                    ],
+                },
+            },
+        ])
+
+        assert.isEqual(
+            this.cardDetailsOf('Tilt')[0],
+            `${displayNameOf('Cognionics Quick-20r')} · Heart`,
+            'Did not show the biosensors on the card!'
+        )
+    }
+
+    @test()
+    protected static async saysCardHasNoBiosensorsWhenNoneAreAdded() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+
+        assert.isEqual(
+            this.cardDetailsOf('Tilt')[0],
+            'No biosensors',
+            'Did not say the card has no biosensors!'
+        )
+    }
+
+    @test()
+    protected static async countsPhasesAndSaysItRecordsOnEachCard() {
+        this.answerListing([
+            {
+                fileName: 'tilt.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt',
+                    recordXdf: true,
+                    phases: [
+                        { name: 'pre-baseline', durationMs: 300000 },
+                        { name: 'post-baseline', durationMs: 300000 },
+                    ],
+                },
+            },
+        ])
+
+        assert.isEqual(
+            this.cardDetailsOf('Tilt')[1],
+            '2 phases · Records XDF',
+            'Did not count the phases and say it records on the card!'
+        )
+    }
+
+    @test()
+    protected static async countsASinglePhaseOnTheCard() {
+        this.answerListing([
+            {
+                fileName: 'tilt.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Tilt',
+                    phases: [{ name: 'pre-baseline', durationMs: 300000 }],
+                },
+            },
+        ])
+
+        assert.isEqual(
+            this.cardDetailsOf('Tilt')[1],
+            '1 phase',
+            'Did not count a single phase on the card!'
+        )
+    }
+
+    @test()
+    protected static async saysCardHasNoPhasesWhenNoneArePlanned() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+
+        assert.isEqual(
+            this.cardDetailsOf('Tilt')[1],
+            'No phases',
+            'Did not say the card has no phases!'
+        )
+    }
+
+    @test()
+    protected static async selectsTheProtocolOfAClickedCard() {
+        this.answerListing([
+            this.file('tilt.json', 'Tilt'),
+            this.file('insula.json', 'I-INSULA'),
+        ])
+
+        fireEvent.click(this.cardOf('I-INSULA'))
+
+        assert.isEqual(
+            this.selectedName,
+            'I-INSULA',
+            'Did not select the protocol of the clicked card!'
+        )
+    }
+
+    @test()
+    protected static async hidesCardsOnceAProtocolIsSelected() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+
+        this.chooseListed('Tilt')
+
+        assert.isEqualDeep(
+            this.cardNames,
+            [],
+            'Kept showing cards once a protocol was selected!'
+        )
+    }
+
+    @test()
+    protected static async keepsTheSelectedProtocolAfterSwitchingTabs() {
+        this.answerListing([
+            this.file('tilt.json', 'Tilt'),
+            this.file('insula.json', 'I-INSULA'),
+        ])
+        this.chooseListed('I-INSULA')
+
+        this.chooseTab('Session')
+        this.chooseTab('Protocols')
+
+        assert.isEqual(
+            this.selectedName,
+            'I-INSULA',
+            'Did not keep the selected protocol after switching tabs!'
+        )
+    }
+
+    @test()
+    protected static async closesProtocolToCardsWithCloseButton() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+        this.chooseListed('Tilt')
+
+        fireEvent.click(screen.getByRole('button', { name: 'Close Tilt' }))
+
+        assert.isEqualDeep(
+            this.cardNames,
+            ['Tilt'],
+            'Did not close the protocol to its card with the close button!'
+        )
+    }
+
+    @test()
+    protected static async titlesTheCloseButtonClose() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+        this.chooseListed('Tilt')
+
+        assert.isEqual(
+            screen.getByRole('button', { name: 'Close Tilt' }).title,
+            'Close',
+            'Did not title the close button Close!'
+        )
+    }
+
+    @test()
+    protected static async closesProtocolToCardsWhenChosenAgainInList() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+        this.chooseListed('Tilt')
+
+        this.chooseListed('Tilt')
+
+        assert.isEqualDeep(
+            this.cardNames,
+            ['Tilt'],
+            'Did not close the protocol when it was chosen again in the list!'
+        )
+    }
+
+    @test()
+    protected static async keepsUnsavedChangesOfAClosedProtocol() {
+        this.answerListing([this.file('tilt.json', 'Tilt')])
+        this.chooseListed('Tilt')
+        this.typeName('Tilt series')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Close Tilt series' })
+        )
+
+        assert.isEqualDeep(
+            this.unsavedNames,
+            ['Tilt series'],
+            'Did not keep the unsaved changes of the closed protocol!'
+        )
+    }
+
+    private static get isFirstProtocolWelcomeShown() {
+        return (
+            screen.queryByRole('heading', {
+                name: 'Create your first protocol',
+            }) !== null
+        )
+    }
+
+    private static get welcomeTopics() {
+        return within(
+            screen.getByRole('list', { name: 'What a protocol holds' })
+        )
+            .getAllByRole('heading')
+            .map((heading) => heading.textContent)
+    }
+
+    private static get welcomeTopicDescriptions() {
+        return within(
+            screen.getByRole('list', { name: 'What a protocol holds' })
+        )
+            .getAllByRole('listitem')
+            .map((topic) => topic.querySelector('p')!.textContent)
+    }
+
+    private static get cardNames() {
+        return this.cards.map(
+            (card) => card.querySelector('.protocols__card-name')!.textContent
+        )
+    }
+
+    private static cardDetailsOf(name: string) {
+        return [
+            ...this.cardOf(name).querySelectorAll('.protocols__card-detail'),
+        ].map((detail) => detail.textContent)
+    }
+
+    private static cardOf(name: string) {
+        return this.cards.find(
+            (card) =>
+                card.querySelector('.protocols__card-name')!.textContent ===
+                name
+        )!
+    }
+
+    private static get cards() {
+        const overview = screen.queryByRole('list', { name: 'All protocols' })
+
+        return overview
+            ? within(overview).getAllByRole('button')
+            : ([] as HTMLElement[])
+    }
+
     private static clickSavedPath(path: string) {
         fireEvent.click(screen.getByRole('button', { name: path }))
     }
@@ -1802,7 +2109,13 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     private static get listedNames() {
-        return within(screen.getByRole('navigation', { name: 'Protocols' }))
+        const list = screen.queryByRole('navigation', { name: 'Protocols' })
+
+        if (!list) {
+            return []
+        }
+
+        return within(list)
             .queryAllByRole('listitem')
             .map((item) => within(item).getAllByRole('button')[0].textContent)
     }

@@ -222,7 +222,9 @@ export default class IdentifierInputTest extends AbstractPackageTest {
         const changes = this.renderRemembered()
 
         fireEvent.focus(this.field)
-        fireEvent.click(screen.getByRole('button', { name: 'Forget muse-uuid' }))
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Forget muse-uuid' })
+        )
 
         assert.isEqualDeep(
             changes,

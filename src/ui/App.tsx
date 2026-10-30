@@ -34,6 +34,7 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     const [view, setView] = useState<View>('session')
     const [protocolFiles, setProtocolFiles] = useState<ProtocolFile[]>()
     const [listingError, setListingError] = useState<string>()
+    const [selectedProtocolIndex, setSelectedProtocolIndex] = useState<number>()
 
     useEffect(() => {
         sendToOrchestrator<{ protocols?: ListedProtocolFile[] }>(
@@ -102,6 +103,8 @@ const App: React.FC<AppProps> = (props: AppProps) => {
                         files={protocolFiles}
                         listingError={listingError}
                         onFilesChange={changeProtocolFiles}
+                        selectedIndex={selectedProtocolIndex}
+                        onSelectedIndexChange={setSelectedProtocolIndex}
                     />
                 </div>
             )}

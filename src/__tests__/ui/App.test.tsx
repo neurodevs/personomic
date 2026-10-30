@@ -307,7 +307,9 @@ export default class AppTest extends AbstractPackageTest {
         act(() => this.orchestratorSocket.dropConnection())
 
         assert.isTrue(
-            screen.queryByText('No protocols yet.') !== null,
+            screen.queryByRole('heading', {
+                name: 'Create your first protocol',
+            }) !== null,
             'Kept loading when the orchestrator was unreachable!'
         )
     }

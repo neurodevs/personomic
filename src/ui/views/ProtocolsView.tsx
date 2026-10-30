@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react'
 
+import displayNameOfDevice from '../../functions/displayNameOf'
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../../functions/sendToOrchestrator'
@@ -23,14 +24,23 @@ export interface ProtocolsViewProps {
     files?: ProtocolFile[]
     listingError?: string
     onFilesChange: (change: (files: ProtocolFile[]) => ProtocolFile[]) => void
+    selectedIndex?: number
+    onSelectedIndexChange: React.Dispatch<
+        React.SetStateAction<number | undefined>
+    >
 }
 
 const ProtocolsView: React.FC<ProtocolsViewProps> = (
     props: ProtocolsViewProps
 ) => {
-    const { files, listingError, onFilesChange } = props
+    const {
+        files,
+        listingError,
+        onFilesChange,
+        selectedIndex,
+        onSelectedIndexChange: setSelectedIndex,
+    } = props
 
-    const [selectedIndex, setSelectedIndex] = useState<number>()
     const [savedTo, setSavedTo] = useState<string>()
     const [actionError, setActionError] = useState<string>()
     const [confirmingRemoveAt, setConfirmingRemoveAt] = useState<number>()
@@ -72,11 +82,16 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
               )
             : undefined
 
-    const select = (index: number) => {
+    const select = (index?: number) => {
         setSelectedIndex(index)
         setSavedTo(undefined)
         setActionError(undefined)
     }
+
+    const close = () => select(undefined)
+
+    const toggle = (index: number) =>
+        index === selectedIndex ? close() : select(index)
 
     const addProtocol = () => {
         onFilesChange((previous) => [
@@ -201,110 +216,115 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
         )
     }
 
+    if (files.length === 0) {
+        return (
+            <FirstProtocolWelcome
+                error={error}
+                onNew={addProtocol}
+                onUpload={(file) => void uploadProtocolIn(file)}
+            />
+        )
+    }
+
     return (
         <div className="protocols">
             <nav className="protocols__list" aria-label="Protocols">
-                {files.length > 0 && (
-                    <ul className="protocols__items">
-                        {files.map((file, index) => {
-                            const { fileName, protocol } = file
+                <ul className="protocols__items">
+                    {files.map((file, index) => {
+                        const { fileName, protocol } = file
 
-                            return (
-                                <li key={index} className="protocols__row">
-                                    <button
-                                        type="button"
-                                        className="protocols__item"
-                                        aria-current={index === selectedIndex}
-                                        onClick={() => select(index)}
-                                    >
-                                        {displayNameOf(protocol)}
-                                    </button>
-                                    {hasUnsavedChanges(file) && (
-                                        <span
-                                            className="protocols__unsaved"
-                                            role="img"
-                                            aria-label="Unsaved changes"
-                                            title="Unsaved changes"
-                                        />
+                        return (
+                            <li key={index} className="protocols__row">
+                                <button
+                                    type="button"
+                                    className="protocols__item"
+                                    aria-current={index === selectedIndex}
+                                    onClick={() => toggle(index)}
+                                >
+                                    {displayNameOf(protocol)}
+                                </button>
+                                {hasUnsavedChanges(file) && (
+                                    <span
+                                        className="protocols__unsaved"
+                                        role="img"
+                                        aria-label="Unsaved changes"
+                                        title="Unsaved changes"
+                                    />
+                                )}
+                                <button
+                                    type="button"
+                                    className="protocols__download"
+                                    aria-label={`Download ${displayNameOf(protocol)}`}
+                                    title={
+                                        hasUnsavedChanges(file)
+                                            ? 'Download (save or cancel changes)'
+                                            : 'Download'
+                                    }
+                                    disabled={hasUnsavedChanges(file)}
+                                    onClick={() =>
+                                        downloadFile(
+                                            fileName!,
+                                            fileTextOf(protocol)
+                                        )
+                                    }
+                                >
+                                    ↓
+                                </button>
+                                <button
+                                    type="button"
+                                    className="protocols__remove"
+                                    aria-label={`Remove ${displayNameOf(protocol)}`}
+                                    title={removeTooltipFor(
+                                        file,
+                                        confirmingRemoveAt === index
                                     )}
-                                    <button
-                                        type="button"
-                                        className="protocols__download"
-                                        aria-label={`Download ${displayNameOf(protocol)}`}
-                                        title={
-                                            hasUnsavedChanges(file)
-                                                ? 'Download (save or cancel changes)'
-                                                : 'Download'
-                                        }
-                                        disabled={hasUnsavedChanges(file)}
-                                        onClick={() =>
-                                            downloadFile(
-                                                fileName!,
-                                                fileTextOf(protocol)
-                                            )
-                                        }
-                                    >
-                                        ↓
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="protocols__remove"
-                                        aria-label={`Remove ${displayNameOf(protocol)}`}
-                                        title={removeTooltipFor(
-                                            file,
-                                            confirmingRemoveAt === index
-                                        )}
-                                        disabled={
-                                            confirmingRemoveAt === index ||
-                                            hasUnsavedChanges(file)
-                                        }
-                                        onClick={() => askToRemove(index)}
-                                    >
-                                        ×
-                                    </button>
-                                    {confirmingRemoveAt === index && (
-                                        <div className="protocols__confirm-remove">
-                                            <p>
-                                                Remove {displayNameOf(protocol)}
-                                                ?
-                                            </p>
-                                            <label className="protocols__delete-file">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={shouldDeleteFile}
-                                                    onChange={(event) =>
-                                                        setShouldDeleteFile(
-                                                            event.target.checked
-                                                        )
-                                                    }
-                                                />
-                                                Delete {fileName}
-                                            </label>
-                                            <div className="protocols__confirm-actions">
-                                                <button
-                                                    type="button"
-                                                    onClick={confirmRemove}
-                                                >
-                                                    Remove
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setConfirmingRemoveAt(
-                                                            undefined
-                                                        )
-                                                    }
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
+                                    disabled={
+                                        confirmingRemoveAt === index ||
+                                        hasUnsavedChanges(file)
+                                    }
+                                    onClick={() => askToRemove(index)}
+                                >
+                                    ×
+                                </button>
+                                {confirmingRemoveAt === index && (
+                                    <div className="protocols__confirm-remove">
+                                        <p>Remove {displayNameOf(protocol)}?</p>
+                                        <label className="protocols__delete-file">
+                                            <input
+                                                type="checkbox"
+                                                checked={shouldDeleteFile}
+                                                onChange={(event) =>
+                                                    setShouldDeleteFile(
+                                                        event.target.checked
+                                                    )
+                                                }
+                                            />
+                                            Delete {fileName}
+                                        </label>
+                                        <div className="protocols__confirm-actions">
+                                            <button
+                                                type="button"
+                                                onClick={confirmRemove}
+                                            >
+                                                Remove
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setConfirmingRemoveAt(
+                                                        undefined
+                                                    )
+                                                }
+                                            >
+                                                Cancel
+                                            </button>
                                         </div>
-                                    )}
-                                </li>
-                            )
-                        })}
-                    </ul>
-                )}
+                                    </div>
+                                )}
+                            </li>
+                        )
+                    })}
+                </ul>
                 <button
                     type="button"
                     className="protocols__new"
@@ -322,11 +342,40 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                         {error}
                     </p>
                 )}
-                {files.length === 0 && (
-                    <p className="protocols__empty">No protocols yet.</p>
+                {!selected && (
+                    <ul className="protocols__cards" aria-label="All protocols">
+                        {files.map(({ protocol }, index) => (
+                            <li key={index}>
+                                <button
+                                    type="button"
+                                    className="protocols__card card"
+                                    onClick={() => select(index)}
+                                >
+                                    <span className="protocols__card-name">
+                                        {displayNameOf(protocol)}
+                                    </span>
+                                    <span className="protocols__card-detail">
+                                        {biosensorsSummaryOf(protocol)}
+                                    </span>
+                                    <span className="protocols__card-detail">
+                                        {scheduleSummaryOf(protocol)}
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 )}
                 {selected && (
                     <section className="protocols__editor card">
+                        <button
+                            type="button"
+                            className="protocols__remove protocols__close"
+                            aria-label={`Close ${displayNameOf(selected.protocol)}`}
+                            title="Close"
+                            onClick={close}
+                        >
+                            ×
+                        </button>
                         <ProtocolForm
                             key={selectedIndex}
                             isOpen
@@ -505,11 +554,89 @@ interface ProtocolBiosensorsProps {
     onDevicesChange: (devices: SelectedDevice[]) => void
 }
 
+const FirstProtocolWelcome: React.FC<FirstProtocolWelcomeProps> = ({
+    error,
+    onNew,
+    onUpload,
+}) => (
+    <div className="protocols-welcome">
+        {error && (
+            <p className="protocols__error" role="alert">
+                {error}
+            </p>
+        )}
+        <section
+            className="protocols-welcome__card card"
+            aria-labelledby="protocols-welcome-heading"
+        >
+            <h2
+                id="protocols-welcome-heading"
+                className="protocols-welcome__heading"
+            >
+                Create your first protocol
+            </h2>
+            <p className="protocols-welcome__lead">
+                A protocol saves a session's setup as a JSON file, so you can
+                run it the same way every time and share it with collaborators.
+            </p>
+            <ul
+                className="protocols-welcome__topics"
+                aria-label="What a protocol holds"
+            >
+                {welcomeTopics.map(({ name, description }) => (
+                    <li key={name} className="protocols-welcome__topic">
+                        <h3 className="protocols-welcome__topic-name">
+                            {name}
+                        </h3>
+                        <p>{description}</p>
+                    </li>
+                ))}
+            </ul>
+            <div className="protocols-welcome__actions">
+                <button
+                    type="button"
+                    className="protocols__save"
+                    onClick={onNew}
+                >
+                    New protocol
+                </button>
+                <UploadProtocolButton
+                    className="protocols__save protocols__cancel"
+                    onChoose={onUpload}
+                />
+            </div>
+        </section>
+    </div>
+)
+
+interface FirstProtocolWelcomeProps {
+    error?: string
+    onNew: () => void
+    onUpload: (file: UploadedFile) => void
+}
+
+const welcomeTopics = [
+    {
+        name: 'Biosensors',
+        description: 'Which devices to connect and which streams to keep.',
+    },
+    {
+        name: 'Phases',
+        description: 'A timed sequence of blocks, tasks, and more.',
+    },
+    {
+        name: 'Recording',
+        description: 'Where to save each session as an XDF file.',
+    },
+]
+
 interface UploadProtocolButtonProps {
+    className?: string
     onChoose: (file: UploadedFile) => void
 }
 
 const UploadProtocolButton: React.FC<UploadProtocolButtonProps> = ({
+    className = 'protocols__new',
     onChoose,
 }) => {
     const protocolToUploadInput = useRef<HTMLInputElement>(null)
@@ -527,7 +654,7 @@ const UploadProtocolButton: React.FC<UploadProtocolButtonProps> = ({
         <>
             <button
                 type="button"
-                className="protocols__new"
+                className={className}
                 onClick={() => protocolToUploadInput.current?.click()}
             >
                 Upload protocol
@@ -563,6 +690,27 @@ const schemaVersion = 1
 const untitledName = 'Untitled protocol'
 const untitledFileStem = 'untitled-protocol'
 const protocolsDirectory = '~/Personomic/Protocols'
+
+function biosensorsSummaryOf({ devices }: Protocol) {
+    if (devices.length === 0) {
+        return 'No biosensors'
+    }
+
+    return devices
+        .map(
+            ({ name, nickname }) => nickname.trim() || displayNameOfDevice(name)
+        )
+        .join(' · ')
+}
+
+function scheduleSummaryOf({ phases = [], recordXdf }: Protocol) {
+    const phaseCount =
+        phases.length === 0
+            ? 'No phases'
+            : `${phases.length} ${phases.length === 1 ? 'phase' : 'phases'}`
+
+    return recordXdf ? `${phaseCount} · Records XDF` : phaseCount
+}
 
 function removeTooltipFor(file: ProtocolFile, isAskingToRemove: boolean) {
     if (isAskingToRemove) {
