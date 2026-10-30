@@ -9,7 +9,9 @@ import {
 
 import { PlannedEvent } from '../../../ui/components/PlannedEvents'
 import { Block, Phase } from '../../../ui/components/ProtocolPhases'
-import ScheduleSummary from '../../../ui/components/ScheduleSummary'
+import ScheduleSummary, {
+    phaseLengthsOf,
+} from '../../../ui/components/ScheduleSummary'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class ScheduleSummaryTest extends AbstractPackageTest {
@@ -57,6 +59,18 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
         assert.isTrue(
             within(this.summary).queryByText('Nothing planned.') !== null,
             'Did not show the given note when there were no phases!'
+        )
+    }
+
+    @test()
+    protected static async clocksTheLengthOfEachPhase() {
+        assert.isEqualDeep(
+            phaseLengthsOf([
+                this.phase('pre-baseline', { durationMs: 300000 }),
+                this.phase('interventions', { blocks: [this.reversibleTilt] }),
+            ]),
+            ['5:00', '≥~1:57'],
+            'Did not clock the length of each phase!'
         )
     }
 

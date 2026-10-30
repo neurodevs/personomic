@@ -276,6 +276,10 @@ interface ItemTimes {
     end: Time
 }
 
+export function phaseLengthsOf(phases: Phase[]) {
+    return phases.map((phase) => clockOf(lengthOfPhase(phase)))
+}
+
 function scheduleOf(phases: Phase[]) {
     let phaseStart: Time = zero
 

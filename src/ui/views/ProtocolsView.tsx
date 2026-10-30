@@ -10,6 +10,7 @@ import DevicePanel from '../components/DevicePanel'
 import { defaultCueVoice, objectsIn } from '../components/PlannedEvents'
 import ProtocolForm from '../components/ProtocolForm'
 import ProtocolPhases, { Phase, phasesFrom } from '../components/ProtocolPhases'
+import { phaseLengthsOf } from '../components/ScheduleSummary'
 import { deviceLabelFor } from '../components/StreamMonitor'
 import useBiosensorChoices, {
     DeviceRequest,
@@ -351,14 +352,21 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                     className="protocols__card card"
                                     onClick={() => select(index)}
                                 >
-                                    <span className="protocols__card-name">
-                                        {displayNameOf(protocol)}
+                                    <span className="protocols__card-header">
+                                        <span className="protocols__card-name">
+                                            {displayNameOf(protocol)}
+                                        </span>
+                                        {protocol.recordXdf && (
+                                            <span className="protocols__card-badge">
+                                                Records XDF
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="protocols__card-detail">
                                         {biosensorsSummaryOf(protocol)}
                                     </span>
                                     <span className="protocols__card-detail">
-                                        {scheduleSummaryOf(protocol)}
+                                        {phasesSummaryOf(protocol)}
                                     </span>
                                 </button>
                             </li>
@@ -696,20 +704,27 @@ function biosensorsSummaryOf({ devices }: Protocol) {
         return 'No biosensors'
     }
 
-    return devices
-        .map(
-            ({ name, nickname }) => nickname.trim() || displayNameOfDevice(name)
-        )
-        .join(' · ')
+    return devices.map(biosensorLabelOf).join(' · ')
 }
 
-function scheduleSummaryOf({ phases = [], recordXdf }: Protocol) {
-    const phaseCount =
-        phases.length === 0
-            ? 'No phases'
-            : `${phases.length} ${phases.length === 1 ? 'phase' : 'phases'}`
+function biosensorLabelOf({ name, nickname }: SelectedDevice) {
+    const deviceName = displayNameOfDevice(name)
 
-    return recordXdf ? `${phaseCount} · Records XDF` : phaseCount
+    return nickname.trim() ? `${deviceName} (${nickname.trim()})` : deviceName
+}
+
+function phasesSummaryOf({ phases = [] }: Protocol) {
+    if (phases.length === 0) {
+        return 'No phases'
+    }
+
+    const lengths = phaseLengthsOf(phases)
+    const timedPhases = phases.map(
+        (phase, index) => `${phase.name || 'unnamed phase'} ${lengths[index]}`
+    )
+    const count = `${phases.length} ${phases.length === 1 ? 'phase' : 'phases'}`
+
+    return `${count}: ${timedPhases.join(' · ')}`
 }
 
 function removeTooltipFor(file: ProtocolFile, isAskingToRemove: boolean) {

@@ -237,8 +237,7 @@ body {
 
 .protocols__cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -263,10 +262,26 @@ body {
   outline: none;
 }
 
-.protocols__card-name {
+.protocols__card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 4px;
+}
+
+.protocols__card-name {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.protocols__card-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 11px;
 }
 
 .protocols__card-detail {

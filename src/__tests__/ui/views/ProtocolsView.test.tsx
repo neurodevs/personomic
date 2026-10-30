@@ -1731,7 +1731,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.cardDetailsOf('Tilt')[0],
-            `${displayNameOf('Cognionics Quick-20r')} · Heart`,
+            `${displayNameOf('Cognionics Quick-20r')} · ${displayNameOf('OpenBCI Cyton')} (Heart)`,
             'Did not show the biosensors on the card!'
         )
     }
@@ -1748,7 +1748,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async countsPhasesAndSaysItRecordsOnEachCard() {
+    protected static async listsPhasesWithTheirLengthsOnEachCard() {
         this.answerListing([
             {
                 fileName: 'tilt.json',
@@ -1766,8 +1766,25 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.cardDetailsOf('Tilt')[1],
-            '2 phases · Records XDF',
-            'Did not count the phases and say it records on the card!'
+            '2 phases: pre-baseline 5:00 · post-baseline 5:00',
+            'Did not list the phases with their lengths on the card!'
+        )
+    }
+
+    @test()
+    protected static async marksCardOfProtocolThatRecords() {
+        this.answerListing([
+            {
+                fileName: 'tilt.json',
+                protocol: { schemaVersion: 1, name: 'Tilt', recordXdf: true },
+            },
+            this.file('rest.json', 'Rest'),
+        ])
+
+        assert.isEqualDeep(
+            [this.cardBadgeOf('Tilt'), this.cardBadgeOf('Rest')],
+            ['Records XDF', undefined],
+            'Did not mark the card of the protocol that records!'
         )
     }
 
@@ -1786,7 +1803,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         assert.isEqual(
             this.cardDetailsOf('Tilt')[1],
-            '1 phase',
+            '1 phase: pre-baseline 5:00',
             'Did not count a single phase on the card!'
         )
     }
@@ -1940,6 +1957,11 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         return [
             ...this.cardOf(name).querySelectorAll('.protocols__card-detail'),
         ].map((detail) => detail.textContent)
+    }
+
+    private static cardBadgeOf(name: string) {
+        return this.cardOf(name).querySelector('.protocols__card-badge')
+            ?.textContent
     }
 
     private static cardOf(name: string) {
