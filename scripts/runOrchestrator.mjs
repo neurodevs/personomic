@@ -50,6 +50,7 @@ const BLE_NAME_PREFIX_BY_DEVICE = {
 const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
 
 const BLE_SCAN_MS = 5000
+const STOP_BEFORE_EXIT_MS = 10000
 
 const SAY_VOICE_LINE = /^(.+?)\s+[a-z]{2,3}_[A-Za-z0-9]+\s+#/
 
@@ -667,7 +668,28 @@ server.on('connection', (client) => {
 console.log(`Waiting for Connect on ws://localhost:${COMMAND_PORT}.`)
 console.log('Run `yarn dev`, pick biosensors, and click Connect. Ctrl+C stops.')
 
-process.on('SIGINT', async () => {
-    await stop()
-    process.exit(0)
+let isExiting = false
+
+process.on('SIGINT', () => {
+    if (isExiting) {
+        console.log('Exiting without waiting for the session to stop')
+        process.exit(1)
+    }
+
+    isExiting = true
+    console.log('Stopping before exiting. Press Ctrl+C again to exit now.')
+    exitAnywayAfter(STOP_BEFORE_EXIT_MS)
+
+    stop()
+        .catch((err) => console.error(err))
+        .finally(() => process.exit(0))
 })
+
+function exitAnywayAfter(ms) {
+    setTimeout(() => {
+        console.error(
+            `The session did not stop within ${ms / 1000} s. Exiting anyway.`
+        )
+        process.exit(1)
+    }, ms)
+}
