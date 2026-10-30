@@ -1772,7 +1772,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async marksCardOfProtocolThatRecords() {
+    protected static async marksWhetherEachCardRecords() {
         this.answerListing([
             {
                 fileName: 'tilt.json',
@@ -1783,8 +1783,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             [this.cardBadgeOf('Tilt'), this.cardBadgeOf('Rest')],
-            ['Records XDF', undefined],
-            'Did not mark the card of the protocol that records!'
+            ['Records XDF', 'Does not record XDF'],
+            'Did not mark whether each card records!'
         )
     }
 

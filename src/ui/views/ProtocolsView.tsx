@@ -356,9 +356,13 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
                                         <span className="protocols__card-name">
                                             {displayNameOf(protocol)}
                                         </span>
-                                        {protocol.recordXdf && (
+                                        {protocol.recordXdf ? (
                                             <span className="protocols__card-badge">
                                                 Records XDF
+                                            </span>
+                                        ) : (
+                                            <span className="protocols__card-badge">
+                                                Does not record XDF
                                             </span>
                                         )}
                                     </span>
