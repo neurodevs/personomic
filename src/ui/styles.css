@@ -586,6 +586,9 @@ input.event-markers__name,
 }
 
 .phases__voice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 14px;
 }
 

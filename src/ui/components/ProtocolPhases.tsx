@@ -3,6 +3,7 @@ import React, { useEffect, useId, useState } from 'react'
 import { speaker } from '../../functions/cueSpeaker'
 
 import PlannedEvents, {
+    CuePlayButton,
     CueVoice,
     kebabCaseOf,
     msFromSeconds,
@@ -173,20 +174,26 @@ const VoiceChooser: React.FC<VoiceChooserProps> = ({ voice, onChange }) => {
     ].sort()
 
     return (
-        <label className="event-markers__wait phases__voice">
-            cue voice
-            <select
-                aria-label="Cue voice"
-                value={voice}
-                onChange={(change) => onChange(change.target.value)}
-            >
-                {voices.map((name) => (
-                    <option key={name} value={name}>
-                        {name}
-                    </option>
-                ))}
-            </select>
-        </label>
+        <div className="phases__voice">
+            <label className="event-markers__wait">
+                cue voice
+                <select
+                    aria-label="Cue voice"
+                    value={voice}
+                    onChange={(change) => onChange(change.target.value)}
+                >
+                    {voices.map((name) => (
+                        <option key={name} value={name}>
+                            {name}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <CuePlayButton
+                label="Voice sample"
+                text={`Hello, I'm ${baseNameOf(voice)}.`}
+            />
+        </div>
     )
 }
 
@@ -203,8 +210,11 @@ function downloadedVoiceNames() {
 }
 
 function isNaturalVoice(name: string) {
-    const baseName = name.replace(/\s*\(.*\)$/, '')
-    return !unnaturalVoiceNames.has(baseName)
+    return !unnaturalVoiceNames.has(baseNameOf(name))
+}
+
+function baseNameOf(voice: string) {
+    return voice.replace(/\s*\(.*\)$/, '')
 }
 
 const noveltyVoiceNames = [

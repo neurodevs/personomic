@@ -319,7 +319,10 @@ export const defaultCueVoice = 'Tara'
 
 export const CueVoice = createContext(defaultCueVoice)
 
-const CuePlayButton: React.FC<CuePlayButtonProps> = ({ label, text }) => {
+export const CuePlayButton: React.FC<CuePlayButtonProps> = ({
+    label,
+    text,
+}) => {
     const voice = useContext(CueVoice)
     const [isPlaying, setIsPlaying] = useState(false)
     const isPlayingRef = useRef(isPlaying)
@@ -392,7 +395,7 @@ const StopSymbol: React.FC = () => (
     </svg>
 )
 
-interface CuePlayButtonProps {
+export interface CuePlayButtonProps {
     label: string
     text: string
 }

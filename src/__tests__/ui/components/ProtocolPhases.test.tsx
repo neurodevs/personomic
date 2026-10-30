@@ -136,6 +136,50 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async saysHelloWithItsNameInChosenVoice() {
+        FakeSpeaker.availableVoices = ['Alex', 'Rishi']
+        this.render([], 'Rishi')
+
+        this.click('Play voice sample')
+
+        assert.isEqualDeep(
+            {
+                spoken: FakeSpeaker.spoken,
+                voices: FakeSpeaker.spokenVoices,
+            },
+            { spoken: ["Hello, I'm Rishi."], voices: ['Rishi'] },
+            'Did not say hello with its name in the chosen voice!'
+        )
+    }
+
+    @test()
+    protected static async leavesLanguageOutOfNameInVoiceSample() {
+        FakeSpeaker.availableVoices = ['Daniel (English (UK))']
+        this.render([], 'Daniel (English (UK))')
+
+        this.click('Play voice sample')
+
+        assert.isEqualDeep(
+            FakeSpeaker.spoken,
+            ["Hello, I'm Daniel."],
+            'Did not leave the language out of the name in the voice sample!'
+        )
+    }
+
+    @test()
+    protected static async offersToStopVoiceSampleWhilePlaying() {
+        this.render()
+
+        this.click('Play voice sample')
+
+        assert.isTrue(
+            screen.queryByRole('button', { name: 'Stop voice sample' }) !==
+                null,
+            'Did not offer to stop the voice sample while it played!'
+        )
+    }
+
     private static get voiceOptions() {
         const select = screen.getByLabelText('Cue voice') as HTMLSelectElement
         return [...select.options].map((option) => option.value)
