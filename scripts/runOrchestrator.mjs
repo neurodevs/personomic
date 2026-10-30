@@ -21,10 +21,14 @@ import {
     BiosensorStreamingOrchestrator,
     detectMuseModel,
 } from '@neurodevs/node-biosensors'
-import { WebSocketServer } from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 
 const COMMAND_PORT = 8763
-const WEB_SOCKET_PORT_START = 8765
+const DEVICE_STATUS_PORT = 8764
+const WEB_SOCKET_PORT_START = 8766
+const GATEWAY_STATUS_PORT = WEB_SOCKET_PORT_START - 1
+const GATEWAY_STATUS_RETRY_MS = 250
+const NO_DEVICES_STATUS = JSON.stringify({ devices: [] })
 
 const IDENTIFIER_OPTION_BY_DEVICE = {
     'Cognionics Quick-20r': 'serialNumber',
@@ -512,7 +516,7 @@ async function startUnlessCancelled(request, xdfRecordPath, cancellation) {
     }
 
     console.log(
-        `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${WEB_SOCKET_PORT_START - 1}`
+        `Streaming from ws://localhost:${WEB_SOCKET_PORT_START}, device status on ws://localhost:${DEVICE_STATUS_PORT}`
     )
 
     return {
@@ -689,6 +693,40 @@ server.on('connection', (client) => {
         }
     })
 })
+
+// Firefox delays reconnecting to a port after failed attempts, so the UI's
+// device status socket must find this port open even between sessions.
+const deviceStatusServer = new WebSocketServer({ port: DEVICE_STATUS_PORT })
+let latestDeviceStatus = NO_DEVICES_STATUS
+
+deviceStatusServer.on('connection', (client) => client.send(latestDeviceStatus))
+
+function relayDeviceStatus(payload) {
+    latestDeviceStatus = payload
+
+    for (const client of deviceStatusServer.clients) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(payload)
+        }
+    }
+}
+
+function followGatewayStatus() {
+    const gateway = new WebSocket(`ws://localhost:${GATEWAY_STATUS_PORT}`)
+    let wasOpen = false
+
+    gateway.on('open', () => (wasOpen = true))
+    gateway.on('message', (data) => relayDeviceStatus(data.toString()))
+    gateway.on('error', () => {})
+    gateway.on('close', () => {
+        if (wasOpen) {
+            relayDeviceStatus(NO_DEVICES_STATUS)
+        }
+        setTimeout(followGatewayStatus, GATEWAY_STATUS_RETRY_MS)
+    })
+}
+
+followGatewayStatus()
 
 console.log(`Waiting for Connect on ws://localhost:${COMMAND_PORT}.`)
 console.log('Run `yarn dev`, pick biosensors, and click Connect. Ctrl+C stops.')
