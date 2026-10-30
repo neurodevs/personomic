@@ -556,6 +556,7 @@ const StreamPlot: React.FC<StreamPlotProps> = (props: StreamPlotProps) => {
         plotWidth,
         downsampling,
         plottedChannelCount,
+        color,
     ])
 
     const plotStyle: PlotStyle = {

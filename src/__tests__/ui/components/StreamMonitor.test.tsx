@@ -17,6 +17,7 @@ import StreamMonitor, {
     setRetryTimer,
     setStreamPlotComponent,
     setWebSocketComponent,
+    endedPlaybackColor,
     StreamData,
     streamColors,
     StreamMonitorProps,
@@ -3711,6 +3712,53 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async graysOutPlotsWhenPlaybackEnds() {
+        await this.play()
+
+        this.nowMs = 10000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestRecordingColors,
+            [endedPlaybackColor, endedPlaybackColor],
+            'Did not gray out plots when playback ended!'
+        )
+    }
+
+    @test()
+    protected static async keepsColorsWhileLooping() {
+        await this.play(this.recording, { isPlaybackLooping: true })
+
+        this.nowMs = 20000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestRecordingColors,
+            [streamColors[0], streamColors[1]],
+            'Grayed out plots while looping!'
+        )
+    }
+
+    @test()
+    protected static async restoresColorsAfterSeekingBackFromEnd() {
+        const recording = this.recording
+        const { rerender } = await this.play(recording)
+
+        this.nowMs = 10000
+        await this.runFrame()
+        await rerender(
+            this.playing(recording, { playbackSeek: { seconds: 0 } })
+        )
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.latestRecordingColors,
+            [streamColors[0], streamColors[1]],
+            'Did not restore colors after seeking back from end!'
+        )
+    }
+
+    @test()
     protected static async freezesPlaybackWhilePaused() {
         const reported: PlaybackProgress[] = []
         const recording = this.recording
@@ -4378,6 +4426,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 props.color,
             ])
         )
+    }
+
+    private static get latestRecordingColors() {
+        return this.streams
+            .slice(0, 2)
+            .map((stream) => this.latestPlotPropsFor(stream.name)?.color)
     }
 
     private static latestPlotPropsFor(name: string) {

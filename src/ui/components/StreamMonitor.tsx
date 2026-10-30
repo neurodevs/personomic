@@ -31,6 +31,8 @@ export const streamColors = [
     '#e66767',
 ] as const
 
+export const endedPlaybackColor = '#5f6878'
+
 export interface StreamMonitorProps {
     deviceNames: string[]
     deviceStatusPort: number
@@ -112,6 +114,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         Record<string, ArrivalsAtLoss>
     >({})
     const [nowMs, setNowMs] = useState(0)
+    const [isPlaybackFinished, setIsPlaybackFinished] = useState(false)
     const [chosenWindowSecondsByPort, setChosenWindowSecondsByPort] = useState<
         Record<number, number>
     >({})
@@ -322,6 +325,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
             if (playback && !playback.isUnfinished() && !hasPlaybackEnded) {
                 hasPlaybackEnded = true
+                setIsPlaybackFinished(true)
                 onPlaybackEndRef.current?.()
             }
         }
@@ -332,6 +336,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             playback.seekTo(appliedSeek?.seconds ?? 0, retainedSecondsOfPort)
             clearShownData()
             hasPlaybackEnded = false
+            setIsPlaybackFinished(false)
             reportedElapsedSeconds = playback.progressAt(frameMs).elapsedSeconds
         }
 
@@ -724,9 +729,11 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                                     stream.downsampling ?? downsampling
                                 }
                                 color={
-                                    streamColors[
-                                        streamNames.indexOf(stream.name)
-                                    ]
+                                    isPlaybackFinished
+                                        ? endedPlaybackColor
+                                        : streamColors[
+                                              streamNames.indexOf(stream.name)
+                                          ]
                                 }
                                 {...dataByPort[stream.wssPort]}
                                 windowSeconds={

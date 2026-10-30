@@ -558,6 +558,20 @@ export default class StreamPlotTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async keepsDataInPlotsRecreatedForNewColor() {
+        await this.renderThenUpdate(
+            { ...this.twoChannels, color: '#abcdef' },
+            { ...this.twoChannels, color: '#123456' }
+        )
+
+        assert.isEqualDeep(
+            FakeUPlot.instances.slice(2).map((plot) => plot.data),
+            FakeUPlot.instances.slice(0, 2).map((plot) => plot.data),
+            'Did not keep data in plots recreated for new color!'
+        )
+    }
+
+    @test()
     protected static async keepsPlotsWhenGivenYLimitsAreSameValues() {
         await this.renderThenUpdate(
             { ...this.twoChannels, yLimits: { min: 0, max: 100 } },
