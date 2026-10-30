@@ -229,6 +229,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
                     schemaVersion: 1,
                     name: 'Tilt series',
                     devices: [],
+                    recordXdf: true,
                 },
             },
             'Did not save the new protocol without a file name!'
@@ -689,10 +690,21 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async recordsXdfByDefaultForNewProtocol() {
+        this.answerListing()
+
+        this.clickNewProtocol()
+
+        assert.isTrue(
+            this.recordCheckbox.checked,
+            'Did not record XDF by default for a new protocol!'
+        )
+    }
+
+    @test()
     protected static async savesRecordDefaultsWithProtocol() {
         this.answerListing()
         this.clickNewProtocol()
-        this.turnRecordOn()
         this.typeInto('Recordings folder', '/data/study')
         this.typeInto('Recording name', 'participant')
 
@@ -717,9 +729,8 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     protected static async suggestsRecordFolderNamedAfterProtocol() {
         this.answerListing()
         this.clickNewProtocol()
-        this.typeName('Eyes Closed Baseline')
 
-        this.turnRecordOn()
+        this.typeName('Eyes Closed Baseline')
 
         assert.isEqual(
             (screen.getByLabelText('Recordings folder') as HTMLInputElement)
@@ -733,7 +744,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     protected static async browsesForRecordFolder() {
         this.answerListing()
         this.clickNewProtocol()
-        this.turnRecordOn()
 
         fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
         this.answer({ directory: '/chosen' })
@@ -756,6 +766,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     protected static async savesNoRecordDefaultsForProtocolThatDoesNotRecord() {
         this.answerListing()
         this.clickNewProtocol()
+        this.toggleRecord()
 
         this.clickSave()
         this.openOrchestratorSocket()
@@ -2002,8 +2013,14 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
             )
     }
 
-    private static turnRecordOn() {
-        fireEvent.click(screen.getByRole('checkbox', { name: 'Record XDF' }))
+    private static toggleRecord() {
+        fireEvent.click(this.recordCheckbox)
+    }
+
+    private static get recordCheckbox() {
+        return screen.getByRole('checkbox', {
+            name: 'Record XDF',
+        }) as HTMLInputElement
     }
 
     private static typeInto(label: string, value: string) {

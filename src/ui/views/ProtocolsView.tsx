@@ -96,7 +96,7 @@ const ProtocolsView: React.FC<ProtocolsViewProps> = (
     const addProtocol = () => {
         onFilesChange((previous) => [
             ...previous,
-            { protocol: { name: '', devices: [] } },
+            { protocol: { name: '', devices: [], recordXdf: true } },
         ])
         select(files.length)
     }
