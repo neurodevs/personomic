@@ -1,5 +1,5 @@
 import { test, assert } from '@neurodevs/node-tdd'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 
 import FakeStreamPlot, {
     numStreamPlotMounts,
@@ -1447,8 +1447,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.shownDescription,
             {
                 headings: [this.streams[0].name],
-                fields: ['nickname', 'channels', 'channel', 'label'],
-                values: ['Alice', 'TP9'],
+                fields: ['nickname', 'channels'],
+                values: ['Alice'],
             },
             'Did not show XDF description of live stream when expanded!'
         )
@@ -1515,7 +1515,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsFieldsSharedByAllChannelsOnceAboveThem() {
+    protected static async showsChannelsAsTableWithFieldsAsColumns() {
         await this.showLiveStreamDescribedBy([
             this.channelsDesc([
                 { label: 'TP9', unit: 'microvolt', type: 'EEG' },
@@ -1526,62 +1526,73 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         fireEvent.click(this.descriptionToggle!)
 
         assert.isEqualDeep(
-            this.shownDescription,
+            this.shownTable,
             {
-                headings: [this.streams[0].name],
-                fields: [
-                    'type (all channels)',
-                    'unit (all channels)',
-                    'channels',
-                    'channel',
-                    'label',
-                    'channel',
-                    'label',
+                columns: ['label', 'type', 'unit'],
+                rows: [
+                    ['TP9', 'EEG', 'microvolt'],
+                    ['AF7', 'EEG', 'microvolt'],
                 ],
-                values: ['EEG', 'microvolt', 'TP9', 'AF7'],
             },
-            'Did not show fields shared by all channels once above them!'
+            'Did not show channels as table with fields as columns!'
         )
     }
 
     @test()
-    protected static async keepsFieldThatDiffersInAnyChannelOnEachChannel() {
+    protected static async dimsColumnsWhereEveryChannelHasSameValue() {
         await this.showLiveStreamDescribedBy([
             this.channelsDesc([
-                { label: 'TP9', type: 'EEG' },
-                { label: 'AUX', type: 'AUX' },
+                { label: 'TP9', type: 'EEG', unit: 'microvolt' },
+                { label: 'AF7', type: 'EEG', unit: 'millivolt' },
+                { label: 'AUX', type: 'EEG' },
             ]),
         ])
 
         fireEvent.click(this.descriptionToggle!)
 
         assert.isEqualDeep(
-            this.shownDescription.fields,
-            [
-                'channels',
-                'channel',
-                'label',
-                'type',
-                'channel',
-                'label',
-                'type',
-            ],
-            'Did not keep field that differs in any channel on each channel!'
+            this.dimmedColumns,
+            ['type'],
+            'Did not dim columns where every channel has same value!'
         )
     }
 
     @test()
-    protected static async showsLoneChannelWithoutHoisting() {
+    protected static async dimsNoColumnsOfLoneChannel() {
         await this.showLiveStreamDescribedBy([
-            this.channelsDesc([{ label: 'TP9', unit: 'microvolt' }]),
+            this.channelsDesc([{ label: 'TP9', type: 'EEG' }]),
         ])
 
         fireEvent.click(this.descriptionToggle!)
 
         assert.isEqualDeep(
-            this.shownDescription.fields,
-            ['channels', 'channel', 'label', 'unit'],
-            'Did not show lone channel without hoisting!'
+            this.dimmedColumns,
+            [],
+            'Dimmed columns of lone channel!'
+        )
+    }
+
+    @test()
+    protected static async leavesCellBlankForFieldAChannelLacks() {
+        await this.showLiveStreamDescribedBy([
+            this.channelsDesc([
+                { label: 'TP9', type: 'EEG' },
+                { label: 'AUX', unit: 'microvolt' },
+            ]),
+        ])
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownTable,
+            {
+                columns: ['label', 'type', 'unit'],
+                rows: [
+                    ['TP9', 'EEG', ''],
+                    ['AUX', '', 'microvolt'],
+                ],
+            },
+            'Did not leave cell blank for field a channel lacks!'
         )
     }
 
@@ -1602,16 +1613,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         fireEvent.click(this.descriptionToggle!)
 
         assert.isEqualDeep(
-            this.shownDescription.fields,
-            [
-                'channels',
-                'channel',
-                'label',
-                'type',
-                'unit',
-                'location',
-                'impedance',
-            ],
+            this.shownTable.columns,
+            ['label', 'type', 'unit', 'location', 'impedance'],
             'Did not show label, then type, then unit before other fields!'
         )
     }
@@ -4492,6 +4495,34 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 .filter((definition) => definition.children.length === 0)
                 .map((definition) => definition.textContent),
         }
+    }
+
+    private static get shownTable() {
+        const [header, ...rows] = screen.queryAllByRole('row')
+        const textsIn = (row: HTMLElement | undefined, role: string) =>
+            within(row!)
+                .queryAllByRole(role)
+                .map((element) => element.textContent)
+
+        return {
+            columns: textsIn(header, 'columnheader'),
+            rows: rows.map((row) => textsIn(row, 'cell')),
+        }
+    }
+
+    private static get dimmedColumns() {
+        const [header, ...rows] = screen.queryAllByRole('row')
+        const columns = within(header)
+            .queryAllByRole('columnheader')
+            .map((column) => column.textContent)
+
+        return columns.filter((_, index) =>
+            rows.every((row) =>
+                within(row)
+                    .queryAllByRole('cell')
+                    [index].classList.contains('xdf-description__cell--same')
+            )
+        )
     }
 
     private static get nicknameInput() {

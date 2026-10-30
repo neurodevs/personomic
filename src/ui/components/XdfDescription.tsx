@@ -11,7 +11,7 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({
     const described = streams
         .map(({ name, desc = [] }) => ({
             name,
-            elements: withSharedFieldsHoisted(desc),
+            elements: inDisplayOrder(desc),
         }))
         .filter(({ elements }) => elements.length > 0)
 
@@ -70,21 +70,15 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({
 
 export default XdfDescription
 
-const DescElements: React.FC<{ elements: ShownElement[] }> = ({ elements }) => (
+const DescElements: React.FC<{ elements: DescElement[] }> = ({ elements }) => (
     <dl className="xdf-description__entries">
-        {elements.map(({ name, value, children, sharedBy }, index) => (
+        {elements.map(({ name, value, children }, index) => (
             <React.Fragment key={index}>
-                <dt className="xdf-description__field">
-                    {name}
-                    {sharedBy && (
-                        <span className="xdf-description__scope">
-                            {' '}
-                            (all {sharedBy})
-                        </span>
-                    )}
-                </dt>
+                <dt className="xdf-description__field">{name}</dt>
                 <dd className="xdf-description__value">
-                    {children ? (
+                    {children && isTableOf(children) ? (
+                        <DescTable rows={children} />
+                    ) : children ? (
                         <DescElements elements={children} />
                     ) : (
                         <DescValue name={name} value={value} />
@@ -94,6 +88,77 @@ const DescElements: React.FC<{ elements: ShownElement[] }> = ({ elements }) => (
         ))}
     </dl>
 )
+
+function isTableOf(elements: DescElement[]) {
+    return elements.every(
+        ({ name, children }) =>
+            name === elements[0].name &&
+            children?.every((child) => !child.children)
+    )
+}
+
+const DescTable: React.FC<{ rows: DescElement[] }> = ({ rows }) => {
+    const columns = columnsOf(rows)
+    const sameColumns = columns.filter((column) => isSameInAll(rows, column))
+
+    return (
+        <table className="xdf-description__table">
+            <thead>
+                <tr>
+                    {columns.map((column) => (
+                        <th key={column} className="xdf-description__field">
+                            {column}
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map(({ children = [] }, index) => (
+                    <tr key={index}>
+                        {columns.map((column) => (
+                            <td
+                                key={column}
+                                className={
+                                    sameColumns.includes(column)
+                                        ? 'xdf-description__cell--same'
+                                        : undefined
+                                }
+                            >
+                                {valueIn(children, column)}
+                            </td>
+                        ))}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    )
+}
+
+function isSameInAll(rows: DescElement[], column: string) {
+    const [first, ...others] = rows.map(({ children = [] }) =>
+        valueIn(children, column)
+    )
+
+    return (
+        others.length > 0 &&
+        first !== undefined &&
+        others.every((other) => other === first)
+    )
+}
+
+function valueIn(fields: DescElement[], column: string) {
+    return fields.find(({ name }) => name === column)?.value
+}
+
+function columnsOf(rows: DescElement[]) {
+    const names = new Set(
+        rows.flatMap(({ children = [] }) => children.map(({ name }) => name))
+    )
+
+    return [...names].toSorted(
+        (first, second) => displayRankOf(first) - displayRankOf(second)
+    )
+}
 
 const DescValue: React.FC<{ name: string; value?: string }> = ({
     name,
@@ -145,72 +210,27 @@ function isJson(element: DescElement) {
     return prettyJsonOf(element.value ?? '') !== undefined
 }
 
-function withSharedFieldsHoisted(elements: DescElement[]): ShownElement[] {
-    return inDisplayOrder(
-        elements.flatMap((element) =>
+function inDisplayOrder(elements: DescElement[]): DescElement[] {
+    return elements
+        .map((element) =>
             element.children
-                ? hoistedFrom(element, element.children)
-                : [element]
+                ? { ...element, children: inDisplayOrder(element.children) }
+                : element
         )
-    )
+        .toSorted(
+            (first, second) =>
+                displayRankOf(first.name) - displayRankOf(second.name)
+        )
 }
 
-function inDisplayOrder(elements: ShownElement[]) {
-    return elements.toSorted(
-        (first, second) => displayRankOf(first) - displayRankOf(second)
-    )
-}
-
-function displayRankOf(element: ShownElement) {
-    const rank = fieldsShownFirst.indexOf(element.name)
+function displayRankOf(name: string) {
+    const rank = fieldsShownFirst.indexOf(name)
     return rank === -1 ? fieldsShownFirst.length : rank
 }
 
 const fieldsShownFirst = ['label', 'type', 'unit']
 
-function hoistedFrom(element: DescElement, descChildren: DescElement[]) {
-    const children = withSharedFieldsHoisted(descChildren)
-
-    const sharedByName = new Map(
-        repeatedGroupsIn(children).map(([name, members]) => [
-            name,
-            sharedFieldsOf(members.map((member) => member.children ?? [])),
-        ])
-    )
-
-    const ownChildren = children.map((child) => {
-        const shared = sharedByName.get(child.name)
-
-        return shared && child.children
-            ? { ...child, children: withoutFields(child.children, shared) }
-            : child
-    })
-
-    return [
-        ...[...sharedByName.values()]
-            .flat()
-            .map((field) => ({ ...field, sharedBy: element.name })),
-        { ...element, children: ownChildren },
-    ]
-}
-
-function repeatedGroupsIn(elements: ShownElement[]) {
-    const membersByName = new Map<string, ShownElement[]>()
-
-    for (const element of elements) {
-        membersByName.set(element.name, [
-            ...(membersByName.get(element.name) ?? []),
-            element,
-        ])
-    }
-
-    return [...membersByName].filter(
-        ([, members]) =>
-            members.length > 1 && members.every((member) => member.children)
-    )
-}
-
-function sharedFieldsOf(members: ShownElement[][]) {
+function sharedFieldsOf(members: DescElement[][]) {
     const [first = [], ...others] = members
 
     return first.filter(
@@ -227,7 +247,7 @@ function sharedFieldsOf(members: ShownElement[][]) {
     )
 }
 
-function withoutFields(elements: ShownElement[], fields: ShownElement[]) {
+function withoutFields(elements: DescElement[], fields: DescElement[]) {
     return elements.filter(
         (element) =>
             !isOwnField(element) ||
@@ -235,13 +255,8 @@ function withoutFields(elements: ShownElement[], fields: ShownElement[]) {
     )
 }
 
-function isOwnField(element: ShownElement) {
-    return !element.children && !element.sharedBy
-}
-
-interface ShownElement extends DescElement {
-    children?: ShownElement[]
-    sharedBy?: string
+function isOwnField(element: DescElement) {
+    return !element.children
 }
 
 interface XdfDescriptionProps {

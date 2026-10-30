@@ -2271,12 +2271,6 @@ input.event-markers__name,
   font-size: 11px;
 }
 
-.xdf-description__entries:has(
-  > .xdf-description__value > .xdf-description__entries
-) {
-  row-gap: 10px;
-}
-
 .xdf-description__field {
   color: var(--text-muted);
 }
@@ -2286,6 +2280,63 @@ input.event-markers__name,
   color: var(--text-primary);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.xdf-description__value:has(
+  > .xdf-description__entries
+    > .xdf-description__value
+    > .xdf-description__entries
+),
+.xdf-description__value:has(> .xdf-description__table) {
+  grid-column: 1 / -1;
+  padding-left: 16px;
+}
+
+.xdf-description__value:has(
+    > .xdf-description__entries
+      > .xdf-description__value
+      > .xdf-description__entries
+  ):not(:last-child),
+.xdf-description__value:has(> .xdf-description__table):not(:last-child),
+.xdf-description__stream
+  > .xdf-description__entries
+  > .xdf-description__value:has(> .xdf-description__entries):not(:last-child) {
+  margin-bottom: 9px;
+}
+
+.xdf-description__value
+  > .xdf-description__entries:not(:has(.xdf-description__entries)) {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1ch;
+}
+
+.xdf-description__value
+  > .xdf-description__entries:not(:has(.xdf-description__entries))
+  > .xdf-description__field:not(:first-child)::before {
+  margin-right: 1ch;
+  content: '·';
+}
+
+.xdf-description__table {
+  border-collapse: collapse;
+}
+
+.xdf-description__table th,
+.xdf-description__table td {
+  padding: 0 16px 1px 0;
+  font-weight: normal;
+  text-align: left;
+  vertical-align: top;
+}
+
+.xdf-description__cell--same {
+  color: var(--text-secondary);
+}
+
+.xdf-description__table th:last-child,
+.xdf-description__table td:last-child {
+  padding-right: 0;
 }
 
 .xdf-description__value-toggle {
@@ -2318,10 +2369,6 @@ input.event-markers__name,
 .xdf-description__json {
   display: block;
   margin-top: 4px;
-}
-
-.xdf-description__scope {
-  opacity: 0.6;
 }
 
 .app__demo {
