@@ -65,6 +65,7 @@ const APPLESCRIPT_NOT_AUTHORIZED = '-1743'
 
 let orchestrator
 let sessionRequest
+let startCancellation
 let commandInFlight
 let directoryChoiceInFlight
 let cueSpeech
@@ -458,7 +459,20 @@ async function start(request) {
         throw new Error('A session is already running. Press Stop first.')
     }
 
+    const cancellation = { isCancelled: false }
+    startCancellation = cancellation
+
+    try {
+        return await startUnlessCancelled(request, xdfRecordPath, cancellation)
+    } finally {
+        startCancellation = undefined
+    }
+}
+
+async function startUnlessCancelled(request, xdfRecordPath, cancellation) {
     const devices = await withDetectedModels(request.devices)
+    throwIfCancelled(cancellation)
+
     const specifications = devices.map(specificationFor)
     console.log(
         'Starting',
@@ -468,19 +482,27 @@ async function start(request) {
 
     const xdfHeaderInfo = describedBy(request.protocol)
 
-    orchestrator = await BiosensorStreamingOrchestrator.Create({
+    const starting = await BiosensorStreamingOrchestrator.Create({
         devices: specifications,
         xdfRecordPath,
         webSocketPortStart: WEB_SOCKET_PORT_START,
         xdfHeaderInfo,
     })
+    throwIfCancelled(cancellation)
+
+    orchestrator = starting
     sessionRequest = { devices, xdfRecordPath, xdfHeaderInfo }
 
     try {
-        await orchestrator.start()
+        await starting.start()
     } catch (err) {
+        throwIfCancelled(cancellation)
         await cleanUpFailedStart()
         throw err
+    }
+
+    if (cancellation.isCancelled) {
+        await stopConnectedAfterCancel(starting)
     }
 
     console.log(
@@ -492,6 +514,28 @@ async function start(request) {
         xdfRecordPath: xdfRecordPath && shownPathFor(xdfRecordPath),
         xdfHeaderInfo,
     }
+}
+
+function throwIfCancelled(cancellation) {
+    if (cancellation.isCancelled) {
+        throw cancelledError()
+    }
+}
+
+function cancelledError() {
+    return new Error('Connecting was cancelled.')
+}
+
+async function stopConnectedAfterCancel(starting) {
+    console.log('Disconnecting devices that connected after Cancel')
+    await starting.stop()
+    throw cancelledError()
+}
+
+async function cancelStart() {
+    console.log('Cancelling Connect')
+    startCancellation.isCancelled = true
+    await stop()
 }
 
 async function cleanUpFailedStart() {
@@ -576,6 +620,11 @@ async function handle(message) {
 
     if (command === 'stopCue') {
         stopCue()
+        return {}
+    }
+
+    if (command === 'stop' && startCancellation) {
+        await cancelStart()
         return {}
     }
 

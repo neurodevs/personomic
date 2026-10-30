@@ -143,6 +143,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
     const isLive = mode === 'live'
     const isChoosingRecording = mode === 'playback' && !isPlaying
     const recordingPicker = useRef<RecordingPicker>(null)
+    const isStartCancelledRef = useRef(false)
     const monitoredNames = isChoosingRecording
         ? []
         : devices.map(({ name }) => name)
@@ -356,6 +357,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
         rememberIdentifiersOf(deviceRequests)
         setReportedIdentifiers({})
+        isStartCancelledRef.current = false
         setSession('connecting')
         setSessionError(undefined)
         setRecordStartedAt(startedAt)
@@ -378,6 +380,10 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
             },
             {
                 onReply: ({ error, devices, xdfRecordPath, xdfHeaderInfo }) => {
+                    if (isStartCancelledRef.current) {
+                        return
+                    }
+
                     if (devices) {
                         setDevices(selectedFrom(devices))
                     }
@@ -392,11 +398,20 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                     }
                 },
                 onUnreachable: () => {
+                    if (isStartCancelledRef.current) {
+                        return
+                    }
+
                     setSessionError(orchestratorUnreachableMessage)
                     setSession('unlocked')
                 },
             }
         )
+    }
+
+    const cancelConnecting = () => {
+        isStartCancelledRef.current = true
+        stopSession()
     }
 
     const stopSession = () => {
@@ -529,6 +544,15 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         onClick={isLocked ? endSession : connectDevices}
                     >
                         {sessionButtonLabelFor(session, deviceNames)}
+                    </button>
+                )}
+                {session === 'connecting' && (
+                    <button
+                        type="button"
+                        className="connect-devices__button"
+                        onClick={cancelConnecting}
+                    >
+                        Cancel
                     </button>
                 )}
                 {isChoosingRecording && (

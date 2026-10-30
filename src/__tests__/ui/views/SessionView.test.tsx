@@ -1461,6 +1461,97 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersCancelOnlyWhileConnecting() {
+        this.renderWithMuse()
+
+        const beforeConnect = this.cancelButtonState
+        this.clickConnect()
+        const whileConnecting = this.cancelButtonState
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            [beforeConnect, whileConnecting, this.cancelButtonState],
+            [undefined, { isDisabled: false }, undefined],
+            'Did not offer cancel only while connecting!'
+        )
+    }
+
+    @test()
+    protected static async stopsOrchestratorWhenConnectingIsCancelled() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+        this.clickCancel()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            JSON.parse(FakeWebSocket.callsToSend.at(-1)?.data as string),
+            { command: 'stop' },
+            'Did not stop orchestrator when connecting was cancelled!'
+        )
+    }
+
+    @test()
+    protected static async showsStoppingOnceConnectingIsCancelled() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+        this.clickCancel()
+
+        assert.isEqualDeep(
+            { ...this.lockState, cancel: this.cancelButtonState },
+            {
+                isLocked: true,
+                isAddBiosensorButtonShown: false,
+                button: { text: 'Stopping…', isDisabled: true },
+                cancel: undefined,
+            },
+            'Did not show stopping once connecting was cancelled!'
+        )
+    }
+
+    @test()
+    protected static async ignoresReplyToCancelledStart() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+        const startSocket = this.orchestratorSocket
+        this.clickCancel()
+        act(() => startSocket.receive({ error: 'Connecting was cancelled.' }))
+
+        assert.isEqualDeep(
+            {
+                button: this.sessionButtonState,
+                alert: screen.queryByRole('alert'),
+            },
+            { button: { text: 'Stopping…', isDisabled: true }, alert: null },
+            'Did not ignore reply to cancelled start!'
+        )
+    }
+
+    @test()
+    protected static async unlocksWithConnectOnceCancelledStartStops() {
+        this.renderWithMuse()
+
+        this.clickConnect()
+        const startSocket = this.orchestratorSocket
+        this.clickCancel()
+        const stopSocket = this.orchestratorSocket
+        act(() => stopSocket.receive({}))
+        act(() => startSocket.receive({ devices: [] }))
+
+        assert.isEqualDeep(
+            this.lockState,
+            {
+                isLocked: false,
+                isAddBiosensorButtonShown: true,
+                button: { text: 'Connect', isDisabled: false },
+            },
+            'Did not unlock with connect once cancelled start stopped!'
+        )
+    }
+
+    @test()
     protected static async unlocksWithConnectWhenConnectingFails() {
         this.renderWithMuse()
 
@@ -5157,6 +5248,18 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static get sessionButton() {
         return screen.getByRole('button', { name: /^(Connect|Stop|Detecting)/ })
+    }
+
+    private static clickCancel() {
+        fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    }
+
+    private static get cancelButtonState() {
+        const button = screen.queryByRole('button', {
+            name: 'Cancel',
+        }) as HTMLButtonElement | null
+
+        return button ? { isDisabled: button.disabled } : undefined
     }
 
     private static get sessionButtonState() {
