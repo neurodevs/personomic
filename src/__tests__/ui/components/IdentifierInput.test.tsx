@@ -204,6 +204,34 @@ export default class IdentifierInputTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async choosesRememberedValueWhenItsTagIsClicked() {
+        const changes = this.renderRemembered()
+
+        fireEvent.focus(this.field)
+        fireEvent.click(screen.getByText('Memory · Muse S Gen 2'))
+
+        assert.isEqualDeep(
+            changes,
+            ['muse-uuid'],
+            'Did not choose the remembered value when its tag was clicked!'
+        )
+    }
+
+    @test()
+    protected static async doesNotChooseRememberedValueWhenForgotten() {
+        const changes = this.renderRemembered()
+
+        fireEvent.focus(this.field)
+        fireEvent.click(screen.getByRole('button', { name: 'Forget muse-uuid' }))
+
+        assert.isEqualDeep(
+            changes,
+            [],
+            'Chose the remembered value when it was forgotten!'
+        )
+    }
+
+    @test()
     protected static async leavesTypedUuidUnformatted() {
         const changes: string[] = []
         render(
@@ -236,6 +264,20 @@ export default class IdentifierInputTest extends AbstractPackageTest {
         fireEvent.change(this.field, { target: { value: typed } })
 
         return changes[0]
+    }
+
+    private static renderRemembered() {
+        const changes: string[] = []
+        render(
+            <IdentifierInput
+                deviceLabel="Muse S Gen 2"
+                identifier={{ label: 'UUID', value: '' }}
+                remembered={['muse-uuid']}
+                onChange={(value) => changes.push(value)}
+                onForget={() => {}}
+            />
+        )
+        return changes
     }
 
     private static get field() {

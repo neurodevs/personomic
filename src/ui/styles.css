@@ -1875,6 +1875,12 @@ input.event-markers__name,
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-items: center;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.stream-monitor__device-identifier-row:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .stream-monitor__device-identifier-option {
@@ -1929,7 +1935,6 @@ input.event-markers__name,
   cursor: pointer;
 }
 
-.stream-monitor__device-identifier-option:hover,
 .stream-monitor__device-identifier-option:focus-visible,
 .stream-monitor__device-identifier-forget:hover,
 .stream-monitor__device-identifier-forget:focus-visible {

@@ -79,14 +79,14 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                             key={`${tag}/${value}`}
                             role="none"
                             className="stream-monitor__device-identifier-row"
+                            onMouseDown={keepInputFocused}
+                            onClick={() => choose(value)}
                         >
                             <button
                                 type="button"
                                 role="option"
                                 aria-selected={value === identifier.value}
                                 className="stream-monitor__device-identifier-option"
-                                onMouseDown={keepInputFocused}
-                                onClick={() => choose(value)}
                             >
                                 {value}
                             </button>
@@ -99,8 +99,10 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                                     className="stream-monitor__device-identifier-forget"
                                     aria-label={`Forget ${value}`}
                                     title={`Forget ${value}`}
-                                    onMouseDown={keepInputFocused}
-                                    onClick={() => onForget(value)}
+                                    onClick={(event) => {
+                                        event.stopPropagation()
+                                        onForget(value)
+                                    }}
                                 >
                                     ×
                                 </button>
