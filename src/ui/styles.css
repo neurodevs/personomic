@@ -482,6 +482,22 @@ input.event-markers__name,
   text-transform: none;
 }
 
+.phases__baseline-symbol {
+  margin-right: 0.6em;
+  vertical-align: -1px;
+}
+
+.phases__baseline-symbol--remove,
+.phases__baseline:hover .phases__baseline-symbol--chosen,
+.phases__baseline:focus-visible .phases__baseline-symbol--chosen {
+  display: none;
+}
+
+.phases__baseline:hover .phases__baseline-symbol--remove,
+.phases__baseline:focus-visible .phases__baseline-symbol--remove {
+  display: inline;
+}
+
 .phases__add .add-biosensor__button[aria-pressed='true'] {
   border-style: solid;
   border-color: rgba(255, 255, 255, 0.24);

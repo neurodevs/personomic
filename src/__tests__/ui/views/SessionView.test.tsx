@@ -3728,7 +3728,7 @@ export default class SessionViewTest extends AbstractPackageTest {
         this.renderWithProtocols([this.baselineFile])
         this.chooseProtocol('Baselines')
         this.clickEditProtocol()
-        this.clickProtocolButton('+ 5m Post-baseline')
+        this.clickProtocolButton('5m Post-baseline')
         const isMarkedUnsaved = this.isEditUnsavedShown
 
         this.clickProtocolButton('Save')
@@ -3771,7 +3771,7 @@ export default class SessionViewTest extends AbstractPackageTest {
         this.renderWithProtocols([this.baselineFile])
         this.chooseProtocol('Baselines')
         this.clickEditProtocol()
-        this.clickProtocolButton('+ 5m Post-baseline')
+        this.clickProtocolButton('5m Post-baseline')
 
         this.clickProtocolButton('Cancel')
 

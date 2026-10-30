@@ -86,9 +86,9 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
                                 <button
                                     key={name}
                                     type="button"
-                                    className="add-biosensor__button"
+                                    className="add-biosensor__button phases__baseline"
                                     title={`${hasBaseline ? 'Remove' : 'Add'} 5 min ${name}`}
-                                    aria-label={`+ 5m ${label}`}
+                                    aria-label={`5m ${label}`}
                                     aria-pressed={hasBaseline}
                                     onClick={() =>
                                         onChange(
@@ -109,7 +109,15 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
                                         )
                                     }
                                 >
-                                    + 5<span className="phases__unit">m</span>{' '}
+                                    {hasBaseline ? (
+                                        <>
+                                            <BaselineSymbol name="chosen" />
+                                            <BaselineSymbol name="remove" />
+                                        </>
+                                    ) : (
+                                        <BaselineSymbol name="add" />
+                                    )}
+                                    5<span className="phases__unit">m</span>{' '}
                                     {label}
                                 </button>
                             )
@@ -122,6 +130,32 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
 }
 
 export default ProtocolPhases
+
+const BaselineSymbol: React.FC<{ name: keyof typeof baselineSymbolPaths }> = ({
+    name,
+}) => (
+    <svg
+        className={`phases__baseline-symbol phases__baseline-symbol--${name}`}
+        data-symbol={name}
+        width="10"
+        height="10"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+    >
+        <path d={baselineSymbolPaths[name]} />
+    </svg>
+)
+
+const baselineSymbolPaths = {
+    add: 'M12 5v14M5 12h14',
+    chosen: 'M5 12.5l4.5 4.5L19 7',
+    remove: 'M6 6l12 12M18 6L6 18',
+}
 
 const VoiceChooser: React.FC<VoiceChooserProps> = ({ voice, onChange }) => {
     const [browserVoices, setBrowserVoices] = useState(downloadedVoiceNames)

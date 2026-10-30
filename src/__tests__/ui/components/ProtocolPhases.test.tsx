@@ -570,8 +570,8 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     protected static async addsFiveMinuteBaselinesAroundOtherPhases() {
         this.render([this.phase('interventions')])
 
-        this.click('+ 5m Post-baseline')
-        this.click('+ 5m Pre-baseline')
+        this.click('5m Post-baseline')
+        this.click('5m Pre-baseline')
 
         assert.isEqualDeep(
             this.changed.map(({ name }) => name),
@@ -584,7 +584,7 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     protected static async restsFiveSilentMinutesBetweenBaselineCues() {
         this.render([this.phase('interventions')])
 
-        this.click('+ 5m Pre-baseline')
+        this.click('5m Pre-baseline')
 
         assert.isEqualDeep(
             {
@@ -632,8 +632,8 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     protected static async namesEachBaselinesEventsUniquely() {
         this.render([this.phase('interventions')])
 
-        this.click('+ 5m Pre-baseline')
-        this.click('+ 5m Post-baseline')
+        this.click('5m Pre-baseline')
+        this.click('5m Post-baseline')
 
         assert.isEqualDeep(
             this.changed.flatMap((phase) =>
@@ -654,8 +654,8 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     @test()
     protected static async addsPhasesBetweenTheBaselines() {
         this.render([])
-        this.click('+ 5m Pre-baseline')
-        this.click('+ 5m Post-baseline')
+        this.click('5m Pre-baseline')
+        this.click('5m Post-baseline')
 
         this.click('Add phase')
         this.type('Phase 2 name', 'interventions')
@@ -671,15 +671,15 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     @test()
     protected static async removesBaselineWhenPressedAgain() {
         this.render([this.phase('interventions')])
-        this.click('+ 5m Pre-baseline')
-        const pressedOnceAdded = this.isPressed('+ 5m Pre-baseline')
+        this.click('5m Pre-baseline')
+        const pressedOnceAdded = this.isPressed('5m Pre-baseline')
 
-        this.click('+ 5m Pre-baseline')
+        this.click('5m Pre-baseline')
 
         assert.isEqualDeep(
             {
                 pressedOnceAdded,
-                pressedOnceRemoved: this.isPressed('+ 5m Pre-baseline'),
+                pressedOnceRemoved: this.isPressed('5m Pre-baseline'),
                 names: this.changed.map(({ name }) => name),
             },
             {
@@ -688,6 +688,32 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
                 names: ['interventions'],
             },
             'Did not remove the baseline when pressed again!'
+        )
+    }
+
+    @test('shows plus on baseline not yet chosen', false, ['add'])
+    @test('shows check that turns to remove on chosen baseline', true, [
+        'chosen',
+        'remove',
+    ])
+    protected static async showsSymbolOfWhatPressingBaselineDoes(
+        isChosen: boolean,
+        expected: string[]
+    ) {
+        this.render([this.phase('interventions')])
+
+        if (isChosen) {
+            this.click('5m Pre-baseline')
+        }
+
+        assert.isEqualDeep(
+            Array.from(
+                screen
+                    .getByRole('button', { name: '5m Pre-baseline' })
+                    .querySelectorAll<HTMLElement>('[data-symbol]')
+            ).map((symbol) => symbol.dataset.symbol),
+            expected,
+            'Did not show the symbol of what pressing the baseline does!'
         )
     }
 
