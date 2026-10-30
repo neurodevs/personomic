@@ -8,6 +8,7 @@ import {
 } from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
 import { DeviceIdentifier, ScannedIdentifier } from './IdentifierInput'
+import WindowPicker from './WindowPicker'
 import { DescribedStream } from './XdfDescription'
 import StreamPlot, {
     BandPowerOptions,
@@ -113,6 +114,8 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [chosenWindowSecondsByPort, setChosenWindowSecondsByPort] = useState<
         Record<number, number>
     >({})
+    const [chosenWindowSecondsForAll, setChosenWindowSecondsForAll] =
+        useState<number>()
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
     const [runOutDevices, setRunOutDevices] = useState<boolean[]>([])
@@ -163,6 +166,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             device.streams.map((stream) => [
                 stream.wssPort,
                 chosenWindowSecondsByPort[stream.wssPort] ??
+                    chosenWindowSecondsForAll ??
                     windowSecondsByDevice[device.name] ??
                     windowSeconds,
             ])
@@ -210,17 +214,36 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             [port]: seconds,
         }))
 
-        const session = sessionByPortRef.current[port]
+        showLatestSecondsOf([port], seconds)
+    }
 
-        if (session) {
-            setDataByPort((previous) => ({
-                ...previous,
-                [port]: latestSecondsOf(
-                    session,
-                    retainedSecondsFor(port, seconds)
-                ),
-            }))
-        }
+    const chooseWindowSecondsForAll = (seconds: number) => {
+        setChosenWindowSecondsByPort({})
+        setChosenWindowSecondsForAll(seconds)
+
+        showLatestSecondsOf(
+            streams.map((stream) => stream.wssPort),
+            seconds
+        )
+    }
+
+    const showLatestSecondsOf = (ports: number[], seconds: number) => {
+        setDataByPort((previous) => {
+            const next = { ...previous }
+
+            for (const port of ports) {
+                const session = sessionByPortRef.current[port]
+
+                if (session) {
+                    next[port] = latestSecondsOf(
+                        session,
+                        retainedSecondsFor(port, seconds)
+                    )
+                }
+            }
+
+            return next
+        })
     }
 
     const wssPorts = streams.map((stream) => stream.wssPort).join(',')
@@ -615,6 +638,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 
     return (
         <div className="stream-monitor" data-testid="stream-monitor">
+            {devices.length > 0 && (
+                <div className="stream-monitor__header">
+                    All graphs ·{' '}
+                    <WindowPicker
+                        seconds={windowSecondsSharedBy(
+                            windowSecondsByPort,
+                            chosenWindowSecondsForAll ?? windowSeconds
+                        )}
+                        onChange={chooseWindowSecondsForAll}
+                        title="Change time window of all graphs"
+                    />
+                </div>
+            )}
             {devices.map((device) => {
                 const status = statusAfterReconnect(
                     reportedStatusByKey[device.key]!,
@@ -700,6 +736,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function windowSecondsSharedBy(
+    windowSecondsByPort: Record<number, number>,
+    windowSecondsWithoutStreams: number
+) {
+    const distinct = [...new Set(Object.values(windowSecondsByPort))]
+
+    if (distinct.length === 0) {
+        return windowSecondsWithoutStreams
+    }
+
+    return distinct.length === 1 ? distinct[0] : undefined
+}
 
 function quickestFirst<Stream extends { sampleRateHz?: number }>(
     streams: Stream[]

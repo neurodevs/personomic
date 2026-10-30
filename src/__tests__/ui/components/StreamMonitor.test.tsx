@@ -335,6 +335,126 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async changesWindowOfEveryPlotFromHeader() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowForAllGraphs('30s')
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [30, 30],
+            'Did not change window of every plot from header!'
+        )
+    }
+
+    @test()
+    protected static async overridesDeviceWindowFromHeader() {
+        this.setFakeStreamPlot()
+        await this.render(this.twoDevices, {
+            windowSecondsByDevice: { [this.twoDevices[1].name]: 120 },
+        })
+
+        this.chooseWindowForAllGraphs('30s')
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [30, 30],
+            'Did not override device window from header!'
+        )
+    }
+
+    @test()
+    protected static async replacesEachPlotsOwnWindowFromHeader() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowSeconds(60)
+        this.chooseWindowForAllGraphs('30s')
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [30, 30],
+            "Did not replace each plot's own window from header!"
+        )
+    }
+
+    @test()
+    protected static async letsPlotChangeItsOwnWindowAfterHeader() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowForAllGraphs('30s')
+        this.chooseWindowSeconds(60)
+
+        assert.isEqualDeep(
+            this.latestWindowSecondsByStream,
+            [60, 30],
+            'Did not let plot change its own window after header!'
+        )
+    }
+
+    @test()
+    protected static async showsWindowSharedByAllGraphsInHeader() {
+        await this.renderWithFakePlot()
+
+        assert.isEqual(
+            this.monitorHeader,
+            'All graphs · 10s window',
+            'Did not show window shared by all graphs in header!'
+        )
+    }
+
+    @test()
+    protected static async showsMixedWindowsInHeaderWhenGraphsDiffer() {
+        await this.renderWithFakePlot()
+
+        this.chooseWindowSeconds(30)
+
+        assert.isEqual(
+            this.monitorHeader,
+            'All graphs · Mixed windows',
+            'Did not show mixed windows in header when graphs differ!'
+        )
+    }
+
+    @test()
+    protected static async showsDefaultWindowInHeaderBeforeStreamsAreReported() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { windowSeconds: 30 })
+
+        assert.isEqual(
+            this.monitorHeader,
+            'All graphs · 30s window',
+            'Did not show default window in header before streams were reported!'
+        )
+    }
+
+    @test()
+    protected static async showsNoHeaderWithoutDevices() {
+        this.setFakeStreamPlot()
+        await this.mount([])
+
+        assert.isEqual(
+            this.monitorHeader,
+            undefined,
+            'Showed header without devices!'
+        )
+    }
+
+    @test()
+    protected static async showsWholeSessionAsSoonAsAllDataIsChosenFromHeader() {
+        this.setFakeStreamPlot()
+        await this.render(this.devicesFor(this.streams), { windowSeconds: 1 })
+
+        await this.sendChunk({ samples: [1, 2, 3], timestamps: [0, 1, 2] })
+        this.chooseWindowForAllGraphs('All')
+
+        assert.isEqualDeep(
+            this.latestFirstPlotChunk,
+            { samples: [1, 2, 3], timestamps: [0, 1, 2] },
+            'Did not show whole session as soon as all data was chosen from header!'
+        )
+    }
+
+    @test()
     protected static async keepsSamplesForChosenWindow() {
         this.setFakeStreamPlot()
         await this.render(this.devicesFor(this.streams), { windowSeconds: 1 })
@@ -4064,6 +4184,18 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         act(() =>
             this.latestPlotPropsFor(name)?.onWindowSecondsChange?.(seconds)
+        )
+    }
+
+    private static chooseWindowForAllGraphs(option: string) {
+        fireEvent.click(screen.getByTitle('Change time window of all graphs'))
+        fireEvent.click(screen.getByRole('menuitemradio', { name: option }))
+    }
+
+    private static get monitorHeader() {
+        return (
+            document.querySelector('.stream-monitor__header')?.textContent ??
+            undefined
         )
     }
 

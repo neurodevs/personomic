@@ -277,6 +277,15 @@ body {
   margin-top: 20px;
 }
 
+.biosensors {
+  position: relative;
+}
+
+.biosensors__heading {
+  margin-bottom: 18px;
+  line-height: 15px;
+}
+
 .protocols__device-list {
   display: flex;
   flex-direction: column;
@@ -1497,6 +1506,17 @@ input.event-markers__name,
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.stream-monitor__header {
+  position: absolute;
+  top: 0;
+  right: 0;
+  line-height: 15px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .stream-monitor__device {

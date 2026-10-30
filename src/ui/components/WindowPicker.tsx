@@ -4,17 +4,20 @@ export const windowPickerClassName = 'stream-plot__window'
 const offeredWindowSeconds = [10, 30, 60, 120, 300, Infinity]
 
 export interface WindowPickerProps {
-    seconds: number
+    seconds?: number
     onChange?: (seconds: number) => void
+    title?: string
 }
 
-const WindowPicker: React.FC<WindowPickerProps> = ({ seconds, onChange }) => {
+const WindowPicker: React.FC<WindowPickerProps> = (
+    props: WindowPickerProps
+) => {
+    const { seconds, onChange, title = 'Change time window' } = props
+
     const [isOpen, setIsOpen] = useState(false)
     const [custom, setCustom] = useState('')
 
-    const label = Number.isFinite(seconds)
-        ? `${windowLabelFor(seconds)} window`
-        : 'All data'
+    const label = labelOf(seconds)
 
     if (!onChange) {
         return <>{label}</>
@@ -59,7 +62,7 @@ const WindowPicker: React.FC<WindowPickerProps> = ({ seconds, onChange }) => {
                 className="stream-plot__window-button"
                 aria-haspopup="menu"
                 aria-expanded={isOpen}
-                title="Change time window"
+                title={title}
                 onClick={() => setIsOpen((wasOpen) => !wasOpen)}
             >
                 {label}
@@ -104,6 +107,16 @@ const WindowPicker: React.FC<WindowPickerProps> = ({ seconds, onChange }) => {
 export default WindowPicker
 
 const customWindowLabel = 'Custom window, such as 90, 45s or 3m'
+
+function labelOf(seconds?: number) {
+    if (seconds === undefined) {
+        return 'Mixed windows'
+    }
+
+    return Number.isFinite(seconds)
+        ? `${windowLabelFor(seconds)} window`
+        : 'All data'
+}
 
 function keepFocusInPicker(event: React.MouseEvent) {
     event.preventDefault()
