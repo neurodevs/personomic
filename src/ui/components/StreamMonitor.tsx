@@ -664,9 +664,6 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         key={device.key}
                         device={device}
                         status={status}
-                        hasRunOut={
-                            recording !== undefined && status === 'disconnected'
-                        }
                         onRemove={onRemoveDevice}
                         identifier={identifierShownFor(
                             identifiers[device.key],

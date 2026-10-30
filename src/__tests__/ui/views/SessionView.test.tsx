@@ -3399,7 +3399,7 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async showsPlotsOfFinishedRecordingAgainOnReplay() {
+    protected static async keepsShowingPlotsOfFinishedRecordingThroughReplay() {
         let nowMs = 0
         setClock(() => nowMs)
         setFrameScheduler(FakeFrameScheduler.schedule)
@@ -3422,8 +3422,8 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             { onceFinished, onReplay: this.numShownPlots },
-            { onceFinished: 0, onReplay: 1 },
-            'Did not show plots of finished recording again on replay!'
+            { onceFinished: 1, onReplay: 1 },
+            'Did not keep showing plots of finished recording through replay!'
         )
     }
 

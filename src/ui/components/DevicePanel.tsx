@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
 
 import type { CytonExgType } from '@neurodevs/node-biosensors'
 
@@ -15,7 +15,6 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
     status,
     isStatusShown = true,
-    hasRunOut = false,
     onRemove,
     identifier,
     rememberedIdentifiers,
@@ -92,17 +91,6 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     }
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
-    const wereHiddenByRunningOut = useRef(false)
-
-    useEffect(() => {
-        if (hasRunOut) {
-            setArePlotsHidden(true)
-            wereHiddenByRunningOut.current = true
-        } else if (wereHiddenByRunningOut.current) {
-            setArePlotsHidden(false)
-            wereHiddenByRunningOut.current = false
-        }
-    }, [hasRunOut])
 
     const togglePlotsUnlessClickedOnContents = (event: React.MouseEvent) => {
         const clicked = event.target as Element
@@ -112,7 +100,6 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 `input, button, .${deviceStreamsClassName}, .${deviceSettingsClassName}`
             )
         ) {
-            wereHiddenByRunningOut.current = false
             setArePlotsHidden((wereHidden) => !wereHidden)
         }
     }
@@ -334,7 +321,6 @@ export interface DevicePanelProps {
     device: BiosignalDevice
     status: DeviceStatus
     isStatusShown?: boolean
-    hasRunOut?: boolean
     onRemove?: (name: string) => void
     identifier?: DeviceIdentifier
     rememberedIdentifiers?: readonly string[]

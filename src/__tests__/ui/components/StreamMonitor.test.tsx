@@ -3783,13 +3783,40 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async collapsesDeviceOnceItsDataRunsOut() {
+    protected static async keepsDeviceOpenOnceItsDataRunsOut() {
         await this.playTwoDevicesUntilFirstRunsOut()
 
         assert.isEqualDeep(
             this.twoDevices.map((device) => this.shownPlotsOf(device.name)),
-            [[], this.plotIdsFor(this.twoDevices[1].streams)],
-            'Did not collapse device once its data ran out!'
+            this.twoDevices.map((device) => this.plotIdsFor(device.streams)),
+            'Did not keep device open once its data ran out!'
+        )
+    }
+
+    @test()
+    protected static async collapsesRunOutDeviceWhenItIsClicked() {
+        await this.playTwoDevicesUntilFirstRunsOut()
+
+        this.clickDeviceCard(this.twoDevices[0].name)
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.twoDevices[0].name),
+            [],
+            'Did not collapse run out device when it was clicked!'
+        )
+    }
+
+    @test()
+    protected static async keepsDeviceOpenWhenPlaybackEnds() {
+        await this.play(this.recording)
+
+        this.nowMs = 3000
+        await this.runFrame()
+
+        assert.isEqualDeep(
+            this.shownPlotsOf(this.deviceName),
+            this.plotIdsFor(this.streams),
+            'Did not keep device open when playback ended!'
         )
     }
 
@@ -3808,19 +3835,6 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 .getByTestId(`device-${this.twoDevices[0].name}`)
                 .querySelector('.xdf-description'),
             'Did not keep XDF description of device once its data ran out!'
-        )
-    }
-
-    @test()
-    protected static async showsPlotsOfRunOutDeviceWhenItIsClicked() {
-        await this.playTwoDevicesUntilFirstRunsOut()
-
-        this.clickDeviceCard(this.twoDevices[0].name)
-
-        assert.isEqualDeep(
-            this.shownPlotsOf(this.twoDevices[0].name),
-            this.plotIdsFor(this.twoDevices[0].streams),
-            'Did not show plots of run out device when it was clicked!'
         )
     }
 
@@ -3850,35 +3864,12 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async reopensRunOutDeviceWhileScrubbingBack() {
-        const recording = this.recordingOfTwoDevices
-        const { rerender } = await this.play(recording)
-
-        this.nowMs = 1000
-        await this.runFrame()
-        await rerender(
-            this.playing(recording, {
-                playbackSeek: { seconds: 0 },
-                isPlaybackPaused: true,
-            })
-        )
-        await this.runFrame()
-
-        assert.isEqualDeep(
-            this.shownPlotsOf(this.twoDevices[0].name),
-            this.plotIdsFor(this.twoDevices[0].streams),
-            'Did not reopen run out device while scrubbing back!'
-        )
-    }
-
-    @test()
     protected static async keepsDeviceCollapsedByClickWhenSeekingBack() {
         const recording = this.recordingOfTwoDevices
         const { rerender } = await this.play(recording)
 
         this.nowMs = 1000
         await this.runFrame()
-        this.clickDeviceCard(this.twoDevices[0].name)
         this.clickDeviceCard(this.twoDevices[0].name)
         await rerender(
             this.playing(recording, { playbackSeek: { seconds: 0 } })
@@ -4000,7 +3991,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     private static async playTwoDevicesUntilFirstRunsOut() {
-        await this.play(this.recordingOfTwoDevices)
+        await this.play(this.recordingOfTwoDevices, { windowSeconds: 1 })
 
         this.nowMs = 1000
         await this.runFrame()
