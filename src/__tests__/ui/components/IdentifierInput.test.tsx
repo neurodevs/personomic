@@ -97,6 +97,22 @@ export default class IdentifierInputTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsTooltipForAddressOnHover() {
+        render(
+            <IdentifierInput
+                deviceLabel="Zephyr BioHarness 3"
+                identifier={{ label: 'Address', value: 'a0-e6-f8-a5-60-bf' }}
+            />
+        )
+
+        assert.isEqual(
+            this.field.title,
+            'Device Bluetooth address',
+            'Did not show tooltip for address on hover!'
+        )
+    }
+
+    @test()
     protected static async showsReportedValueWhileLockedAndBlank() {
         render(
             <IdentifierInput

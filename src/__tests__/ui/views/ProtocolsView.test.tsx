@@ -748,21 +748,6 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async offersEachModelWithoutIdentifierOnlyOnce() {
-        this.answerListing()
-        this.clickNewProtocol()
-        this.addBiosensor('Zephyr BioHarness 3')
-
-        this.openBiosensorMenu()
-
-        assert.isFalse(
-            screen.queryByRole('menuitem', { name: 'Zephyr BioHarness 3' }) !==
-                null,
-            'Offered a model without an identifier more than once!'
-        )
-    }
-
-    @test()
     protected static async asksForNicknameAndIdentifierOfBiosensor() {
         this.answerListing()
         this.clickNewProtocol()

@@ -90,7 +90,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.activeScan?.deviceNames,
-            ['Muse S Gen 2', 'OpenBCI Cyton'],
+            ['Muse S Gen 2', 'Zephyr BioHarness 3', 'OpenBCI Cyton'],
             'Did not scan for identifiers of devices that take one!'
         )
     }
@@ -131,7 +131,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             lastStreamMonitorProps?.scanningDeviceNames,
-            ['OpenBCI Cyton'],
+            ['OpenBCI Cyton', 'Zephyr BioHarness 3'],
             'Did not tell monitor which devices are being scanned for!'
         )
     }
@@ -188,18 +188,6 @@ export default class SessionViewTest extends AbstractPackageTest {
             this.activeScan?.deviceNames,
             ['Muse'],
             'Did not scan for auto-detected Muse as any Muse!'
-        )
-    }
-
-    @test()
-    protected static async doesNotScanWithoutDevicesThatTakeIdentifier() {
-        render(<SessionView />)
-
-        this.addBiosensor('Zephyr BioHarness 3')
-
-        assert.isUndefined(
-            this.activeScan,
-            'Scanned without devices that take an identifier!'
         )
     }
 
@@ -632,19 +620,6 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async stopsOfferingBiosensorOnceAdded() {
-        render(<SessionView />)
-
-        this.addBiosensor('Zephyr BioHarness 3')
-        this.openBiosensorMenu()
-
-        assert.isFalse(
-            this.offeredBiosensors.includes('Zephyr BioHarness 3'),
-            'Kept offering biosensor after adding it!'
-        )
-    }
-
-    @test()
     protected static async keepsOfferingBiosensorThatTakesAnIdentifier() {
         this.renderWithMuse()
 
@@ -935,25 +910,31 @@ export default class SessionViewTest extends AbstractPackageTest {
                 'Muse 2': 'UUID',
                 'Muse 1 Gen 2': 'UUID',
                 'OpenBCI Cyton': 'Serial number',
+                'Zephyr BioHarness 3': 'Address',
             },
             'Did not offer a labelled identifier for each device that takes one!'
         )
     }
 
     @test()
-    protected static async sendsNoIdentifierForDeviceThatDoesNotTakeOne() {
+    protected static async sendsTypedZephyrAddressAsIdentifier() {
         render(<SessionView />)
 
         this.addBiosensor('Zephyr BioHarness 3')
-        this.typeIdentifier('Zephyr BioHarness 3', 'typed-anyway')
+        this.typeIdentifier('Zephyr BioHarness 3', 'a0-e6-f8-a5-60-bf')
 
         this.clickConnect()
         act(() => this.orchestratorSocket.open())
 
         assert.isEqualDeep(
             JSON.parse(FakeWebSocket.callsToSend[0]?.data as string).devices,
-            [{ deviceName: 'Zephyr BioHarness 3' }],
-            'Sent an identifier for a device that does not take one!'
+            [
+                {
+                    deviceName: 'Zephyr BioHarness 3',
+                    identifier: 'a0-e6-f8-a5-60-bf',
+                },
+            ],
+            'Did not send typed Zephyr address as identifier!'
         )
     }
 
@@ -3399,6 +3380,11 @@ export default class SessionViewTest extends AbstractPackageTest {
                     'Muse S Gen 2': {
                         label: 'UUID',
                         value: 'muse-uuid',
+                        isRequired: false,
+                    },
+                    'Zephyr BioHarness 3': {
+                        label: 'Address',
+                        value: '',
                         isRequired: false,
                     },
                 },

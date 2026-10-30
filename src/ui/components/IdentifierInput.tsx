@@ -154,6 +154,8 @@ function tooltipFor(identifier: DeviceIdentifier) {
             return 'Device Bluetooth UUID'
         case 'Serial number':
             return 'Device USB serial number'
+        case 'Address':
+            return 'Device Bluetooth address'
         default:
             throw new Error(`Unknown identifier label: ${identifier.label}`)
     }

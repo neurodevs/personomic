@@ -34,6 +34,7 @@ const IDENTIFIER_OPTION_BY_DEVICE = {
     'Muse 2': 'bleUuid',
     'Muse 1 Gen 2': 'bleUuid',
     'OpenBCI Cyton': 'serialNumber',
+    'Zephyr BioHarness 3': 'address',
 }
 
 const BLE_NAME_PREFIX_BY_DEVICE = {

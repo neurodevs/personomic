@@ -25,6 +25,7 @@ export const identifierLabels: Record<string, string> = {
     'Muse 2': 'UUID',
     'Muse 1 Gen 2': 'UUID',
     'OpenBCI Cyton': 'Serial number',
+    'Zephyr BioHarness 3': 'Address',
 }
 
 const rememberedIdentifiersStorageKey = 'personomic.rememberedIdentifiers'
