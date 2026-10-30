@@ -839,6 +839,65 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         )
     }
 
+    @test(
+        'saves biosensor dragged up to just after another',
+        'Zephyr BioHarness 3',
+        'Muse S Gen 2',
+        'after',
+        ['Muse S Gen 2', 'Zephyr BioHarness 3', 'OpenBCI Cyton']
+    )
+    @test(
+        'saves biosensor dragged down to just before another',
+        'Muse S Gen 2',
+        'Zephyr BioHarness 3',
+        'before',
+        ['OpenBCI Cyton', 'Muse S Gen 2', 'Zephyr BioHarness 3']
+    )
+    protected static async savesBiosensorsInOrderDraggedTo(
+        key: string,
+        toKey: string,
+        placement: 'before' | 'after',
+        expected: string[]
+    ) {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Muse S Gen 2')
+        this.addBiosensor('OpenBCI Cyton')
+        this.addBiosensor('Zephyr BioHarness 3')
+
+        this.dragBiosensor(key, toKey, placement)
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices.map(
+                ({ deviceName }: { deviceName: string }) => deviceName
+            ),
+            expected,
+            'Did not save the biosensors in the order dragged to!'
+        )
+    }
+
+    @test()
+    protected static async keepsOrderWhenBiosensorIsDroppedOntoItself() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('Muse S Gen 2')
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.dragBiosensor('OpenBCI Cyton', 'OpenBCI Cyton', 'before')
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices.map(
+                ({ deviceName }: { deviceName: string }) => deviceName
+            ),
+            ['Muse S Gen 2', 'OpenBCI Cyton'],
+            'Changed the order when a biosensor was dropped onto itself!'
+        )
+    }
+
     @test()
     protected static async savesAutoDetectedMuseAsMuse() {
         this.answerListing()
@@ -1588,6 +1647,36 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
         fireEvent.click(screen.getByRole('button', { name: /add biosensor/i }))
     }
 
+    private static dragBiosensor(
+        key: string,
+        toKey: string,
+        placement: 'before' | 'after'
+    ) {
+        const target = screen.getByTestId(`device-${toKey}`)
+        target.getBoundingClientRect = () =>
+            ({ top: 0, bottom: 100, height: 100 }) as DOMRect
+        const clientY = placement === 'before' ? 25 : 75
+
+        const data: Record<string, string> = {}
+        const dataTransfer = {
+            get types() {
+                return Object.keys(data)
+            },
+            getData: (type: string) => data[type] ?? '',
+            setData: (type: string, value: string) => {
+                data[type] = value
+            },
+            setDragImage: () => {},
+        }
+
+        fireEvent.dragStart(
+            screen.getByRole('button', { name: `Reorder ${key}` }),
+            { dataTransfer }
+        )
+        fireDragEvent(target, 'dragover', { dataTransfer, clientY })
+        fireDragEvent(target, 'drop', { dataTransfer, clientY })
+    }
+
     private static addBiosensor(name: string) {
         this.openBiosensorMenu()
         fireEvent.click(screen.getByRole('menuitem', { name }))
@@ -1735,4 +1824,18 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 interface ProtocolFileReply {
     fileName: string
     protocol: { schemaVersion: number; name: string; [field: string]: unknown }
+}
+
+function fireDragEvent(
+    element: Element,
+    type: string,
+    init: { dataTransfer: unknown; clientY?: number }
+) {
+    const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientY: init.clientY,
+    })
+    Object.defineProperty(event, 'dataTransfer', { value: init.dataTransfer })
+    fireEvent(element, event)
 }

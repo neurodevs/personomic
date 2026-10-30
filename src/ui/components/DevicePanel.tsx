@@ -29,6 +29,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onDisabledStreamsChange,
     exgType = 'ExG',
     onExgTypeChange,
+    onMove,
     isDescribed = false,
     xdfHeader,
     children,
@@ -55,6 +56,40 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
         onNicknameChange === undefined
             ? nickname.trim() !== ''
             : status === 'disconnected'
+
+    const panel = useRef<HTMLElement>(null)
+    const [dropPlacement, setDropPlacement] = useState<DropPlacement>()
+
+    const carryKeyWhileDragged = (event: React.DragEvent) => {
+        event.dataTransfer.setData(deviceDragType, device.key)
+        event.dataTransfer.effectAllowed = 'move'
+        if (panel.current) {
+            event.dataTransfer.setDragImage(panel.current, 0, 0)
+        }
+    }
+
+    const acceptDraggedDevice = (event: React.DragEvent) => {
+        if (event.dataTransfer.types.includes(deviceDragType)) {
+            event.preventDefault()
+            setDropPlacement(dropPlacementAt(event))
+        }
+    }
+
+    const stopAcceptingWhenLeft = (event: React.DragEvent) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            setDropPlacement(undefined)
+        }
+    }
+
+    const moveDroppedDeviceHere = (event: React.DragEvent) => {
+        const draggedKey = event.dataTransfer.getData(deviceDragType)
+        setDropPlacement(undefined)
+
+        if (draggedKey) {
+            event.preventDefault()
+            onMove?.(draggedKey, device.key, dropPlacementAt(event))
+        }
+    }
 
     const [arePlotsHidden, setArePlotsHidden] = useState(false)
     const wereHiddenByRunningOut = useRef(false)
@@ -84,11 +119,27 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
     return (
         <section
-            className={`stream-monitor__device stream-monitor__device--${status}`}
+            ref={panel}
+            className={`stream-monitor__device stream-monitor__device--${status}${dropPlacement ? ` stream-monitor__device--drop-${dropPlacement}` : ''}`}
+            onDragOver={onMove && acceptDraggedDevice}
+            onDragLeave={onMove && stopAcceptingWhenLeft}
+            onDrop={onMove && moveDroppedDeviceHere}
             data-testid={`device-${device.key}`}
             onClick={togglePlotsUnlessClickedOnContents}
         >
             <header className="stream-monitor__device-header">
+                {onMove && (
+                    <button
+                        type="button"
+                        className="stream-monitor__device-reorder"
+                        aria-label={`Reorder ${device.label}`}
+                        title="Drag to reorder"
+                        draggable
+                        onDragStart={carryKeyWhileDragged}
+                    >
+                        <GripIcon />
+                    </button>
+                )}
                 {isStatusShown && <DeviceStatusIndicator status={status} />}
                 <span
                     className="stream-monitor__device-name"
@@ -206,6 +257,16 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
 export default DevicePanel
 
+export const deviceDragType = 'application/x-personomic-device'
+
+function dropPlacementAt(event: React.DragEvent): DropPlacement {
+    const { top, height } = event.currentTarget.getBoundingClientRect()
+
+    return event.clientY < top + height / 2 ? 'before' : 'after'
+}
+
+export type DropPlacement = 'before' | 'after'
+
 const deviceStreamsClassName = 'stream-monitor__device-streams'
 const deviceSettingsClassName = 'stream-monitor__device-settings'
 
@@ -287,6 +348,7 @@ export interface DevicePanelProps {
     onDisabledStreamsChange?: (name: string, streams: string[]) => void
     exgType?: string
     onExgTypeChange?: (name: string, exgType: string) => void
+    onMove?: (key: string, toKey: string, placement: DropPlacement) => void
     isDescribed?: boolean
     xdfHeader?: DescElement[]
     children?: React.ReactNode
@@ -383,6 +445,17 @@ const SettingsIcon: React.FC = () => (
     <HeaderIcon size={14}>
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </HeaderIcon>
+)
+
+const GripIcon: React.FC = () => (
+    <HeaderIcon size={14}>
+        <circle cx="9" cy="6" r="1" />
+        <circle cx="15" cy="6" r="1" />
+        <circle cx="9" cy="12" r="1" />
+        <circle cx="15" cy="12" r="1" />
+        <circle cx="9" cy="18" r="1" />
+        <circle cx="15" cy="18" r="1" />
     </HeaderIcon>
 )
 

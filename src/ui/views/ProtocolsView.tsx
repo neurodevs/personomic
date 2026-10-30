@@ -426,6 +426,7 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
         addableNames,
         addDevice,
         removeDevice,
+        moveDevice,
         setIdentifierValue,
         setNickname,
         nicknames,
@@ -467,6 +468,7 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
                                     status="disconnected"
                                     isStatusShown={false}
                                     onRemove={removeDevice}
+                                    onMove={moveDevice}
                                     identifier={identifiers[key]}
                                     rememberedIdentifiers={
                                         rememberedIdentifiers[name]

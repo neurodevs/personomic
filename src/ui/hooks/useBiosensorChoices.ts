@@ -56,6 +56,28 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
             previous.filter((_, index) => index !== deviceKeys.indexOf(key))
         )
 
+    const moveDevice = (
+        key: string,
+        toKey: string,
+        placement: 'before' | 'after'
+    ) =>
+        changeDevices((previous) => {
+            const moved = previous[deviceKeys.indexOf(key)]
+            const others = previous.filter((device) => device !== moved)
+            const target = others.indexOf(previous[deviceKeys.indexOf(toKey)])
+
+            if (target === -1) {
+                return previous
+            }
+
+            others.splice(
+                placement === 'before' ? target : target + 1,
+                0,
+                moved
+            )
+            return others
+        })
+
     const setIdentifierValue = (key: string, value: string) =>
         changeDevices((previous) =>
             previous.map((device, index) =>
@@ -187,6 +209,7 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         addableNames,
         addDevice,
         removeDevice,
+        moveDevice,
         setIdentifierValue,
         setNickname,
         nicknames,

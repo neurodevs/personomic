@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 
 import DevicePanel, {
     DevicePanelProps,
+    deviceDragType,
 } from '../../../ui/components/DevicePanel'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
@@ -80,6 +81,98 @@ export default class DevicePanelTest extends AbstractPackageTest {
             },
             { shown: 'EGG', isOffered: false },
             'Did not show only the code of an unchangeable ExG type!'
+        )
+    }
+
+    @test('offers handle to reorder with move handler', true)
+    @test('offers no handle to reorder without move handler', false)
+    protected static async offersHandleToReorderOnlyWithMoveHandler(
+        isMovable: boolean
+    ) {
+        this.renderPanel({ onMove: isMovable ? () => {} : undefined })
+
+        assert.isEqual(
+            this.reorderHandle !== null,
+            isMovable,
+            'Did not offer a handle to reorder only with a move handler!'
+        )
+    }
+
+    @test('places device dropped on top half before', 120, 'before')
+    @test('places device dropped on bottom half after', 180, 'after')
+    protected static async reportsWhereDeviceDroppedOntoItGoes(
+        clientY: number,
+        placement: string
+    ) {
+        const moves: [string, string, string][] = []
+        this.renderPanel({
+            onMove: (key, toKey, where) => moves.push([key, toKey, where]),
+        })
+
+        this.dropDevice('Muse 2', clientY)
+
+        assert.isEqualDeep(
+            moves,
+            [['Muse 2', this.deviceKey, placement]],
+            'Did not report where the device dropped onto it goes!'
+        )
+    }
+
+    @test('shows insertion line above over top half', 120, 'before')
+    @test('shows insertion line below over bottom half', 180, 'after')
+    protected static async showsInsertionLineWhereDeviceWouldGo(
+        clientY: number,
+        placement: string
+    ) {
+        this.renderPanel({ onMove: () => {} })
+
+        this.dragDeviceOver('Muse 2', clientY)
+
+        assert.isTrue(
+            this.panel.classList.contains(
+                `stream-monitor__device--drop-${placement}`
+            ),
+            'Did not show the insertion line where the device would go!'
+        )
+    }
+
+    @test()
+    protected static async hidesInsertionLineOnceDropped() {
+        this.renderPanel({ onMove: () => {} })
+
+        this.dropDevice('Muse 2', 120)
+
+        assert.isFalse(
+            this.panel.className.includes('--drop-'),
+            'Kept showing the insertion line once dropped!'
+        )
+    }
+
+    @test()
+    protected static async ignoresDropsOfAnythingButDevices() {
+        const moves: [string, string][] = []
+        this.renderPanel({
+            onMove: (key, toKey) => moves.push([key, toKey]),
+        })
+        const dataTransfer = this.fakeDataTransfer({ 'text/plain': 'hello' })
+
+        fireDragEvent(this.panel, 'dragover', { dataTransfer, clientY: 120 })
+        fireDragEvent(this.panel, 'drop', { dataTransfer, clientY: 120 })
+
+        assert.isEqualDeep(moves, [], 'Moved a device on a drop of text!')
+    }
+
+    @test()
+    protected static async carriesItsKeyWhenDragged() {
+        this.renderPanel({ onMove: () => {} })
+        const dataTransfer = this.fakeDataTransfer({})
+
+        fireEvent.dragStart(this.reorderHandle!, { dataTransfer })
+
+        assert.isEqual(
+            dataTransfer.getData(deviceDragType),
+            this.deviceKey,
+            'Did not carry its key when dragged!'
         )
     }
 
@@ -440,6 +533,50 @@ export default class DevicePanelTest extends AbstractPackageTest {
         }) as HTMLInputElement
     }
 
+    private static get reorderHandle() {
+        return screen.queryByRole('button', {
+            name: `Reorder ${this.deviceKey}`,
+        })
+    }
+
+    private static get panel() {
+        return screen.getByTestId(`device-${this.deviceKey}`)
+    }
+
+    private static dragDeviceOver(key: string, clientY: number) {
+        const dataTransfer = this.fakeDataTransfer({ [deviceDragType]: key })
+        this.placePanelBetween(100, 200)
+
+        fireDragEvent(this.panel, 'dragover', { dataTransfer, clientY })
+
+        return dataTransfer
+    }
+
+    private static dropDevice(key: string, clientY: number) {
+        const dataTransfer = this.dragDeviceOver(key, clientY)
+        fireDragEvent(this.panel, 'drop', { dataTransfer, clientY })
+    }
+
+    private static placePanelBetween(top: number, bottom: number) {
+        this.panel.getBoundingClientRect = () =>
+            ({ top, bottom, height: bottom - top }) as DOMRect
+    }
+
+    private static fakeDataTransfer(data: Record<string, string>) {
+        return {
+            get types() {
+                return Object.keys(data)
+            },
+            getData: (type: string) => data[type] ?? '',
+            setData: (type: string, value: string) => {
+                data[type] = value
+            },
+            setDragImage: () => {},
+            effectAllowed: '',
+            dropEffect: '',
+        }
+    }
+
     private static renderCyton(props: Partial<DevicePanelProps> = {}) {
         this.renderPanel(
             { onExgTypeChange: () => {}, ...props },
@@ -540,4 +677,18 @@ export default class DevicePanelTest extends AbstractPackageTest {
             .getAttribute('aria-label')!
             .slice(`${this.deviceKey} `.length)
     }
+}
+
+function fireDragEvent(
+    element: Element,
+    type: string,
+    init: { dataTransfer: unknown; clientY?: number }
+) {
+    const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientY: init.clientY,
+    })
+    Object.defineProperty(event, 'dataTransfer', { value: init.dataTransfer })
+    fireEvent(element, event)
 }

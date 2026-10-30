@@ -1548,9 +1548,53 @@ input.event-markers__name,
 .stream-monitor__device-settings-button:focus-visible,
 .stream-monitor__device-settings-button[aria-expanded='true'],
 .stream-monitor__device-remove:hover,
-.stream-monitor__device-remove:focus-visible {
+.stream-monitor__device-remove:focus-visible,
+.stream-monitor__device-reorder:hover,
+.stream-monitor__device-reorder:focus-visible {
   color: var(--text-primary);
   outline: none;
+}
+
+.stream-monitor__device-reorder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 26px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+}
+
+.stream-monitor__device-reorder:active {
+  cursor: grabbing;
+}
+
+.stream-monitor__device--drop-before,
+.stream-monitor__device--drop-after {
+  position: relative;
+}
+
+.stream-monitor__device--drop-before::before,
+.stream-monitor__device--drop-after::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.stream-monitor__device--drop-before::before {
+  top: -6px;
+}
+
+.stream-monitor__device--drop-after::after {
+  bottom: -6px;
 }
 
 .stream-monitor__device-settings {
