@@ -1852,6 +1852,71 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersOneXdfDescriptionForAllDevices() {
+        await this.play({
+            ...this.recordingOfTwoDevices,
+            header: [{ name: 'protocol-sha256', value: 'abc123' }],
+        })
+
+        assert.isEqualDeep(
+            {
+                numToggles: screen.queryAllByRole('button', {
+                    name: 'XDF description',
+                }).length,
+                isInDeviceCard:
+                    this.descriptionToggle?.closest(
+                        '[data-testid^="device-"]'
+                    ) !== null,
+            },
+            { numToggles: 1, isInDeviceCard: false },
+            'Did not offer one XDF description for all devices!'
+        )
+    }
+
+    @test()
+    protected static async describesStreamsOfAllDevicesUnderTheirDevices() {
+        const [first, second] = this.recordingOfTwoDevices.devices
+
+        await this.play({
+            devices: [
+                {
+                    ...first,
+                    streams: [
+                        {
+                            ...first.streams[0],
+                            desc: [{ name: 'nickname', value: 'Alice' }],
+                        },
+                    ],
+                },
+                {
+                    ...second,
+                    streams: [
+                        {
+                            ...second.streams[0],
+                            desc: [{ name: 'nickname', value: 'Bob' }],
+                        },
+                    ],
+                },
+            ],
+        })
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            this.shownDescription,
+            {
+                headings: [
+                    `${first.deviceName} · ${first.streams[0].type}`,
+                    `${second.deviceName} · ${second.streams[0].type}`,
+                ],
+                fields: ['nickname', 'nickname'],
+                values: ['Alice', 'Bob'],
+            },
+            'Did not describe streams of all devices under their devices!'
+        )
+    }
+
+    @test()
     protected static async offersNoXdfDescriptionOfLiveSessionNotRecording() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName])
@@ -3821,7 +3886,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async keepsXdfDescriptionOfDeviceOnceItsDataRunsOut() {
+    protected static async keepsXdfDescriptionOnceADevicesDataRunsOut() {
         await this.play({
             ...this.recordingOfTwoDevices,
             header: [{ name: 'protocol-sha256', value: 'abc123' }],
@@ -3831,10 +3896,8 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         await this.runFrame()
 
         assert.isTruthy(
-            screen
-                .getByTestId(`device-${this.twoDevices[0].name}`)
-                .querySelector('.xdf-description'),
-            'Did not keep XDF description of device once its data ran out!'
+            this.descriptionToggle,
+            'Did not keep XDF description once a device ran out of data!'
         )
     }
 

@@ -8,8 +8,6 @@ import IdentifierInput, {
     DeviceIdentifier,
     ScannedIdentifier,
 } from './IdentifierInput'
-import { DescElement } from '../../functions/readXdfRecording'
-import XdfDescription from './XdfDescription'
 
 const DevicePanel: React.FC<DevicePanelProps> = ({
     device,
@@ -29,8 +27,6 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     exgType = 'ExG',
     onExgTypeChange,
     onMove,
-    isDescribed = false,
-    xdfHeader,
     children,
 }) => {
     const hasStreams = device.streams.length > 0
@@ -227,16 +223,8 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     }
                 />
             )}
-            {hasStreams && (isDescribed || !arePlotsHidden) && (
-                <div className={deviceStreamsClassName}>
-                    {isDescribed && (
-                        <XdfDescription
-                            header={xdfHeader}
-                            streams={device.describedStreams}
-                        />
-                    )}
-                    {!arePlotsHidden && children}
-                </div>
+            {hasStreams && !arePlotsHidden && (
+                <div className={deviceStreamsClassName}>{children}</div>
             )}
         </section>
     )
@@ -335,8 +323,6 @@ export interface DevicePanelProps {
     exgType?: string
     onExgTypeChange?: (name: string, exgType: string) => void
     onMove?: (key: string, toKey: string, placement: DropPlacement) => void
-    isDescribed?: boolean
-    xdfHeader?: DescElement[]
     children?: React.ReactNode
 }
 

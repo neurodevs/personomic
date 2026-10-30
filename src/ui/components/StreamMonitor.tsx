@@ -9,7 +9,7 @@ import {
 import DevicePanel from './DevicePanel'
 import { DeviceIdentifier, ScannedIdentifier } from './IdentifierInput'
 import WindowPicker from './WindowPicker'
-import { DescribedStream } from './XdfDescription'
+import XdfDescription, { DescribedStream } from './XdfDescription'
 import StreamPlot, {
     BandPowerOptions,
     Downsampling,
@@ -651,6 +651,12 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     />
                 </div>
             )}
+            {(recording !== undefined || isRecording) && (
+                <XdfDescription
+                    header={recording?.header ?? xdfHeader}
+                    streams={describedStreamsOf(devices)}
+                />
+            )}
             {devices.map((device) => {
                 const status = statusAfterReconnect(
                     reportedStatusByKey[device.key]!,
@@ -677,8 +683,6 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                         isScanning={scanningDeviceNames.includes(device.name)}
                         onForgetIdentifier={onForgetIdentifier}
                         onIdentifierChange={onIdentifierChange}
-                        isDescribed={recording !== undefined || isRecording}
-                        xdfHeader={recording?.header ?? xdfHeader}
                         nickname={nicknames[device.key] ?? ''}
                         onNicknameChange={onNicknameChange}
                         disabledStreams={disabledStreams[device.key]}
@@ -733,6 +737,19 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
+
+function describedStreamsOf(devices: BiosignalDevice[]): DescribedStream[] {
+    if (devices.length === 1) {
+        return devices[0].describedStreams
+    }
+
+    return devices.flatMap(({ label, describedStreams }) =>
+        describedStreams.map((stream) => ({
+            ...stream,
+            name: `${label} · ${stream.name}`,
+        }))
+    )
+}
 
 function windowSecondsSharedBy(
     windowSecondsByPort: Record<number, number>,
