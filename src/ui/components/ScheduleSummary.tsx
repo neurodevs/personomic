@@ -55,57 +55,65 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
                             )}
                         </div>
                     )}
-                    <ol className="schedule__list">
-                        {showsMarkers && (
-                            <li>
-                                <ScheduleRowItem row={startRow} />
-                            </li>
-                        )}
-                        {phaseRows.map(({ row, children }, index) => {
-                            const phaseToggle = toggleOf(phaseKeyOf(index))
-
-                            return (
-                                <li key={index} className="schedule__phase">
-                                    <ScheduleRowItem
-                                        row={row}
-                                        toggle={
-                                            children.length > 0
-                                                ? phaseToggle
-                                                : undefined
-                                        }
-                                    />
-                                    {phaseToggle.isOpen && (
-                                        <ol className="schedule__children">
-                                            {children.map(
-                                                (child, childIndex) =>
-                                                    'contents' in child ? (
-                                                        <BlockGroupItem
-                                                            key={childIndex}
-                                                            group={child}
-                                                            toggle={toggleOf(
-                                                                blockKeyOf(
-                                                                    index,
-                                                                    childIndex
-                                                                )
-                                                            )}
-                                                        />
-                                                    ) : (
-                                                        <li key={childIndex}>
-                                                            <ScheduleRowItem
-                                                                row={child}
-                                                            />
-                                                        </li>
-                                                    )
-                                            )}
-                                        </ol>
-                                    )}
+                    {phases.length === 0 ? (
+                        <p className="schedule__empty">
+                            This fills in automatically as you add phases below.
+                        </p>
+                    ) : (
+                        <ol className="schedule__list">
+                            {showsMarkers && (
+                                <li>
+                                    <ScheduleRowItem row={startRow} />
                                 </li>
-                            )
-                        })}
-                        <li>
-                            <ScheduleRowItem row={endRow} />
-                        </li>
-                    </ol>
+                            )}
+                            {phaseRows.map(({ row, children }, index) => {
+                                const phaseToggle = toggleOf(phaseKeyOf(index))
+
+                                return (
+                                    <li key={index} className="schedule__phase">
+                                        <ScheduleRowItem
+                                            row={row}
+                                            toggle={
+                                                children.length > 0
+                                                    ? phaseToggle
+                                                    : undefined
+                                            }
+                                        />
+                                        {phaseToggle.isOpen && (
+                                            <ol className="schedule__children">
+                                                {children.map(
+                                                    (child, childIndex) =>
+                                                        'contents' in child ? (
+                                                            <BlockGroupItem
+                                                                key={childIndex}
+                                                                group={child}
+                                                                toggle={toggleOf(
+                                                                    blockKeyOf(
+                                                                        index,
+                                                                        childIndex
+                                                                    )
+                                                                )}
+                                                            />
+                                                        ) : (
+                                                            <li
+                                                                key={childIndex}
+                                                            >
+                                                                <ScheduleRowItem
+                                                                    row={child}
+                                                                />
+                                                            </li>
+                                                        )
+                                                )}
+                                            </ol>
+                                        )}
+                                    </li>
+                                )
+                            })}
+                            <li>
+                                <ScheduleRowItem row={endRow} />
+                            </li>
+                        </ol>
+                    )}
                 </div>
             </Shown.Provider>
         </section>

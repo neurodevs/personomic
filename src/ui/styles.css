@@ -758,6 +758,13 @@ input.event-markers__name,
   font-size: 13px;
 }
 
+.schedule__empty {
+  margin: 0;
+  padding: 18px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
 .control-button {
   padding: 2px 8px;
   border: 1px solid var(--border-strong);

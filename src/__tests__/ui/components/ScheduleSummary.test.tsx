@@ -32,6 +32,25 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async saysItFillsInFromPhasesWhenThereAreNone() {
+        this.render([])
+
+        assert.isEqualDeep(
+            {
+                rows: this.rows,
+                note: within(this.summary).queryByText(
+                    'This fills in automatically as you add phases below.'
+                )?.textContent,
+            },
+            {
+                rows: [],
+                note: 'This fills in automatically as you add phases below.',
+            },
+            'Did not say it fills in from the phases when there were none!'
+        )
+    }
+
+    @test()
     protected static async collapsesPhasesByDefault() {
         this.render([
             this.phase('interventions', { blocks: [this.reversibleTilt] }),
