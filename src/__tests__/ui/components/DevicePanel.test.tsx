@@ -37,16 +37,6 @@ export default class DevicePanelTest extends AbstractPackageTest {
     }
 
     @test()
-    protected static async hidesSettingsOfBiosensorWithoutStreamsToTurnOff() {
-        this.renderPanel({}, 'Zephyr BioHarness 3')
-
-        assert.isFalse(
-            screen.queryByRole('button', { name: /settings/i }) !== null,
-            'Offered settings of a biosensor without streams to turn off!'
-        )
-    }
-
-    @test()
     protected static async hidesStreamsUntilSettingsAreOpened() {
         this.renderPanel()
 
@@ -100,6 +90,12 @@ export default class DevicePanelTest extends AbstractPackageTest {
         'ExG',
         'Accelerometer',
     ])
+    @test('offers streams of Zephyr BioHarness 3', 'Zephyr BioHarness 3', [
+        'ECG',
+        'Accelerometer',
+        'Respiration',
+        'R-to-R',
+    ])
     protected static async offersEachStreamOfModel(
         name: string,
         expected: string[]
@@ -139,6 +135,20 @@ export default class DevicePanelTest extends AbstractPackageTest {
             this.changes,
             [[this.deviceKey, ['PPG', 'Gyroscope']]],
             'Did not report the stream turned off with the device key!'
+        )
+    }
+
+    @test()
+    protected static async reportsZephyrRToRByItsStreamName() {
+        this.renderPanel({}, 'Zephyr BioHarness 3')
+        this.clickSettings()
+
+        this.clickStream('R-to-R')
+
+        assert.isEqualDeep(
+            this.changes,
+            [[this.deviceKey, ['RtoR']]],
+            'Did not report the Zephyr R-to-R by its stream name!'
         )
     }
 

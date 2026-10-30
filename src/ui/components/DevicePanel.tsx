@@ -214,6 +214,10 @@ const streamTogglesByDevice: Record<string, StreamToggle[]> = {
     'Muse 2': museStreamToggles,
     'Muse 1 Gen 2': museStreamToggles,
     'OpenBCI Cyton': togglesOf('ExG', 'Accelerometer'),
+    'Zephyr BioHarness 3': [
+        ...togglesOf('ECG', 'Accelerometer', 'Respiration'),
+        { label: 'R-to-R', streams: ['RtoR'] },
+    ],
 }
 
 function streamTogglesOf(deviceName: string) {
