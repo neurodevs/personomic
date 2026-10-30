@@ -327,6 +327,125 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async readsEveryChunkOfFileInOrder() {
+        const file = buildXdfFile(
+            [
+                {
+                    channelNames: ['A'],
+                    chunks: this.oneSample,
+                    clockOffsets: [[5, -0.25]],
+                    hasBoundaryAfter: true,
+                    footerInfoXml: '<sample_count>1</sample_count>',
+                },
+            ],
+            '<version>1.0</version>'
+        )
+
+        assert.isEqualDeep(
+            readXdfRecording(file).chunks?.map(({ name, attributes }) => ({
+                name,
+                attributes,
+            })),
+            [
+                { name: 'FileHeader', attributes: undefined },
+                { name: 'StreamHeader', attributes: { StreamId: '1' } },
+                {
+                    name: 'Samples',
+                    attributes: { StreamId: '1', NumSamples: '1' },
+                },
+                { name: 'ClockOffset', attributes: { StreamId: '1' } },
+                { name: 'Boundary', attributes: undefined },
+                { name: 'StreamFooter', attributes: { StreamId: '1' } },
+            ],
+            'Did not read every chunk of file in order!'
+        )
+    }
+
+    @test()
+    protected static async readsXmlOfHeaderChunksAsTree() {
+        const file = buildXdfFile(
+            [],
+            '<version>1.0</version><a x="1"><b>2</b></a>'
+        )
+
+        assert.isEqualDeep(
+            readXdfRecording(file).chunks?.[0].children,
+            [
+                {
+                    name: 'info',
+                    children: [
+                        { name: 'version', text: '1.0' },
+                        {
+                            name: 'a',
+                            attributes: { x: '1' },
+                            children: [{ name: 'b', text: '2' }],
+                        },
+                    ],
+                },
+            ],
+            'Did not read XML of header chunks as tree!'
+        )
+    }
+
+    @test()
+    protected static async readsSamplesOfDataChunkOnlyWhenLoaded() {
+        const file = buildXdfFile([
+            {
+                channelNames: ['A', 'B'],
+                sampleRateHz: 2,
+                chunks: [
+                    {
+                        samples: [
+                            [1, 2],
+                            [3, 4],
+                        ],
+                        timestamps: [10, undefined],
+                    },
+                ],
+            },
+        ])
+
+        const samplesChunk = readXdfRecording(file).chunks?.[1]
+
+        assert.isEqualDeep(
+            {
+                children: samplesChunk?.children,
+                loaded: samplesChunk?.loadChildren?.(),
+            },
+            {
+                children: undefined,
+                loaded: [
+                    {
+                        name: 'sample',
+                        attributes: { timestamp: '10' },
+                        text: '1 2',
+                    },
+                    { name: 'sample', text: '3 4' },
+                ],
+            },
+            'Did not read samples of data chunk only when loaded!'
+        )
+    }
+
+    @test()
+    protected static async readsClockOffsetOnlyWhenLoaded() {
+        const file = buildXdfFile([
+            { channelNames: ['A'], clockOffsets: [[5, -0.25]] },
+        ])
+
+        const clockOffset = readXdfRecording(file).chunks?.[1]
+
+        assert.isEqualDeep(
+            clockOffset?.loadChildren?.(),
+            [
+                { name: 'CollectionTime', text: '5' },
+                { name: 'OffsetValue', text: '-0.25' },
+            ],
+            'Did not read clock offset only when loaded!'
+        )
+    }
+
+    @test()
     protected static async leavesNicknameOutWhenNoneWasRecorded() {
         const nicknames = this.nicknamesReadFrom([
             { sourceId: 'muse-eeg-Device-1' },

@@ -2751,8 +2751,8 @@ export default class SessionViewTest extends AbstractPackageTest {
         await this.chooseRecording()
 
         assert.isEqualDeep(
-            lastStreamMonitorProps?.recording,
-            readXdfRecording(this.museRecordingFile),
+            JSON.stringify(lastStreamMonitorProps?.recording),
+            JSON.stringify(readXdfRecording(this.museRecordingFile)),
             'Did not pass recording read from chosen file to monitor!'
         )
     }

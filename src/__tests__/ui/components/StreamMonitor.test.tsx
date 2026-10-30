@@ -1920,6 +1920,86 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersRawXdfToggleBelowXdfDescription() {
+        await this.playWithChunks()
+
+        const toggles = screen
+            .getAllByRole('button')
+            .map((button) => button.textContent)
+
+        assert.isEqual(
+            toggles.indexOf('Raw XDF'),
+            toggles.indexOf('XDF description') + 1,
+            'Did not offer raw XDF toggle below XDF description!'
+        )
+    }
+
+    @test()
+    protected static async collapsesRawXdfByDefault() {
+        await this.playWithChunks()
+
+        assert.isEqualDeep(
+            {
+                isExpanded: this.rawXdfToggle?.getAttribute('aria-expanded'),
+                card: this.rawXdfCard,
+            },
+            { isExpanded: 'false', card: null },
+            'Did not collapse raw XDF by default!'
+        )
+    }
+
+    @test()
+    protected static async showsRawXdfCardDirectlyBelowToggleWhenOpened() {
+        await this.playWithChunks()
+
+        fireEvent.click(this.rawXdfToggle!)
+
+        assert.isEqual(
+            this.rawXdfToggle?.nextElementSibling?.contains(this.rawXdfCard),
+            true,
+            'Did not show raw XDF card directly below toggle when opened!'
+        )
+    }
+
+    @test()
+    protected static async hidesRawXdfCardWhenToggledAgain() {
+        await this.playWithChunks()
+
+        fireEvent.click(this.rawXdfToggle!)
+        fireEvent.click(this.rawXdfToggle!)
+
+        assert.isEqual(
+            this.rawXdfCard,
+            null,
+            'Did not hide raw XDF card when toggled again!'
+        )
+    }
+
+    @test()
+    protected static async offersNoRawXdfOfLiveRecording() {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { isRecording: true })
+
+        assert.isEqual(
+            this.rawXdfToggle,
+            null,
+            'Offered raw XDF of live recording!'
+        )
+    }
+
+    private static async playWithChunks() {
+        await this.play({
+            ...this.recording,
+            header: [{ name: 'version', value: '1.0' }],
+            chunks: [{ name: 'FileHeader', children: [] }],
+        })
+    }
+
+    private static get rawXdfCard() {
+        return screen.queryByRole('region', { name: 'Raw XDF' })
+    }
+
+    @test()
     protected static async offersNoXdfDescriptionOfLiveSessionNotRecording() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName])
@@ -4477,6 +4557,10 @@ export default class StreamMonitorTest extends AbstractPackageTest {
                 desc,
             })),
         }
+    }
+
+    private static get rawXdfToggle() {
+        return screen.queryByRole('button', { name: 'Raw XDF' })
     }
 
     private static get descriptionToggle() {

@@ -647,7 +647,7 @@ input.event-markers__name,
   font-size: 13px;
 }
 
-.schedule__expand-all {
+.control-button {
   padding: 2px 8px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
@@ -658,14 +658,14 @@ input.event-markers__name,
   cursor: pointer;
 }
 
-.schedule__expand-all:hover:not(:disabled),
-.schedule__expand-all:focus-visible {
+.control-button:hover:not(:disabled),
+.control-button:focus-visible {
   border-color: rgba(255, 255, 255, 0.3);
   color: var(--text-primary);
   outline: none;
 }
 
-.schedule__expand-all:disabled {
+.control-button:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -2369,6 +2369,92 @@ input.event-markers__name,
 .xdf-description__json {
   display: block;
   margin-top: 4px;
+}
+
+.raw-xdf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 4px;
+}
+
+.raw-xdf-panel__card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.raw-xdf__header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.raw-xdf__controls {
+  display: flex;
+  gap: 8px;
+}
+
+.raw-xdf__tree,
+.raw-xdf__children {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.raw-xdf__children {
+  padding-left: 2ch;
+}
+
+.raw-xdf__tree {
+  padding: 8px 14px 12px;
+}
+
+.raw-xdf__line {
+  position: relative;
+  display: block;
+  padding-left: 2ch;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.raw-xdf__toggle {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.raw-xdf__toggle::before {
+  position: absolute;
+  left: 0;
+  content: '▸';
+  transition: transform 0.15s ease;
+}
+
+.raw-xdf__toggle[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+
+.raw-xdf__toggle:hover,
+.raw-xdf__toggle:focus-visible {
+  background: var(--surface-raised);
+  outline: none;
+}
+
+.raw-xdf__name {
+  color: var(--text-secondary);
+}
+
+.raw-xdf__attribute-value,
+.raw-xdf__text {
+  color: var(--text-primary);
 }
 
 .app__demo {

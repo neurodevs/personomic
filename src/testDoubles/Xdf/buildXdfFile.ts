@@ -18,6 +18,31 @@ export default function buildXdfFile(
                 ...chunkOf(3, streamId, samplesContentFor(chunk, stream))
             )
         }
+
+        for (const [collectionTime, offsetValue] of stream.clockOffsets ?? []) {
+            bytes.push(
+                ...chunkOf(4, streamId, [
+                    ...littleEndianBytesOf(collectionTime, 'Float64'),
+                    ...littleEndianBytesOf(offsetValue, 'Float64'),
+                ])
+            )
+        }
+
+        if (stream.hasBoundaryAfter) {
+            bytes.push(...boundaryChunk())
+        }
+
+        if (stream.footerInfoXml !== undefined) {
+            bytes.push(
+                ...chunkOf(
+                    6,
+                    streamId,
+                    utf8BytesOf(
+                        `<?xml version="1.0"?><info>${stream.footerInfoXml}</info>`
+                    )
+                )
+            )
+        }
     })
 
     return new Uint8Array(bytes).buffer
@@ -30,6 +55,15 @@ function chunkOf(tag: number, streamId: number, content: number[]) {
         ...littleEndianBytesOf(tag, 'Uint16'),
         ...littleEndianBytesOf(streamId, 'Uint32'),
         ...content,
+    ]
+}
+
+function boundaryChunk() {
+    return [
+        1,
+        18,
+        ...littleEndianBytesOf(5, 'Uint16'),
+        ...Array.from({ length: 16 }, (_, index) => index),
     ]
 }
 
@@ -163,6 +197,9 @@ export interface XdfTestStream {
     nickname?: string
     descXml?: string
     chunks?: XdfTestChunk[]
+    clockOffsets?: [number, number][]
+    hasBoundaryAfter?: boolean
+    footerInfoXml?: string
 }
 
 export interface XdfTestChunk {

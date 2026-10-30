@@ -8,6 +8,7 @@ import {
 } from '../../functions/readXdfRecording'
 import DevicePanel from './DevicePanel'
 import { DeviceIdentifier, ScannedIdentifier } from './IdentifierInput'
+import RawXdf from './RawXdf'
 import WindowPicker from './WindowPicker'
 import XdfDescription, { DescribedStream } from './XdfDescription'
 import StreamPlot, {
@@ -117,6 +118,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
     const [chosenWindowSecondsForAll, setChosenWindowSecondsForAll] =
         useState<number>()
     const [gatewayDevices, setGatewayDevices] = useState<GatewayDevice[]>([])
+    const [isRawXdfOpen, setIsRawXdfOpen] = useState(false)
     const [isGatewayConnected, setIsGatewayConnected] = useState(false)
     const [runOutDevices, setRunOutDevices] = useState<boolean[]>([])
     const [markedTimestamp, setMarkedTimestamp] = useState<number>()
@@ -656,6 +658,23 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
                     header={recording?.header ?? xdfHeader}
                     streams={describedStreamsOf(devices)}
                 />
+            )}
+            {recording?.chunks && (
+                <div className="raw-xdf-panel">
+                    <button
+                        type="button"
+                        className="xdf-description__toggle"
+                        aria-expanded={isRawXdfOpen}
+                        onClick={() => setIsRawXdfOpen(!isRawXdfOpen)}
+                    >
+                        Raw XDF
+                    </button>
+                    {isRawXdfOpen && (
+                        <div className="raw-xdf-panel__card">
+                            <RawXdf chunks={recording.chunks} />
+                        </div>
+                    )}
+                </div>
             )}
             {devices.map((device) => {
                 const status = statusAfterReconnect(
