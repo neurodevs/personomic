@@ -13,6 +13,7 @@ import {
 } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 
 import { LibndxAdapter } from '@neurodevs/ndx-native'
@@ -50,7 +51,7 @@ const BLE_NAME_PREFIX_BY_DEVICE = {
 const USB_DEVICES = new Set(['Cognionics Quick-20r', 'OpenBCI Cyton'])
 
 const BLE_SCAN_MS = 5000
-const STOP_BEFORE_EXIT_MS = 10000
+const STOP_TIMEOUT_MS = 10000
 
 const SAY_VOICE_LINE = /^(.+?)\s+[a-z]{2,3}_[A-Za-z0-9]+\s+#/
 
@@ -67,6 +68,7 @@ const APPLESCRIPT_NOT_AUTHORIZED = '-1743'
 let orchestrator
 let sessionRequest
 let startCancellation
+let unfinishedStop
 let commandInFlight
 let directoryChoiceInFlight
 let cueSpeech
@@ -471,6 +473,9 @@ async function start(request) {
 }
 
 async function startUnlessCancelled(request, xdfRecordPath, cancellation) {
+    await waitForUnfinishedStop()
+    throwIfCancelled(cancellation)
+
     const devices = await withDetectedModels(request.devices)
     throwIfCancelled(cancellation)
 
@@ -550,11 +555,31 @@ async function cleanUpFailedStart() {
 async function stop() {
     console.log('Stopping')
 
-    try {
-        await orchestrator?.stop()
-    } finally {
-        orchestrator = undefined
-        sessionRequest = undefined
+    const stopping = orchestrator?.stop()
+    orchestrator = undefined
+    sessionRequest = undefined
+
+    if (stopping && !(await finishesInTime(stopping))) {
+        console.warn(
+            `Did not finish stopping within ${STOP_TIMEOUT_MS / 1000} s. Finishing in the background.`
+        )
+        unfinishedStop = stopping
+            .catch((err) => console.error(err))
+            .finally(() => (unfinishedStop = undefined))
+    }
+}
+
+async function finishesInTime(stopping) {
+    return await Promise.race([
+        stopping.then(() => true),
+        delay(STOP_TIMEOUT_MS, false, { ref: false }),
+    ])
+}
+
+async function waitForUnfinishedStop() {
+    if (unfinishedStop) {
+        console.log('Waiting for the previous session to finish stopping')
+        await unfinishedStop
     }
 }
 
@@ -678,18 +703,8 @@ process.on('SIGINT', () => {
 
     isExiting = true
     console.log('Stopping before exiting. Press Ctrl+C again to exit now.')
-    exitAnywayAfter(STOP_BEFORE_EXIT_MS)
 
     stop()
         .catch((err) => console.error(err))
         .finally(() => process.exit(0))
 })
-
-function exitAnywayAfter(ms) {
-    setTimeout(() => {
-        console.error(
-            `The session did not stop within ${ms / 1000} s. Exiting anyway.`
-        )
-        process.exit(1)
-    }, ms)
-}
