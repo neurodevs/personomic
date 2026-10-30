@@ -181,6 +181,16 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 
     useWarningBeforeLeaving(hasUnsavedProtocolEdits)
 
+    const canSaveAsProtocol =
+        isLive &&
+        !isLocked &&
+        !isEditingProtocol &&
+        chosenProtocolFile === undefined &&
+        hasUnsavedChanges({
+            protocol: { ...editedProtocol, name: '' },
+            savedProtocol: { name: '', devices: [] },
+        })
+
     const protocolWithSameName = savedProtocolFiles.find(
         (file) =>
             file !== chosenProtocolFile &&
@@ -252,8 +262,17 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         setProtocolSavedTo(undefined)
     }
 
+    const startSavingAsProtocol = () => {
+        setIsEditingProtocol(true)
+        setProtocolName('')
+        setProtocolSavedTo(undefined)
+    }
+
     const cancelEditingProtocol = () => {
-        fillFrom(chosenProtocolFile!.protocol)
+        if (chosenProtocolFile) {
+            fillFrom(chosenProtocolFile.protocol)
+        }
+
         setIsEditingProtocol(false)
     }
 
@@ -267,7 +286,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                 command: 'saveProtocol',
                 fileName: isProtocolRenamed
                     ? undefined
-                    : chosenProtocolFile!.fileName,
+                    : chosenProtocolFile?.fileName,
                 protocol: fileContentsOf(protocol),
             },
             {
@@ -608,6 +627,15 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             Edit protocol
                         </button>
                     )}
+                {canSaveAsProtocol && (
+                    <button
+                        type="button"
+                        className="session-protocol__button"
+                        onClick={startSavingAsProtocol}
+                    >
+                        Save as protocol
+                    </button>
+                )}
                 {isLive && (
                     <>
                         {chosenProtocolFile && isEditingProtocol && (
@@ -683,9 +711,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
             </div>
             <div className="card">
                 <ProtocolForm
-                    isOpen={
-                        isEditingProtocol && chosenProtocolFile !== undefined
-                    }
+                    isOpen={isEditingProtocol}
                     name={protocolName}
                     namePlaceholder="Protocol name"
                     onNameChange={setProtocolName}
@@ -770,7 +796,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             />
                         )}
                     </BiosensorsSection>
-                    {isLive && chosenProtocolFile && (
+                    {isLive && (chosenProtocolFile || isEditingProtocol) && (
                         <ProtocolPhases
                             phases={phases}
                             isLocked={!isEditingProtocol}

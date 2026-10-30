@@ -4600,6 +4600,187 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async offersToSaveAsProtocolOnceSetupChanges() {
+        this.renderWithProtocols([this.beepsFile])
+        const beforeChanges = this.isSaveAsProtocolOffered
+
+        this.addBiosensor('Muse 2')
+
+        assert.isEqualDeep(
+            { beforeChanges, afterChanges: this.isSaveAsProtocolOffered },
+            { beforeChanges: false, afterChanges: true },
+            'Did not offer to save as a protocol only once the setup changed!'
+        )
+    }
+
+    @test()
+    protected static async offersToSaveAsProtocolOnceRecordingIsTurnedOn() {
+        this.renderWithProtocols([])
+
+        this.turnRecordOn()
+
+        assert.isTrue(
+            this.isSaveAsProtocolOffered,
+            'Did not offer to save as a protocol once recording was turned on!'
+        )
+    }
+
+    @test()
+    protected static async offersToSaveAsProtocolOnlyWithoutChosenProtocol() {
+        this.renderWithProtocols([this.tiltFile])
+
+        this.chooseProtocol('Tilt series')
+
+        assert.isFalse(
+            this.isSaveAsProtocolOffered,
+            'Offered to save as a protocol while one was chosen!'
+        )
+    }
+
+    @test()
+    protected static async stopsOfferingToSaveAsProtocolWhileConnected() {
+        this.renderWithProtocols([])
+        this.addBiosensor('Muse 2')
+
+        this.connect()
+
+        assert.isFalse(
+            this.isSaveAsProtocolOffered,
+            'Offered to save as a protocol while connected!'
+        )
+    }
+
+    @test()
+    protected static async opensUnnamedProtocolFormToSaveAsProtocol() {
+        this.renderWithProtocols([])
+        this.addBiosensor('Muse 2')
+
+        this.clickSaveAsProtocol()
+
+        assert.isEqualDeep(
+            {
+                name: this.protocolNameInput.value,
+                isOffered: this.isSaveAsProtocolOffered,
+                isSelectDisabled: this.protocolSelect.disabled,
+                canRemove: this.protocolLockState.canRemove,
+                arePhasesShown: this.arePhasesShown,
+            },
+            {
+                name: '',
+                isOffered: false,
+                isSelectDisabled: true,
+                canRemove: true,
+                arePhasesShown: true,
+            },
+            'Did not open an unnamed protocol form to save as a protocol!'
+        )
+    }
+
+    @test()
+    protected static async savesSessionSetupAsNewProtocol() {
+        this.renderWithProtocols([])
+        this.addBiosensor('Muse 2')
+        this.clickSaveAsProtocol()
+        this.typeProtocolName('Muse only')
+
+        this.clickProtocolButton('Save')
+        act(() => this.orchestratorSocket.open())
+
+        const { command, fileName, protocol } = this.lastSentMessage
+
+        assert.isEqualDeep(
+            {
+                command,
+                fileName,
+                name: protocol.name,
+                deviceNames: protocol.devices.map(
+                    ({ deviceName }: { deviceName: string }) => deviceName
+                ),
+            },
+            {
+                command: 'saveProtocol',
+                fileName: undefined,
+                name: 'Muse only',
+                deviceNames: ['Muse 2'],
+            },
+            'Did not save the session setup as a new protocol!'
+        )
+    }
+
+    @test()
+    protected static async choosesProtocolOnceSessionSetupIsSaved() {
+        this.renderWithProtocols([this.beepsFile])
+        this.addBiosensor('Muse 2')
+        this.clickSaveAsProtocol()
+        this.typeProtocolName('Muse only')
+
+        this.saveProtocolThroughOrchestrator('Save', 'muse-only.json')
+
+        assert.isEqualDeep(
+            {
+                chosen: this.chosenProtocolName,
+                files: this.protocolFiles.map(({ fileName }) => fileName),
+                isEditOffered: this.isEditProtocolOffered,
+            },
+            {
+                chosen: 'Muse only',
+                files: ['beeps.json', 'muse-only.json'],
+                isEditOffered: true,
+            },
+            'Did not choose the protocol once the session setup was saved!'
+        )
+    }
+
+    @test()
+    protected static async refusesNameOfExistingProtocolWhenSavingSetup() {
+        this.renderWithProtocols([this.beepsFile])
+        this.addBiosensor('Muse 2')
+        this.clickSaveAsProtocol()
+
+        this.typeProtocolName('Beeps')
+
+        assert.isTrue(
+            this.saveProtocolButton.disabled,
+            'Did not refuse the name of an existing protocol!'
+        )
+    }
+
+    @test()
+    protected static async cancelingSaveAsProtocolKeepsSessionSetup() {
+        this.renderWithProtocols([])
+        this.addBiosensor('Muse 2')
+        this.clickSaveAsProtocol()
+
+        this.clickProtocolButton('Cancel')
+
+        assert.isEqualDeep(
+            {
+                deviceNames: lastStreamMonitorProps?.deviceNames,
+                isFormOpen: this.protocolFormState.isNameInCard,
+                isOffered: this.isSaveAsProtocolOffered,
+            },
+            {
+                deviceNames: ['Muse 2'],
+                isFormOpen: false,
+                isOffered: true,
+            },
+            'Did not keep the session setup when canceling save as protocol!'
+        )
+    }
+
+    private static get isSaveAsProtocolOffered() {
+        return (
+            screen.queryByRole('button', { name: 'Save as protocol' }) !== null
+        )
+    }
+
+    private static clickSaveAsProtocol() {
+        fireEvent.click(
+            screen.getByRole('button', { name: 'Save as protocol' })
+        )
+    }
+
     private static get protocolFormState() {
         const card = document.querySelector('.card')!
 
