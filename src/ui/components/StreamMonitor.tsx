@@ -49,6 +49,7 @@ export interface StreamMonitorProps {
     windowSecondsByDevice?: Record<string, number>
     downsampling?: Downsampling
     isConnecting?: boolean
+    isStopping?: boolean
     isRecording?: boolean
     xdfHeader?: DescElement[]
     identifiers?: Record<string, DeviceIdentifier>
@@ -88,6 +89,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         downsampling,
         onRemoveDevice,
         isConnecting = false,
+        isStopping = false,
         isRecording = false,
         xdfHeader,
         identifiers = {},
@@ -613,7 +615,7 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
         devices.map((device) => [
             device.key,
             statusWhile(
-                isConnecting,
+                { isConnecting, isStopping },
                 isReportingDevices
                     ? deviceStatusFor(device, reportedDevices)
                     : 'disconnected'
@@ -1039,10 +1041,16 @@ function haveSameKeys(first: object, second: object) {
 }
 
 function statusWhile(
-    isConnecting: boolean,
+    session: { isConnecting: boolean; isStopping: boolean },
     reported: DeviceStatus
 ): DeviceStatus {
-    return isConnecting && reported === 'disconnected' ? 'connecting' : reported
+    if (session.isStopping) {
+        return reported === 'disconnected' ? reported : 'disconnecting'
+    }
+
+    return session.isConnecting && reported === 'disconnected'
+        ? 'connecting'
+        : reported
 }
 
 function identifiersReportedBy(
@@ -1112,13 +1120,24 @@ const deviceStatusByState: Record<GatewayDeviceState, DeviceStatus> = {
     connected: 'connected',
     streaming: 'connected',
     reconnecting: 'reconnecting',
+    disconnecting: 'disconnecting',
 }
 
 export type DeviceStatus =
-    'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'resuming'
+    | 'disconnected'
+    | 'connecting'
+    | 'connected'
+    | 'reconnecting'
+    | 'resuming'
+    | 'disconnecting'
 
 type GatewayDeviceState =
-    'disconnected' | 'connecting' | 'connected' | 'streaming' | 'reconnecting'
+    | 'disconnected'
+    | 'connecting'
+    | 'connected'
+    | 'streaming'
+    | 'reconnecting'
+    | 'disconnecting'
 
 interface GatewayDevice {
     deviceName: string

@@ -1346,6 +1346,24 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async tellsMonitorItIsStoppingUntilOrchestratorReplies() {
+        this.renderWithMuse()
+        this.connect()
+
+        const beforeClick = lastStreamMonitorProps?.isStopping
+        this.clickStop()
+        const whileWaiting = lastStreamMonitorProps?.isStopping
+
+        act(() => this.orchestratorSocket.receive({}))
+
+        assert.isEqualDeep(
+            [beforeClick, whileWaiting, lastStreamMonitorProps?.isStopping],
+            [false, true, false],
+            'Did not tell monitor it is stopping until orchestrator replied!'
+        )
+    }
+
+    @test()
     protected static async tellsMonitorItIsConnectingUntilOrchestratorReplies() {
         this.renderWithMuse()
 

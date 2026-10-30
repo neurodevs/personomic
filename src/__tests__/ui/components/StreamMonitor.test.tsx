@@ -642,6 +642,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     @test('connected shows connected', 'connected', 'connected')
     @test('streaming shows connected', 'streaming', 'connected')
     @test('reconnecting shows reconnecting', 'reconnecting', 'reconnecting')
+    @test('disconnecting shows disconnecting', 'disconnecting', 'disconnecting')
     protected static async showsDeviceStatusForGatewayState(
         state: string,
         expectedStatus: string
@@ -989,6 +990,31 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.deviceStatusOf(this.deviceName),
             expectedStatus,
             `Did not show device-reported ${expectedStatus} while connecting!`
+        )
+    }
+
+    @test('streaming device shows disconnecting', 'streaming', 'disconnecting')
+    @test('connected device shows disconnecting', 'connected', 'disconnecting')
+    @test(
+        'connecting device shows disconnecting',
+        'connecting',
+        'disconnecting'
+    )
+    @test('disconnecting device shows disconnecting', 'disconnecting')
+    @test('disconnected device shows disconnected', 'disconnected')
+    protected static async showsDisconnectingWhileStoppingUntilDisconnected(
+        state: string,
+        expectedStatus = state
+    ) {
+        this.setFakeStreamPlot()
+        await this.mount([this.deviceName], { isStopping: true })
+
+        this.receiveDeviceStatus(this.devicesFor(this.streams), state)
+
+        assert.isEqual(
+            this.deviceStatusOf(this.deviceName),
+            expectedStatus,
+            `Did not show ${expectedStatus} for ${state} device while stopping!`
         )
     }
 

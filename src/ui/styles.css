@@ -1948,7 +1948,8 @@ input.event-markers__name,
 
 .stream-monitor__device-status--connecting,
 .stream-monitor__device-status--reconnecting,
-.stream-monitor__device-status--resuming {
+.stream-monitor__device-status--resuming,
+.stream-monitor__device-status--disconnecting {
   --status-color: #f5c542;
   animation: device-status-pulse 1.2s ease-in-out infinite;
 }
@@ -1974,7 +1975,8 @@ input.event-markers__name,
 @media (prefers-reduced-motion: reduce) {
   .stream-monitor__device-status--connecting,
   .stream-monitor__device-status--reconnecting,
-  .stream-monitor__device-status--resuming {
+  .stream-monitor__device-status--resuming,
+  .stream-monitor__device-status--disconnecting {
     animation: none;
   }
 }

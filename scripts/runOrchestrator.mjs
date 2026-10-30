@@ -563,13 +563,18 @@ async function stop() {
     orchestrator = undefined
     sessionRequest = undefined
 
-    if (stopping && !(await finishesInTime(stopping))) {
+    if (!stopping || (await finishesInTime(stopping))) {
+        forgetGatewayStatus()
+    } else {
         console.warn(
             `Did not finish stopping within ${STOP_TIMEOUT_MS / 1000} s. Finishing in the background.`
         )
         unfinishedStop = stopping
             .catch((err) => console.error(err))
-            .finally(() => (unfinishedStop = undefined))
+            .finally(() => {
+                forgetGatewayStatus()
+                unfinishedStop = undefined
+            })
     }
 }
 
@@ -698,6 +703,7 @@ server.on('connection', (client) => {
 // device status socket must find this port open even between sessions.
 const deviceStatusServer = new WebSocketServer({ port: DEVICE_STATUS_PORT })
 let latestDeviceStatus = NO_DEVICES_STATUS
+let gatewayStatusSocket
 
 deviceStatusServer.on('connection', (client) => client.send(latestDeviceStatus))
 
@@ -713,6 +719,7 @@ function relayDeviceStatus(payload) {
 
 function followGatewayStatus() {
     const gateway = new WebSocket(`ws://localhost:${GATEWAY_STATUS_PORT}`)
+    gatewayStatusSocket = gateway
     let wasOpen = false
 
     gateway.on('open', () => (wasOpen = true))
@@ -724,6 +731,11 @@ function followGatewayStatus() {
         }
         setTimeout(followGatewayStatus, GATEWAY_STATUS_RETRY_MS)
     })
+}
+
+function forgetGatewayStatus() {
+    gatewayStatusSocket?.terminate()
+    relayDeviceStatus(NO_DEVICES_STATUS)
 }
 
 followGatewayStatus()

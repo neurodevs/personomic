@@ -728,6 +728,7 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             streamOptions={streamOptions}
                             windowSecondsByDevice={windowSecondsByDevice}
                             isConnecting={session === 'connecting'}
+                            isStopping={session === 'stopping'}
                             isRecording={isRecordEnabled}
                             xdfHeader={headerOf(xdfHeaderInfo)}
                             identifiers={identifiers}
