@@ -1150,6 +1150,32 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsStreamsTurnedOffWhileLocked() {
+        this.renderWithMuse()
+        this.turnOffStreams('Muse S Gen 2', ['PPG'])
+
+        this.connect()
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.disabledStreams,
+            { 'Muse S Gen 2': ['PPG'] },
+            'Did not show streams turned off while locked!'
+        )
+    }
+
+    @test()
+    protected static async doesNotShowStreamsTurnedOffDuringPlayback() {
+        render(<SessionView />)
+
+        await this.chooseRecording()
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.disabledStreams,
+            'Showed streams turned off during playback!'
+        )
+    }
+
+    @test()
     protected static async restoresStreamsTurnedOffOfSessionRunningOnLoad() {
         render(<SessionView />)
 

@@ -25,7 +25,7 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onIdentifierChange,
     nickname = '',
     onNicknameChange,
-    disabledStreams = [],
+    disabledStreams,
     onDisabledStreamsChange,
     exgType = 'ExG',
     onExgTypeChange,
@@ -37,7 +37,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
 
     const streamToggles = streamTogglesOf(device.name)
     const isSettingsOffered =
-        onDisabledStreamsChange !== undefined && streamToggles.length > 0
+        (onDisabledStreamsChange !== undefined ||
+            disabledStreams !== undefined) &&
+        streamToggles.length > 0
 
     const [areSettingsOpen, setAreSettingsOpen] = useState(false)
 
@@ -174,9 +176,11 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 <StreamSettings
                     deviceLabel={device.label}
                     toggles={streamToggles}
-                    disabledStreams={disabledStreams}
-                    onChange={(streams) =>
-                        onDisabledStreamsChange?.(device.key, streams)
+                    disabledStreams={disabledStreams ?? []}
+                    onChange={
+                        onDisabledStreamsChange &&
+                        ((streams) =>
+                            onDisabledStreamsChange(device.key, streams))
                     }
                     type={exgType}
                     onTypeChange={
@@ -302,7 +306,7 @@ const StreamSettings: React.FC<StreamSettingsProps> = ({
     const numOn = toggles.filter((toggle) => !isOff(toggle)).length
 
     const turn = (changed: StreamToggle, isOn: boolean) =>
-        onChange(
+        onChange?.(
             toggles.flatMap((toggle) =>
                 (toggle === changed ? !isOn : isOff(toggle))
                     ? toggle.streams
@@ -322,7 +326,10 @@ const StreamSettings: React.FC<StreamSettingsProps> = ({
                         type="checkbox"
                         aria-label={`${deviceLabel} ${toggle.label}`}
                         checked={!isOff(toggle)}
-                        disabled={!isOff(toggle) && numOn === 1}
+                        disabled={
+                            onChange === undefined ||
+                            (!isOff(toggle) && numOn === 1)
+                        }
                         onChange={(event) => turn(toggle, event.target.checked)}
                     />
                     {toggle.types && onTypeChange ? (
@@ -350,6 +357,10 @@ const StreamSettings: React.FC<StreamSettingsProps> = ({
                                 )}
                             </select>
                         </span>
+                    ) : toggle.types ? (
+                        <span className="stream-monitor__device-stream-type">
+                            {type}
+                        </span>
                     ) : (
                         toggle.label
                     )}
@@ -363,7 +374,7 @@ interface StreamSettingsProps {
     deviceLabel: string
     toggles: StreamToggle[]
     disabledStreams: readonly string[]
-    onChange: (streams: string[]) => void
+    onChange?: (streams: string[]) => void
     type: string
     onTypeChange?: (type: string) => void
 }

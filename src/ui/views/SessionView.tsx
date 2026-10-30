@@ -731,7 +731,9 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                             onNicknameChange={
                                 isLocked ? undefined : setNickname
                             }
-                            disabledStreams={disabledStreams}
+                            disabledStreams={
+                                isLive ? disabledStreams : undefined
+                            }
                             onDisabledStreamsChange={
                                 canChangeDevices
                                     ? setDisabledStreams

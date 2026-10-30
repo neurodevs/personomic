@@ -37,6 +37,53 @@ export default class DevicePanelTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsUnchangeableStreamsTurnedOffWithoutChangeHandler() {
+        this.renderPanel({
+            disabledStreams: ['PPG'],
+            onDisabledStreamsChange: undefined,
+        })
+
+        this.clickSettings()
+
+        assert.isEqualDeep(
+            {
+                checked: this.checkedStreamNames,
+                areAllDisabled: this.streamToggles.every(
+                    (toggle) => toggle.disabled
+                ),
+            },
+            {
+                checked: ['EEG', 'Gyroscope', 'Accelerometer'],
+                areAllDisabled: true,
+            },
+            'Did not show unchangeable streams turned off!'
+        )
+    }
+
+    @test()
+    protected static async showsOnlyCodeOfUnchangeableExgType() {
+        this.renderPanel(
+            {
+                disabledStreams: [],
+                exgType: 'EGG',
+                onDisabledStreamsChange: undefined,
+            },
+            'OpenBCI Cyton'
+        )
+
+        this.clickSettings()
+
+        assert.isEqualDeep(
+            {
+                shown: this.shownExgType,
+                isOffered: screen.queryByRole('combobox') !== null,
+            },
+            { shown: 'EGG', isOffered: false },
+            'Did not show only the code of an unchangeable ExG type!'
+        )
+    }
+
+    @test()
     protected static async hidesStreamsUntilSettingsAreOpened() {
         this.renderPanel()
 

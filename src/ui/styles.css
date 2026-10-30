@@ -1606,7 +1606,7 @@ input.event-markers__name,
   cursor: pointer;
 }
 
-.stream-monitor__device-stream-type {
+.stream-monitor__device-stream-type-picker .stream-monitor__device-stream-type {
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
