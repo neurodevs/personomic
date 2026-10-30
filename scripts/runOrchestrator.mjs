@@ -74,6 +74,7 @@ function specificationFor({
     identifier,
     nickname,
     disableStreams,
+    exgType,
 }) {
     const option = IDENTIFIER_OPTION_BY_DEVICE[deviceName]
 
@@ -82,6 +83,7 @@ function specificationFor({
         ...(identifier && option && { [option]: identifier }),
         ...(nickname && { nickname }),
         ...(disableStreams?.length > 0 && { disableStreams }),
+        ...(exgType && { exgType }),
     }
 }
 

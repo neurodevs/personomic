@@ -1591,6 +1591,31 @@ input.event-markers__name,
   opacity: 0.6;
 }
 
+.stream-monitor__device-stream-type-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.stream-monitor__device-stream-type-picker select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.stream-monitor__device-stream-type {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.stream-monitor__device-stream-type-picker:has(select:focus-visible)
+  .stream-monitor__device-stream-type {
+  color: var(--text-primary);
+}
+
 .stream-plot {
   position: relative;
   padding: 16px 18px 12px;

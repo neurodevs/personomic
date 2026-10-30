@@ -1194,6 +1194,33 @@ export default class StreamMonitorTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async reportsExgTypeChosenWithDeviceKey() {
+        const changes: [string, string][] = []
+
+        this.setFakeStreamPlot()
+        await this.mount(['OpenBCI Cyton', 'OpenBCI Cyton'], {
+            exgTypes: { 'OpenBCI Cyton #2': 'EEG' },
+            onDisabledStreamsChange: () => {},
+            onExgTypeChange: (key, exgType) => changes.push([key, exgType]),
+        })
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'OpenBCI Cyton #2 settings' })
+        )
+        const select = screen.getByRole('combobox', {
+            name: 'OpenBCI Cyton #2 ExG type',
+        }) as HTMLSelectElement
+        const shown = select.value
+        fireEvent.change(select, { target: { value: 'EGG' } })
+
+        assert.isEqualDeep(
+            { shown, changes },
+            { shown: 'EEG', changes: [['OpenBCI Cyton #2', 'EGG']] },
+            'Did not report ExG type chosen with device key!'
+        )
+    }
+
+    @test()
     protected static async offersEditableNicknameEvenWithoutIdentifierEntry() {
         this.setFakeStreamPlot()
         await this.mount([this.deviceName], {

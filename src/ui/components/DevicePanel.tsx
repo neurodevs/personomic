@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+import type { CytonExgType } from '@neurodevs/node-biosensors'
+
 import { anyMuseName } from '../hooks/useBiosensorChoices'
 import type { BiosignalDevice, DeviceStatus } from './StreamMonitor'
 import IdentifierInput, {
@@ -25,6 +27,8 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
     onNicknameChange,
     disabledStreams = [],
     onDisabledStreamsChange,
+    exgType = 'ExG',
+    onExgTypeChange,
     isDescribed = false,
     xdfHeader,
     children,
@@ -174,6 +178,11 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                     onChange={(streams) =>
                         onDisabledStreamsChange?.(device.key, streams)
                     }
+                    type={exgType}
+                    onTypeChange={
+                        onExgTypeChange &&
+                        ((value) => onExgTypeChange(device.key, value))
+                    }
                 />
             )}
             {hasStreams && (isDescribed || !arePlotsHidden) && (
@@ -198,6 +207,15 @@ const deviceSettingsClassName = 'stream-monitor__device-settings'
 
 const museStreamToggles = togglesOf('EEG', 'PPG', 'Gyroscope', 'Accelerometer')
 
+const cytonExgTypeMeanings: Record<CytonExgType, string> = {
+    ExG: 'Any biopotential',
+    EEG: 'Electroencephalogram (Brain)',
+    EMG: 'Electromyogram (Muscle)',
+    ECG: 'Electrocardiogram (Heart)',
+    EGG: 'Electrogastrogram (Stomach)',
+    EOG: 'Electrooculogram (Eye movement)',
+}
+
 const streamTogglesByDevice: Record<string, StreamToggle[]> = {
     'Cognionics Quick-20r': togglesOf('EEG', 'Accelerometer'),
     'Govee Thermohygrometer H5074': togglesOf(
@@ -213,7 +231,14 @@ const streamTogglesByDevice: Record<string, StreamToggle[]> = {
     'Muse S Gen 1': museStreamToggles,
     'Muse 2': museStreamToggles,
     'Muse 1 Gen 2': museStreamToggles,
-    'OpenBCI Cyton': togglesOf('ExG', 'Accelerometer'),
+    'OpenBCI Cyton': [
+        {
+            label: 'ExG',
+            streams: ['ExG'],
+            types: cytonExgTypeMeanings,
+        },
+        ...togglesOf('Accelerometer'),
+    ],
     'Zephyr BioHarness 3': [
         ...togglesOf('ECG', 'Accelerometer', 'Respiration'),
         { label: 'R-to-R', streams: ['RtoR'] },
@@ -237,6 +262,7 @@ function togglesOf(...streams: string[]): StreamToggle[] {
 interface StreamToggle {
     label: string
     streams: string[]
+    types?: Record<string, string>
 }
 
 export interface DevicePanelProps {
@@ -255,6 +281,8 @@ export interface DevicePanelProps {
     onNicknameChange?: (name: string, value: string) => void
     disabledStreams?: readonly string[]
     onDisabledStreamsChange?: (name: string, streams: string[]) => void
+    exgType?: string
+    onExgTypeChange?: (name: string, exgType: string) => void
     isDescribed?: boolean
     xdfHeader?: DescElement[]
     children?: React.ReactNode
@@ -265,6 +293,8 @@ const StreamSettings: React.FC<StreamSettingsProps> = ({
     toggles,
     disabledStreams,
     onChange,
+    type,
+    onTypeChange,
 }) => {
     const isOff = (toggle: StreamToggle) =>
         toggle.streams.some((stream) => disabledStreams.includes(stream))
@@ -295,7 +325,34 @@ const StreamSettings: React.FC<StreamSettingsProps> = ({
                         disabled={!isOff(toggle) && numOn === 1}
                         onChange={(event) => turn(toggle, event.target.checked)}
                     />
-                    {toggle.label}
+                    {toggle.types && onTypeChange ? (
+                        <span className="stream-monitor__device-stream-type-picker">
+                            <span
+                                className="stream-monitor__device-stream-type"
+                                aria-hidden="true"
+                            >
+                                {type}
+                            </span>
+                            <ChevronIcon />
+                            <select
+                                aria-label={`${deviceLabel} ${toggle.label} type`}
+                                value={type}
+                                onChange={(event) =>
+                                    onTypeChange(event.target.value)
+                                }
+                            >
+                                {Object.entries(toggle.types).map(
+                                    ([option, meaning]) => (
+                                        <option key={option} value={option}>
+                                            {`${option} — ${meaning}`}
+                                        </option>
+                                    )
+                                )}
+                            </select>
+                        </span>
+                    ) : (
+                        toggle.label
+                    )}
                 </label>
             ))}
         </fieldset>
@@ -307,12 +364,20 @@ interface StreamSettingsProps {
     toggles: StreamToggle[]
     disabledStreams: readonly string[]
     onChange: (streams: string[]) => void
+    type: string
+    onTypeChange?: (type: string) => void
 }
 
 const SettingsIcon: React.FC = () => (
     <HeaderIcon size={14}>
         <circle cx="12" cy="12" r="3" />
         <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </HeaderIcon>
+)
+
+const ChevronIcon: React.FC = () => (
+    <HeaderIcon size={10}>
+        <path d="M6 9l6 6 6-6" />
     </HeaderIcon>
 )
 

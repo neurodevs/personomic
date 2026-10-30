@@ -498,6 +498,40 @@ export default class AppTest extends AbstractPackageTest {
         )
     }
 
+    @test('reads text ExG type of listed Cyton', 'EMG', 'EMG')
+    @test('ignores non-text ExG type of listed Cyton', 7, 'ExG')
+    protected static async readsExgTypeOfListedCyton(
+        exgType: unknown,
+        expected: string
+    ) {
+        render(<App />)
+        this.visitProtocolsListing([
+            {
+                fileName: 'cyton.json',
+                protocol: {
+                    schemaVersion: 1,
+                    name: 'Cyton',
+                    devices: [{ deviceName: 'OpenBCI Cyton', exgType }],
+                },
+            },
+        ])
+        this.chooseListedProtocol('Cyton')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'OpenBCI Cyton settings' })
+        )
+
+        assert.isEqual(
+            (
+                screen.getByRole('combobox', {
+                    name: 'OpenBCI Cyton ExG type',
+                }) as HTMLSelectElement
+            ).value,
+            expected,
+            'Did not read the ExG type of a listed Cyton!'
+        )
+    }
+
     @test()
     protected static async readsListedMuseAsAutoDetectedMuse() {
         render(<App />)

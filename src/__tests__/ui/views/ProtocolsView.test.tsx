@@ -816,6 +816,30 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async savesExgTypeChosenForCyton() {
+        this.answerListing()
+        this.clickNewProtocol()
+        this.addBiosensor('OpenBCI Cyton')
+
+        fireEvent.click(
+            screen.getByRole('button', { name: 'OpenBCI Cyton settings' })
+        )
+        fireEvent.change(
+            screen.getByRole('combobox', { name: 'OpenBCI Cyton ExG type' }),
+            { target: { value: 'EOG' } }
+        )
+
+        this.clickSave()
+        this.openOrchestratorSocket()
+
+        assert.isEqualDeep(
+            this.lastSentMessage.protocol.devices,
+            [{ deviceName: 'OpenBCI Cyton', exgType: 'EOG' }],
+            'Did not save the ExG type chosen for the Cyton!'
+        )
+    }
+
+    @test()
     protected static async savesAutoDetectedMuseAsMuse() {
         this.answerListing()
         this.clickNewProtocol()

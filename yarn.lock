@@ -2161,10 +2161,10 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/node-biosensors@^9.7.1":
-  version "9.7.1"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.7.1.tgz#608085902a523fc54f81657fb3683e33d67e1c34"
-  integrity sha512-NmXvTd0bqjAvYCXhrWE9w8TKbZmFxSQ8DxgRxvYJAD4PCCrtBv7frLPPGtGQpFSufNc6BmH3iPKuYS71Vd3WKQ==
+"@neurodevs/node-biosensors@^9.8.0":
+  version "9.8.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.8.0.tgz#c1fdf5486318fc18d3832c2ad5ae898a8a917cb8"
+  integrity sha512-q1OYJ2vdw2/eCVyXtKnMmKNlL9nYXXKKF42tJadksxoMl5NLMMTkpyxMXSeqpm7ASDY48UGrkS+aoaUwnmOI6A==
   dependencies:
     "@neurodevs/node-lsl" "^23.8.0"
     "@neurodevs/node-xdf" "^5.1.0"

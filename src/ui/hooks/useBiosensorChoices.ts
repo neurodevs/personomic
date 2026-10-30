@@ -83,6 +83,21 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
             )
         )
 
+    const setExgType = (key: string, exgType: string) =>
+        changeDevices((previous) =>
+            previous.map((device, index) =>
+                index === deviceKeys.indexOf(key)
+                    ? { ...device, exgType }
+                    : device
+            )
+        )
+
+    const exgTypes = Object.fromEntries(
+        devices
+            .map(({ exgType }, index) => [deviceKeys[index], exgType])
+            .filter(([, exgType]) => exgType !== undefined)
+    )
+
     const disabledStreams = Object.fromEntries(
         devices.map(({ disabledStreams }, index) => [
             deviceKeys[index],
@@ -138,12 +153,13 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
     )
 
     const deviceRequests = devices.map(
-        ({ name, nickname, disabledStreams }, index) => ({
+        ({ name, nickname, disabledStreams, exgType }, index) => ({
             deviceName: name,
             identifier:
                 identifiers[deviceKeys[index]]?.value.trim() || undefined,
             nickname: nickname.trim() || undefined,
             disableStreams: disableStreamsOf(disabledStreams),
+            exgType,
         })
     )
 
@@ -176,6 +192,8 @@ export default function useBiosensorChoices(options: BiosensorChoicesOptions) {
         nicknames,
         setDisabledStreams,
         disabledStreams,
+        setExgType,
+        exgTypes,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -221,11 +239,13 @@ export function selectedFrom(requests: DeviceRequest[]): SelectedDevice[] {
             identifier = '',
             nickname = '',
             disableStreams = [],
+            exgType,
         }) => ({
             name: deviceName,
             identifier,
             nickname,
             disabledStreams: disableStreams,
+            exgType,
         })
     )
 }
@@ -326,6 +346,7 @@ export interface SelectedDevice {
     identifier: string
     nickname: string
     disabledStreams: string[]
+    exgType?: string
 }
 
 export interface DeviceRequest {
@@ -333,6 +354,7 @@ export interface DeviceRequest {
     identifier?: string
     nickname?: string
     disableStreams?: string[]
+    exgType?: string
 }
 
 type RememberedIdentifiers = Record<string, string[]>

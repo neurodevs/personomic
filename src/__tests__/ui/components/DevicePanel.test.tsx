@@ -112,6 +112,79 @@ export default class DevicePanelTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async offersEachExgTypeOfCyton() {
+        this.renderCyton()
+
+        assert.isEqualDeep(
+            this.exgTypeOptions,
+            ['ExG', 'EEG', 'EMG', 'ECG', 'EGG', 'EOG'],
+            'Did not offer each ExG type of the Cyton!'
+        )
+    }
+
+    @test()
+    protected static async explainsEachExgTypeOfCyton() {
+        this.renderCyton()
+
+        assert.isEqualDeep(
+            Array.from(this.exgTypeSelect.options).map(({ text }) => text),
+            [
+                'ExG — Any biopotential',
+                'EEG — Electroencephalogram (Brain)',
+                'EMG — Electromyogram (Muscle)',
+                'ECG — Electrocardiogram (Heart)',
+                'EGG — Electrogastrogram (Stomach)',
+                'EOG — Electrooculogram (Eye movement)',
+            ],
+            'Did not explain each ExG type of the Cyton!'
+        )
+    }
+
+    @test('shows ExG type of Cyton as ExG by default', undefined, 'ExG')
+    @test('shows chosen ExG type of Cyton', 'EGG', 'EGG')
+    protected static async showsExgTypeOfCyton(
+        exgType: string | undefined,
+        expected: string
+    ) {
+        this.renderCyton({ exgType })
+
+        assert.isEqualDeep(
+            { chosen: this.exgTypeSelect.value, shown: this.shownExgType },
+            { chosen: expected, shown: expected },
+            'Did not show only the code of the ExG type of the Cyton!'
+        )
+    }
+
+    @test()
+    protected static async reportsExgTypeChosenWithDeviceKey() {
+        const chosen: [string, string][] = []
+
+        this.renderCyton({
+            onExgTypeChange: (key, exgType) => chosen.push([key, exgType]),
+        })
+
+        fireEvent.change(this.exgTypeSelect, { target: { value: 'EMG' } })
+
+        assert.isEqualDeep(
+            chosen,
+            [[this.deviceKey, 'EMG']],
+            'Did not report the ExG type chosen with the device key!'
+        )
+    }
+
+    @test()
+    protected static async doesNotOfferExgTypeWithoutChangeHandler() {
+        this.renderPanel({}, 'OpenBCI Cyton')
+
+        this.clickSettings()
+
+        assert.isNull(
+            screen.queryByRole('combobox'),
+            'Offered an ExG type that could not be changed!'
+        )
+    }
+
+    @test()
     protected static async checksOnlyStreamsThatAreNotTurnedOff() {
         this.renderPanel({ disabledStreams: ['PPG', 'Gyroscope'] })
 
@@ -318,6 +391,29 @@ export default class DevicePanelTest extends AbstractPackageTest {
         return screen.getByRole('textbox', {
             name: `${this.deviceKey} nickname`,
         }) as HTMLInputElement
+    }
+
+    private static renderCyton(props: Partial<DevicePanelProps> = {}) {
+        this.renderPanel(
+            { onExgTypeChange: () => {}, ...props },
+            'OpenBCI Cyton'
+        )
+        this.clickSettings()
+    }
+
+    private static get exgTypeSelect() {
+        return screen.getByRole('combobox', {
+            name: `${this.deviceKey} ExG type`,
+        }) as HTMLSelectElement
+    }
+
+    private static get shownExgType() {
+        return document.querySelector('.stream-monitor__device-stream-type')
+            ?.textContent
+    }
+
+    private static get exgTypeOptions() {
+        return Array.from(this.exgTypeSelect.options).map(({ value }) => value)
     }
 
     private static renderPanel(

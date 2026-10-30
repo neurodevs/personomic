@@ -198,6 +198,8 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
         nicknames,
         setDisabledStreams,
         disabledStreams,
+        setExgType,
+        exgTypes,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -734,6 +736,10 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                                 canChangeDevices
                                     ? setDisabledStreams
                                     : undefined
+                            }
+                            exgTypes={exgTypes}
+                            onExgTypeChange={
+                                canChangeDevices ? setExgType : undefined
                             }
                             onRemoveDevice={
                                 canChangeDevices ? removeDevice : undefined

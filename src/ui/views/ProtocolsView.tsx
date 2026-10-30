@@ -431,6 +431,8 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
         nicknames,
         setDisabledStreams,
         disabledStreams,
+        setExgType,
+        exgTypes,
         identifiers,
         scanningDeviceNames,
         scannedIdentifiers,
@@ -481,6 +483,8 @@ const ProtocolBiosensors: React.FC<ProtocolBiosensorsProps> = ({
                                     onNicknameChange={setNickname}
                                     disabledStreams={disabledStreams[key]}
                                     onDisabledStreamsChange={setDisabledStreams}
+                                    exgType={exgTypes[key]}
+                                    onExgTypeChange={setExgType}
                                 />
                             </li>
                         )
@@ -620,13 +624,14 @@ function recordDefaultsOf(protocol: Protocol) {
 }
 
 function requestOf(device: SelectedDevice): DeviceRequest {
-    const { name, identifier, nickname, disabledStreams } = device
+    const { name, identifier, nickname, disabledStreams, exgType } = device
 
     return requestedFrom({
         deviceName: name,
         identifier: identifier.trim() || undefined,
         nickname: nickname.trim() || undefined,
         disableStreams: disableStreamsOf(disabledStreams),
+        exgType,
     })
 }
 
@@ -712,12 +717,21 @@ function devicesFrom(contents: ProtocolContents): SelectedDevice[] {
 
     return contents.devices
         .filter((device) => typeof device?.deviceName === 'string')
-        .map(({ deviceName, identifier, nickname, disableStreams }) => ({
-            name: selectedNameOf(deviceName),
-            identifier: textOr(identifier),
-            nickname: textOr(nickname),
-            disabledStreams: textsIn(disableStreams),
-        }))
+        .map(
+            ({
+                deviceName,
+                identifier,
+                nickname,
+                disableStreams,
+                exgType,
+            }) => ({
+                name: selectedNameOf(deviceName),
+                identifier: textOr(identifier),
+                nickname: textOr(nickname),
+                disabledStreams: textsIn(disableStreams),
+                exgType: typeof exgType === 'string' ? exgType : undefined,
+            })
+        )
 }
 
 function textOr(value: unknown) {

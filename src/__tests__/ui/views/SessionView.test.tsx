@@ -1072,6 +1072,72 @@ export default class SessionViewTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async passesExgTypesChosenBackToMonitor() {
+        render(<SessionView />)
+        this.addBiosensor('OpenBCI Cyton')
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.chooseExgType('OpenBCI Cyton #2', 'EMG')
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.exgTypes,
+            { 'OpenBCI Cyton #2': 'EMG' },
+            'Did not pass ExG types chosen back to monitor!'
+        )
+    }
+
+    @test()
+    protected static async startsOrchestratorWithExgTypeChosen() {
+        render(<SessionView />)
+        this.addBiosensor('OpenBCI Cyton')
+        this.addBiosensor('Zephyr BioHarness 3')
+
+        this.chooseExgType('OpenBCI Cyton', 'EGG')
+
+        this.clickConnect()
+        act(() => this.orchestratorSocket.open())
+
+        assert.isEqualDeep(
+            this.lastSentMessage.devices,
+            [
+                { deviceName: 'OpenBCI Cyton', exgType: 'EGG' },
+                { deviceName: 'Zephyr BioHarness 3' },
+            ],
+            'Did not start orchestrator with ExG type chosen!'
+        )
+    }
+
+    @test()
+    protected static async doesNotLetExgTypeChangeWhileLocked() {
+        render(<SessionView />)
+        this.addBiosensor('OpenBCI Cyton')
+
+        this.connect()
+
+        assert.isUndefined(
+            lastStreamMonitorProps?.onExgTypeChange,
+            'Let ExG type change while locked!'
+        )
+    }
+
+    @test()
+    protected static async restoresExgTypeOfSessionRunningOnLoad() {
+        render(<SessionView />)
+
+        act(() =>
+            this.orchestratorSocket.receive({
+                devices: [{ deviceName: 'OpenBCI Cyton', exgType: 'EEG' }],
+            })
+        )
+
+        assert.isEqualDeep(
+            lastStreamMonitorProps?.exgTypes,
+            { 'OpenBCI Cyton': 'EEG' },
+            'Did not restore ExG type of session running on load!'
+        )
+    }
+
+    @test()
     protected static async doesNotLetStreamsChangeWhileLocked() {
         this.renderWithMuse()
 
@@ -4862,6 +4928,10 @@ export default class SessionViewTest extends AbstractPackageTest {
         act(() =>
             lastStreamMonitorProps?.onDisabledStreamsChange?.(name, streams)
         )
+    }
+
+    private static chooseExgType(name: string, exgType: string) {
+        act(() => lastStreamMonitorProps?.onExgTypeChange?.(name, exgType))
     }
 
     private static turnRecordOn() {
