@@ -824,6 +824,16 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsGivenNoteOnEmptySchedule() {
+        this.render([], 'Tara', 'Nothing planned.')
+
+        assert.isTrue(
+            screen.queryByText('Nothing planned.') !== null,
+            'Did not show the given note on the empty schedule!'
+        )
+    }
+
+    @test()
     protected static async readsPhasesFromSavedContents() {
         const saved = [
             this.phase('interventions', [
@@ -868,7 +878,11 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
         )
     }
 
-    private static render(phases: Phase[] = [], voice = 'Tara') {
+    private static render(
+        phases: Phase[] = [],
+        voice = 'Tara',
+        emptyScheduleNote?: string
+    ) {
         const Harness = () => {
             const [current, setCurrent] = useState(phases)
             const [currentVoice, setCurrentVoice] = useState(voice)
@@ -877,6 +891,7 @@ export default class ProtocolPhasesTest extends AbstractPackageTest {
                 <ProtocolPhases
                     phases={current}
                     voice={currentVoice}
+                    emptyScheduleNote={emptyScheduleNote}
                     onChange={(next) => {
                         setCurrent(next)
                         this.changed = next

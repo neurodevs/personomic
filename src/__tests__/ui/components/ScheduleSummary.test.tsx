@@ -51,6 +51,16 @@ export default class ScheduleSummaryTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsGivenNoteWhenThereAreNoPhases() {
+        render(<ScheduleSummary phases={[]} emptyNote="Nothing planned." />)
+
+        assert.isTrue(
+            within(this.summary).queryByText('Nothing planned.') !== null,
+            'Did not show the given note when there were no phases!'
+        )
+    }
+
+    @test()
     protected static async collapsesPhasesByDefault() {
         this.render([
             this.phase('interventions', { blocks: [this.reversibleTilt] }),

@@ -21,6 +21,7 @@ export interface ProtocolPhasesProps {
     phases: Phase[]
     voice: string
     isLocked?: boolean
+    emptyScheduleNote?: string
     onChange: (phases: Phase[]) => void
     onVoiceChange: (voice: string) => void
 }
@@ -28,7 +29,14 @@ export interface ProtocolPhasesProps {
 const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
     props: ProtocolPhasesProps
 ) => {
-    const { phases, voice, isLocked = false, onChange, onVoiceChange } = props
+    const {
+        phases,
+        voice,
+        isLocked = false,
+        emptyScheduleNote,
+        onChange,
+        onVoiceChange,
+    } = props
 
     const headingId = useId()
 
@@ -41,7 +49,7 @@ const ProtocolPhases: React.FC<ProtocolPhasesProps> = (
 
     return (
         <CueVoice.Provider value={voice}>
-            <ScheduleSummary phases={phases} />
+            <ScheduleSummary phases={phases} emptyNote={emptyScheduleNote} />
             <section className="phases" aria-labelledby={headingId}>
                 <h3 id={headingId} className="event-markers__heading">
                     Phases

@@ -3949,6 +3949,53 @@ export default class SessionViewTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async pointsToEditProtocolWhenChosenProtocolHasNoPhases() {
+        this.renderWithProtocols([this.beepsFile])
+
+        this.chooseProtocol('Beeps')
+
+        assert.isEqual(
+            this.scheduleNote,
+            'No phases, so the session runs until you stop it. Click Edit protocol to add some.',
+            'Did not point to Edit protocol when the protocol had no phases!'
+        )
+    }
+
+    @test()
+    protected static async saysProtocolHasNoPhasesWhileConnected() {
+        this.renderWithProtocols([this.tiltFile])
+        this.chooseProtocol('Tilt series')
+
+        this.connect()
+
+        assert.isEqual(
+            this.scheduleNote,
+            'No phases, so the session runs until you stop it.',
+            'Did not say the protocol has no phases while connected!'
+        )
+    }
+
+    @test()
+    protected static async saysScheduleFillsInWhileEditingProtocol() {
+        this.renderWithProtocols([this.beepsFile])
+        this.chooseProtocol('Beeps')
+
+        this.clickEditProtocol()
+
+        assert.isEqual(
+            this.scheduleNote,
+            'This fills in automatically as you add phases below.',
+            'Did not say the schedule fills in while editing the protocol!'
+        )
+    }
+
+    private static get scheduleNote() {
+        return screen
+            .getByRole('region', { name: 'Schedule' })
+            .querySelector('.schedule__empty')?.textContent
+    }
+
     private static get phasesSection() {
         return screen.getByRole('region', { name: 'Phases' })
     }

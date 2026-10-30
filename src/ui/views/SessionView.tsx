@@ -800,6 +800,10 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
                         <ProtocolPhases
                             phases={phases}
                             isLocked={!isEditingProtocol}
+                            emptyScheduleNote={emptyScheduleNoteFor(
+                                isEditingProtocol,
+                                isLocked
+                            )}
                             voice={voice}
                             onChange={setPhases}
                             onVoiceChange={setVoice}
@@ -812,6 +816,16 @@ const SessionView: React.FC<SessionViewProps> = (props: SessionViewProps) => {
 }
 
 export default SessionView
+
+function emptyScheduleNoteFor(isEditingProtocol: boolean, isLocked: boolean) {
+    if (isEditingProtocol) {
+        return undefined
+    }
+
+    return isLocked
+        ? 'No phases, so the session runs until you stop it.'
+        : 'No phases, so the session runs until you stop it. Click Edit protocol to add some.'
+}
 
 interface ControlGroupProps {
     isOnOwnLine: boolean

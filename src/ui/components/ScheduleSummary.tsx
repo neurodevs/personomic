@@ -7,12 +7,16 @@ import type { Block, Conditions, Phase, PhaseItem } from './ProtocolPhases'
 
 export interface ScheduleSummaryProps {
     phases: Phase[]
+    emptyNote?: string
 }
 
 const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
     props: ScheduleSummaryProps
 ) => {
-    const { phases } = props
+    const {
+        phases,
+        emptyNote = 'This fills in automatically as you add phases below.',
+    } = props
 
     const headingId = useId()
     const [showsMarkers, setShowsMarkers] = useState(false)
@@ -56,9 +60,7 @@ const ScheduleSummary: React.FC<ScheduleSummaryProps> = (
                         </div>
                     )}
                     {phases.length === 0 ? (
-                        <p className="schedule__empty">
-                            This fills in automatically as you add phases below.
-                        </p>
+                        <p className="schedule__empty">{emptyNote}</p>
                     ) : (
                         <ol className="schedule__list">
                             {showsMarkers && (
