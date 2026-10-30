@@ -28,6 +28,25 @@ export default class DevicePanelTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsDisplayNameOfRepeatedDevice() {
+        render(
+            <DevicePanel
+                device={{
+                    ...this.device('Zephyr BioHarness 3'),
+                    label: 'Zephyr BioHarness 3 #2',
+                }}
+                status="disconnected"
+            />
+        )
+
+        assert.isEqual(
+            document.querySelector('.stream-monitor__device-name')?.textContent,
+            'Zephyr BioHarness 3.0 #2',
+            'Did not show display name of repeated device!'
+        )
+    }
+
+    @test()
     protected static async hidesSettingsWithoutChangeHandler() {
         this.renderPanel({ onDisabledStreamsChange: undefined })
 

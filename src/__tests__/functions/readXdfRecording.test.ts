@@ -585,6 +585,19 @@ export default class ReadXdfRecordingTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async namesZephyrFromItsSourceIds() {
+        this.assertNamesDevice(
+            [
+                'zephyr-ecg-A0-E6-F8-A5-69-9A',
+                'zephyr-respiration-A0-E6-F8-A5-69-9A',
+                'zephyr-accelerometer-A0-E6-F8-A5-69-9A',
+                'zephyr-rtor-A0-E6-F8-A5-69-9A',
+            ],
+            'Zephyr BioHarness 3'
+        )
+    }
+
+    @test()
     protected static async namesUnknownDeviceAfterItsStream() {
         const file = buildXdfFile([
             {

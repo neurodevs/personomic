@@ -402,6 +402,7 @@ const deviceNamesByFamily = new Map([
     ['cyton', 'OpenBCI Cyton'],
     ['govee', 'Govee Thermohygrometer H5074'],
     ['muse', 'Muse'],
+    ['zephyr', 'Zephyr BioHarness 3'],
 ])
 
 export interface Recording {

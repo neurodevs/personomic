@@ -110,6 +110,28 @@ export default class AddBiosensorButtonTest extends AbstractPackageTest {
         )
     }
 
+    @test()
+    protected static async showsDisplayNameButAddsDeviceName() {
+        cleanup()
+        render(
+            <AddBiosensorButton
+                names={['Zephyr BioHarness 3']}
+                onAdd={(name) => this.addedNames.push(name)}
+            />
+        )
+        this.open()
+
+        const [option] = this.options
+        const shown = option.textContent
+        fireEvent.click(option)
+
+        assert.isEqualDeep(
+            { shown, added: this.addedNames },
+            { shown: 'Zephyr BioHarness 3.0', added: ['Zephyr BioHarness 3'] },
+            'Did not show display name but add device name!'
+        )
+    }
+
     private static openWithNames(names: string[]) {
         cleanup()
         render(<AddBiosensorButton names={names} onAdd={() => {}} />)

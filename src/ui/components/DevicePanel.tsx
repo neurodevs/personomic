@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 
 import type { CytonExgType } from '@neurodevs/node-biosensors'
 
+import displayNameOf from '../../functions/displayNameOf'
 import { anyMuseName } from '../hooks/useBiosensorChoices'
 import type { BiosignalDevice, DeviceStatus } from './StreamMonitor'
 import IdentifierInput, {
@@ -126,9 +127,9 @@ const DevicePanel: React.FC<DevicePanelProps> = ({
                 {isStatusShown && <DeviceStatusIndicator status={status} />}
                 <span
                     className="stream-monitor__device-name"
-                    title={device.label}
+                    title={displayNameOf(device.label)}
                 >
-                    {device.label}
+                    {displayNameOf(device.label)}
                 </span>
                 {status === 'reconnecting' && (
                     <span className="stream-monitor__device-alert">

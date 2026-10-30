@@ -33,6 +33,7 @@ import SessionView, {
     setStreamMonitorComponent,
 } from '../../../ui/views/SessionView'
 import { Protocol, ProtocolFile } from '../../../ui/views/ProtocolsView'
+import displayNameOf from '../../../functions/displayNameOf'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class SessionViewTest extends AbstractPackageTest {
@@ -489,7 +490,7 @@ export default class SessionViewTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.offeredBiosensors.filter((name) => name !== this.anyMuse),
-            [...DEVICE_NAMES],
+            DEVICE_NAMES.map(displayNameOf),
             'Did not offer every biosensor at first!'
         )
     }
@@ -5186,7 +5187,9 @@ export default class SessionViewTest extends AbstractPackageTest {
 
     private static addBiosensor(name: string) {
         this.openBiosensorMenu()
-        fireEvent.click(screen.getByRole('menuitem', { name }))
+        fireEvent.click(
+            screen.getByRole('menuitem', { name: displayNameOf(name) })
+        )
     }
 
     private static removeDevice(name: string) {

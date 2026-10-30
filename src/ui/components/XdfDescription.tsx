@@ -4,16 +4,21 @@ import { DescElement } from '../../functions/readXdfRecording'
 
 const XdfDescription: React.FC<XdfDescriptionProps> = ({
     header = [],
-    streams,
+    devices,
 }) => {
     const [isExpanded, setIsExpanded] = useState(false)
 
-    const described = streams
-        .map(({ name, desc = [] }) => ({
-            name,
-            elements: inDisplayOrder(desc),
-        }))
-        .filter(({ elements }) => elements.length > 0)
+    const describedDevices = devices.map(({ label, streams }) => ({
+        label,
+        streams: streams
+            .map(({ name, desc = [] }) => ({
+                name,
+                elements: inDisplayOrder(desc),
+            }))
+            .filter(({ elements }) => elements.length > 0),
+    }))
+
+    const described = describedDevices.flatMap(({ streams }) => streams)
 
     if (header.length === 0 && described.length === 0) {
         return null
@@ -24,12 +29,17 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({
             ? sharedFieldsOf(described.map(({ elements }) => elements))
             : []
 
-    const ownByStream = described
-        .map(({ name, elements }) => ({
-            name,
-            elements: withoutFields(elements, sharedByStreams),
+    const ownByDevice = describedDevices
+        .map(({ label, streams }) => ({
+            label,
+            streams: streams
+                .map(({ name, elements }) => ({
+                    name,
+                    elements: withoutFields(elements, sharedByStreams),
+                }))
+                .filter(({ elements }) => elements.length > 0),
         }))
-        .filter(({ elements }) => elements.length > 0)
+        .filter(({ streams }) => streams.length > 0)
 
     return (
         <section className="xdf-description">
@@ -58,10 +68,24 @@ const XdfDescription: React.FC<XdfDescriptionProps> = ({
                 </div>
             )}
             {isExpanded &&
-                ownByStream.map(({ name, elements }) => (
-                    <div key={name} className="xdf-description__stream">
-                        <h3 className="xdf-description__stream-name">{name}</h3>
-                        <DescElements elements={elements} />
+                ownByDevice.map(({ label, streams }) => (
+                    <div
+                        key={label}
+                        role="group"
+                        aria-label={label}
+                        className="xdf-description__device"
+                    >
+                        <h3 className="xdf-description__device-name">
+                            {label}
+                        </h3>
+                        {streams.map(({ name, elements }) => (
+                            <div key={name} className="xdf-description__stream">
+                                <h4 className="xdf-description__stream-name">
+                                    {name}
+                                </h4>
+                                <DescElements elements={elements} />
+                            </div>
+                        ))}
                     </div>
                 ))}
         </section>
@@ -261,6 +285,11 @@ function isOwnField(element: DescElement) {
 
 interface XdfDescriptionProps {
     header?: DescElement[]
+    devices: readonly DescribedDevice[]
+}
+
+interface DescribedDevice {
+    label: string
     streams: readonly DescribedStream[]
 }
 

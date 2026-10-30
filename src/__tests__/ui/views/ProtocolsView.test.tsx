@@ -12,6 +12,7 @@ import {
     setIdentifierScanner,
 } from '../../../ui/hooks/useBiosensorChoices'
 import { setStreamMonitorComponent } from '../../../ui/views/SessionView'
+import displayNameOf from '../../../functions/displayNameOf'
 import AbstractPackageTest from '../../AbstractPackageTest'
 
 export default class ProtocolsViewTest extends AbstractPackageTest {
@@ -554,7 +555,7 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
                 .getAllByRole('menuitem')
                 .map((item) => item.textContent)
                 .sort(),
-            [...biosensorNames].sort(),
+            biosensorNames.map(displayNameOf).sort(),
             'Did not offer every biosensor model!'
         )
     }
@@ -1679,7 +1680,9 @@ export default class ProtocolsViewTest extends AbstractPackageTest {
 
     private static addBiosensor(name: string) {
         this.openBiosensorMenu()
-        fireEvent.click(screen.getByRole('menuitem', { name }))
+        fireEvent.click(
+            screen.getByRole('menuitem', { name: displayNameOf(name) })
+        )
     }
 
     private static get biosensorNames() {

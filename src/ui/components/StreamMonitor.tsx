@@ -661,7 +661,10 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
             {(recording !== undefined || isRecording) && (
                 <XdfDescription
                     header={recording?.header ?? xdfHeader}
-                    streams={describedStreamsOf(devices)}
+                    devices={devices.map(({ label, describedStreams }) => ({
+                        label,
+                        streams: describedStreams,
+                    }))}
                 />
             )}
             {recording?.chunks && (
@@ -763,19 +766,6 @@ const StreamMonitor: React.FC<StreamMonitorProps> = (
 }
 
 export default StreamMonitor
-
-function describedStreamsOf(devices: BiosignalDevice[]): DescribedStream[] {
-    if (devices.length === 1) {
-        return devices[0].describedStreams
-    }
-
-    return devices.flatMap(({ label, describedStreams }) =>
-        describedStreams.map((stream) => ({
-            ...stream,
-            name: `${label} · ${stream.name}`,
-        }))
-    )
-}
 
 function windowSecondsSharedBy(
     windowSecondsByPort: Record<number, number>,

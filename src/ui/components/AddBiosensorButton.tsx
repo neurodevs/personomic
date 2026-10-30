@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 
+import displayNameOf from '../../functions/displayNameOf'
 import familyOf from '../../functions/familyOf'
 
 export interface AddBiosensorButtonProps {
@@ -48,7 +49,7 @@ const AddBiosensorButton: React.FC<AddBiosensorButtonProps> = (
                                         className="add-biosensor__option"
                                         onClick={() => add(name)}
                                     >
-                                        {name}
+                                        {displayNameOf(name)}
                                     </button>
                                 </li>
                             ))}

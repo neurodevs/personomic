@@ -1447,7 +1447,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.shownDescription,
             {
-                headings: [this.streams[0].name],
+                headings: [this.deviceName, this.streams[0].name],
                 fields: ['nickname', 'channels'],
                 values: ['Alice'],
             },
@@ -1487,7 +1487,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.shownDescription,
             {
-                headings: [first.type, second.type],
+                headings: [this.deviceName, first.type, second.type],
                 fields: ['nickname', 'manufacturer'],
                 values: ['Alice', 'Interaxon Inc.'],
             },
@@ -1642,6 +1642,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             {
                 headings: [
                     'All streams',
+                    this.deviceName,
                     this.streams[0].name,
                     this.streams[1].name,
                 ],
@@ -1731,7 +1732,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
 
         assert.isEqualDeep(
             this.shownDescription.headings,
-            [quick.name, slow.name],
+            [this.deviceName, quick.name, slow.name],
             'Did not describe streams in same order as their plots!'
         )
     }
@@ -1761,7 +1762,7 @@ export default class StreamMonitorTest extends AbstractPackageTest {
         assert.isEqualDeep(
             this.shownDescription,
             {
-                headings: ['File header', first.type],
+                headings: ['File header', this.deviceName, first.type],
                 fields: ['protocol-sha256', 'nickname'],
                 values: ['abc123', 'Alice'],
             },
@@ -1910,13 +1911,47 @@ export default class StreamMonitorTest extends AbstractPackageTest {
             this.shownDescription,
             {
                 headings: [
-                    `${first.deviceName} · ${first.streams[0].type}`,
-                    `${second.deviceName} · ${second.streams[0].type}`,
+                    first.deviceName,
+                    first.streams[0].type,
+                    second.deviceName,
+                    second.streams[0].type,
                 ],
                 fields: ['nickname', 'nickname'],
                 values: ['Alice', 'Bob'],
             },
             'Did not describe streams of all devices under their devices!'
+        )
+    }
+
+    @test()
+    protected static async groupsStreamDescriptionsInCardOfTheirDevice() {
+        const [first, second] = this.recordingOfTwoDevices.devices
+
+        await this.play({
+            devices: [first, second].map((device, index) => ({
+                ...device,
+                streams: [
+                    {
+                        ...device.streams[0],
+                        desc: [{ name: 'nickname', value: `${index}` }],
+                    },
+                ],
+            })),
+        })
+
+        fireEvent.click(this.descriptionToggle!)
+
+        assert.isEqualDeep(
+            screen.getAllByRole('group').map((card) =>
+                within(card)
+                    .getAllByRole('heading')
+                    .map((heading) => heading.textContent)
+            ),
+            [
+                [first.deviceName, first.streams[0].type],
+                [second.deviceName, second.streams[0].type],
+            ],
+            'Did not group stream descriptions in card of their device!'
         )
     }
 
