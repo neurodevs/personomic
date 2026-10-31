@@ -35,6 +35,25 @@ export default class AppTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async showsLogoLeftOfWordmark() {
+        render(<App />)
+
+        const brand = screen.getByRole('banner').firstElementChild!
+
+        assert.isEqualDeep(
+            [...brand.children].map((child) => ({
+                tag: child.tagName,
+                text: child.textContent,
+            })),
+            [
+                { tag: 'IMG', text: '' },
+                { tag: 'SPAN', text: 'Personomic' },
+            ],
+            'Did not show the logo left of the wordmark!'
+        )
+    }
+
+    @test()
     protected static async opensOnTheSessionTab() {
         render(<App />)
 

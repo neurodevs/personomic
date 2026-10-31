@@ -41,9 +41,20 @@ body {
 
 .app__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   margin-bottom: 28px;
+}
+
+.app__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app__logo {
+  width: 28px;
+  height: 28px;
 }
 
 .app__wordmark {

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
+import logoUrl from '../../brand/personomic-logo.svg'
+
 import sendToOrchestrator, {
     orchestratorUnreachableMessage,
 } from '../functions/sendToOrchestrator'
@@ -63,7 +65,10 @@ const App: React.FC<AppProps> = (props: AppProps) => {
     return (
         <main className="app">
             <header className="app__header">
-                <span className="app__wordmark">Personomic</span>
+                <div className="app__brand">
+                    <img className="app__logo" src={logoUrl} alt="" />
+                    <span className="app__wordmark">Personomic</span>
+                </div>
                 <div className="app__tabs" role="tablist">
                     {views.map((id) => (
                         <button

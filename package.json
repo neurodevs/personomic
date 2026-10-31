@@ -89,7 +89,8 @@
       "<rootDir>/src/__tests__/**/*.test.ts?(x)"
     ],
     "moduleNameMapper": {
-      "^uplot$": "<rootDir>/src/testDoubles/UPlot/FakeUPlot.ts"
+      "^uplot$": "<rootDir>/src/testDoubles/UPlot/FakeUPlot.ts",
+      "\\.svg$": "<rootDir>/src/testDoubles/FileUrl/fileUrl.ts"
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(@neurodevs/.*|chalk|ansi-styles|lodash-es|deep-equal|variable-diff|ts-expect|generate-id))"
