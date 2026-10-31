@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 
+import displayNameOf from '../../functions/displayNameOf'
+
 const IdentifierInput: React.FC<IdentifierInputProps> = ({
     deviceLabel,
     deviceName = deviceLabel,
@@ -85,10 +87,13 @@ const IdentifierInput: React.FC<IdentifierInputProps> = ({
                             <button
                                 type="button"
                                 role="option"
-                                aria-selected={value === identifier.value}
+                                aria-selected={
+                                    formattedFor(identifier, value) ===
+                                    identifier.value
+                                }
                                 className="stream-monitor__device-identifier-option"
                             >
-                                {value}
+                                {formattedFor(identifier, value)}
                             </button>
                             <span className="stream-monitor__device-identifier-source">
                                 {tag}
@@ -145,7 +150,7 @@ function offeredFrom(
     for (const value of remembered) {
         offered.push({
             value,
-            tag: `Memory · ${deviceName}`,
+            tag: `Memory · ${displayNameOf(deviceName)}`,
             isRemembered: true,
         })
     }

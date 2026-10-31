@@ -204,6 +204,45 @@ export default class IdentifierInputTest extends AbstractPackageTest {
     }
 
     @test()
+    protected static async listsScannedAddressAsUppercaseWithColons() {
+        render(
+            <IdentifierInput
+                deviceLabel="Zephyr BioHarness 3"
+                identifier={{ label: 'Address', value: '' }}
+                scanned={[{ value: 'a0-e6-f8-a5-60-bf', source: 'Bluetooth' }]}
+                onChange={() => {}}
+            />
+        )
+
+        fireEvent.focus(this.field)
+
+        assert.isTrue(
+            screen.queryByText('A0:E6:F8:A5:60:BF') !== null,
+            'Did not list the scanned address as uppercase with colons!'
+        )
+    }
+
+    @test()
+    protected static async tagsRememberedValueWithDisplayNameOfDevice() {
+        render(
+            <IdentifierInput
+                deviceLabel="Zephyr BioHarness 3"
+                identifier={{ label: 'Address', value: '' }}
+                remembered={['FA:EE:AD:DE:AE:CA']}
+                onChange={() => {}}
+                onForget={() => {}}
+            />
+        )
+
+        fireEvent.focus(this.field)
+
+        assert.isTrue(
+            screen.queryByText('Memory · Zephyr BioHarness 3.0') !== null,
+            'Did not tag the remembered value with the display name of the device!'
+        )
+    }
+
+    @test()
     protected static async choosesRememberedValueWhenItsTagIsClicked() {
         const changes = this.renderRemembered()
 

@@ -2134,7 +2134,7 @@
   resolved "https://registry.yarnpkg.com/@neurodevs/generate-id/-/generate-id-1.1.3.tgz#c6ff626c9b32a25bf40eba8f11c48adf1435f35d"
   integrity sha512-l5eHQ2Z8KyRVZ+Abbif0DiUkP1yb7/b42OGFaoz1GesJk4hADR7ykbmidA8t8lI40w4RxzlsiQ02S6kjn4Y1xA==
 
-"@neurodevs/ndx-native@^13.0.0", "@neurodevs/ndx-native@^13.1.0", "@neurodevs/ndx-native@^14.0.0":
+"@neurodevs/ndx-native@^14.0.0":
   version "14.0.0"
   resolved "https://registry.yarnpkg.com/@neurodevs/ndx-native/-/ndx-native-14.0.0.tgz#c291fd7338ee57fe5cde058387b1d729d39ba937"
   integrity sha512-ce/NIVSxy3KQuIvTY0MLS8W2vBubmp4ShBATCuq93YIRlnhI3svmWdWPsv9u6kLTjzAdL+zg7q1CwCPCv72e3g==
@@ -2143,13 +2143,11 @@
     ffi-rs "^1.3.2"
     koffi "^3.0.1"
 
-"@neurodevs/node-biosensors@^9.9.0":
-  version "9.9.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-9.9.0.tgz#b90609693a106f620f1aa04b30a9d74beebb7a85"
-  integrity sha512-QgJRWIEqnIZVbksSWlsXG3QXhLvglX5gdIdkbcoNbGvm+nkURkKBQiOFP5uVDFbxXTPQ06As1VbTykjnwJzrpQ==
+"@neurodevs/node-biosensors@^10.0.0":
+  version "10.0.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-biosensors/-/node-biosensors-10.0.0.tgz#8550c190b5599a9858f02ec42127af26fb11670f"
+  integrity sha512-1/v4ZhSPStabtTwmcYMy+vngUozNyjzsZca5tRMbWxo2WL2UcLEhJO+tGHDdFeo+JPIWhLHRjtg7yhgi6FeBrg==
   dependencies:
-    "@neurodevs/node-lsl" "^23.8.1"
-    "@neurodevs/node-xdf" "^5.1.0"
     ftdi-d2xx "^1.3.1"
     koffi "^3.0.2"
     ws "^8.18.3"
@@ -2180,22 +2178,12 @@
     ref-napi "^3.0.3"
     ws "^8.18.3"
 
-"@neurodevs/node-lsl@^23.7.1":
-  version "23.7.1"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.7.1.tgz#d3b680590c0c38307c837ff1ffaef9d97d27c46b"
-  integrity sha512-VE5Vpa/W/ESgBVB4Rgyy7nqfCbw9RzYSz6f7E/ZPW9Zchg4YsRWR6qTwgvqLxgMUF+GkFi4hRrwWCFDff5klMg==
+"@neurodevs/node-lsl@^24.0.0":
+  version "24.0.0"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-24.0.0.tgz#b28296e52021a9fde2850bbf646a2a510ef5d3f9"
+  integrity sha512-c36unAeamW+VZpQTwSSXDVe7zMrHmv7y8j/P9bDQSayqWUQxzAKw1quw+TtODRsPSARM14nEd66IcrcR7VD35A==
   dependencies:
     "@neurodevs/generate-id" "^1.1.3"
-    "@neurodevs/ndx-native" "^13.0.0"
-    ws "^8.18.3"
-
-"@neurodevs/node-lsl@^23.8.1":
-  version "23.8.1"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-lsl/-/node-lsl-23.8.1.tgz#75e98026ad5a6cf71b9c51b625af33cefd322340"
-  integrity sha512-TNUhDMBuDe411Nru0Q7ojJ1OdJkA2lMcaFaORj+NKl8YrUCRPshHDUJy1hCojDMTdDmyfCunZDwo72QYQJvTmA==
-  dependencies:
-    "@neurodevs/generate-id" "^1.1.3"
-    "@neurodevs/ndx-native" "^14.0.0"
     ws "^8.18.3"
 
 "@neurodevs/node-mangled-names@^1.0.1":
@@ -2252,13 +2240,10 @@
     "@neurodevs/node-mangled-names" "^1.0.1"
     ffi-rs "^1.0.98"
 
-"@neurodevs/node-xdf@^5.1.0":
-  version "5.1.0"
-  resolved "https://registry.yarnpkg.com/@neurodevs/node-xdf/-/node-xdf-5.1.0.tgz#aab2ab5a1f95a7c3532e7c7f4de044762ba24d6e"
-  integrity sha512-crdVe3OXmqupqOwZeLNapgflHDvTA+CnUWKJ4+E/FBG06gQeniCs9n0dEdGhSa3sYWT0hFPLppmgU5REunlcEA==
-  dependencies:
-    "@neurodevs/ndx-native" "^13.1.0"
-    "@neurodevs/node-lsl" "^23.7.1"
+"@neurodevs/node-xdf@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/@neurodevs/node-xdf/-/node-xdf-6.0.1.tgz#cf0a53ca84e1ab6660fad68fcfdcacc9af261f3c"
+  integrity sha512-MHhn4gcte/o0nz2/+D0PaoBxSqqcijIxjVGs8wayIEAR/MJ/FAkQCWRHPxUIr70nyEVNiB2HC1i/m9ih7gb3/g==
 
 "@neurodevs/prettier-config-ndx@^1.0.2":
   version "1.0.2"
